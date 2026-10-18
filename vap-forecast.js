@@ -214,11 +214,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }, [props.transactions, props.prices, props.priceHistory, props.exchangeRate, props.rev, today]);
     if (!fc) return null;
 
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' };
+    // R4.6: Card, the shared table look, the totals on shared rows
+    var UIC = window.MaerminComponents;
     function line(lbl, val, tid, strong) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
-        e('span', { style: { color: dim } }, lbl), e('span', { style: { color: text, fontWeight: strong ? 800 : 700 } }, val));
+      return e('li', { key: tid, 'data-testid': tid, className: 'ui-rows__row' },
+        e('span', { className: 'ui-muted' }, lbl), e('b', { className: ['num', strong ? 'ui-taxp__strong' : ''].join(' ').trim() }, val));
     }
     var portfolios = props.portfolios || [];
     function pName(id) {
@@ -227,42 +227,40 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var dateText = I18N.date ? I18N.date(fc.deemedOn) : fc.deemedOn;
 
-    return e('div', { 'data-testid': 'vap-forecast-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('vfTitle', 'Vorabpauschale forecast {y}', { y: fc.year })),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('vfIntro', 'What your funds are expected to trigger for {y}, deemed received on {date}. The bank debits the tax then, so the cash has to be on the clearing account. Basiszins {rate}.',
-          { y: fc.year, date: dateText, rate: I18N.pct(fc.basiszins * 100, 2) })),
+    return e(UIC.Card, { 'data-testid': 'vap-forecast-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('vfTitle', 'Vorabpauschale forecast {y}', { y: fc.year }),
+      subtitle: __('vfIntro', 'What your funds are expected to trigger for {y}, deemed received on {date}. The bank debits the tax then, so the cash has to be on the clearing account. Basiszins {rate}.',
+        { y: fc.year, date: dateText, rate: I18N.pct(fc.basiszins * 100, 2) }) },
       !fc.rows.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'vf-empty', text: __('vfEmpty', 'No funds held at the end of {y}.', { y: fc.year }) }) :
-      e('div', null,
-        e('div', { style: { overflowX: 'auto' } },
-          e('table', { 'data-testid': 'vf-table', style: { width: '100%', borderCollapse: 'collapse' } },
+      e('div', { className: 'ui-taxp__body' },
+        e('div', { className: 'ui-table-wrap' },
+          e('table', { 'data-testid': 'vf-table', className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
             e('thead', null, e('tr', null,
               [__('gtFund', 'Fund'), __('gtValueJan1', 'Value Jan 1'), __('vfValueNow', 'Value now'), 'Vorabpauschale', __('gtTaxableAfterTf', 'Taxable after TF'), __('vfTax', 'Tax')].map(function (h, i) {
-                return e('th', { key: i, style: Object.assign({}, head, i === 0 ? { textAlign: 'left' } : null) }, h);
+                return e('th', { key: i, scope: 'col', className: i === 0 ? 'is-sticky' : 'is-right' }, h);
               }))),
             e('tbody', null, fc.rows.map(function (r) {
               var note = r.missing === 'start' ? __('vfMissingStart', 'no price on 1 January')
                 : r.missing === 'end' ? __('vfMissingEnd', 'no current price')
                 : r.source === 'saved' ? __('vfSaved', 'saved') : r.unclassified ? __('vfUnclassified', 'type not set: no Teilfreistellung') : '';
               return e('tr', { key: r.symbol, 'data-testid': 'vf-row-' + r.symbol },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, r.symbol,
-                  note ? e('div', { style: { color: r.missing || r.unclassified ? warn : dim, fontSize: 'var(--text-2xs)' } }, note) : null),
-                e('td', { style: cell }, r.valueStart != null ? money(r.valueStart) : '–'),
-                e('td', { style: cell }, r.valueEnd != null ? money(r.valueEnd) : '–'),
-                e('td', { style: cell }, r.missing ? '–' : money(r.vorabpauschale)),
-                e('td', { style: cell }, r.missing ? '–' : money(r.taxable)),
-                e('td', { style: cell }, r.missing ? '–' : money(r.tax)));
+                e('th', { scope: 'row', className: 'is-sticky' }, r.symbol,
+                  note ? e('span', { className: ['ui-tcell__sub', r.missing || r.unclassified ? 'tone-warning' : ''].join(' ').trim() }, (r.missing || r.unclassified ? '! ' : '') + note) : null),
+                e('td', null, r.valueStart != null ? money(r.valueStart) : '–'),
+                e('td', null, r.valueEnd != null ? money(r.valueEnd) : '–'),
+                e('td', null, r.missing ? '–' : money(r.vorabpauschale)),
+                e('td', null, r.missing ? '–' : money(r.taxable)),
+                e('td', null, r.missing ? '–' : money(r.tax)));
             })))),
-        e('div', { style: { marginTop: '0.6rem' } },
+        e('ul', { className: 'ui-rows' },
           line(__('vfTotalVap', 'Vorabpauschale in total'), money(fc.totals.vorabpauschale), 'vf-total'),
           line(__('vfTaxable', 'Taxable after Teilfreistellung'), money(fc.totals.taxable), 'vf-taxable'),
           line(__('vfAllowance', 'Sparerpauschbetrag {y}', { y: fc.year + 1 }), money(fc.totals.allowance), 'vf-allowance'),
           line(__('vfCash', 'Cash needed on {date}', { date: dateText }), money(fc.totals.cashNeeded), 'vf-cash', true),
           line(__('vfCashMax', 'If your Freistellungsauftrag is used up'), money(fc.totals.taxWithoutAllowance), 'vf-cash-max')),
-        fc.byPortfolio.length ? e('div', { 'data-testid': 'vf-portfolios', style: { marginTop: '0.75rem' } },
-          e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' } }, __('vfPerPortfolio', 'Per clearing account (without allowance)')),
-          fc.byPortfolio.map(function (p) { return line(pName(p.portfolioId), money(p.tax), 'vf-p-' + (p.portfolioId || 'none')); })) : null),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        fc.byPortfolio.length ? e('div', { 'data-testid': 'vf-portfolios' },
+          e('h4', { className: 'ui-sublabel' }, __('vfPerPortfolio', 'Per clearing account (without allowance)')),
+          e('ul', { className: 'ui-rows' }, fc.byPortfolio.map(function (p) { return line(pName(p.portfolioId), money(p.tax), 'vf-p-' + (p.portfolioId || 'none')); }))) : null),
+      e('p', { className: 'ui-note' },
         __('vfNote', 'Estimate at today\'s price: the final figure uses the price on 31 December. Units bought during the year count with their month factor. Not tax advice.')));
   }
 

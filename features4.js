@@ -578,130 +578,79 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
   const totalForecast = monthlyForecast.reduce((s, m) => s + m.amount, 0);
   const maxMonth      = Math.max(...monthlyForecast.map(m => m.amount), 1);
 
+  // R4.6: Segmented years, Stat tiles, the months on ChartFrame (with "Show as table"), sources on the shared rows
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
+  const money = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
   if (forecasts.length === 0) {
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, __('dfTitle', 'Dividend Forecast')),
-      React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, __('dfEmpty', 'No dividend data yet')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', maxWidth: 360, margin: '0 auto' } },
-          __('dfEmptyHint', 'Add dividend transactions, or hold recognised dividend stocks (a Worker URL in API Settings expands coverage beyond the built-in list).')
-        )
-      )
-    );
+    return h('div', { className: 'ui-df' },
+      h(UIC.EmptyState, { title: __('dfEmpty', 'No dividend data yet'),
+        text: __('dfEmptyHint', 'Add dividend transactions, or hold recognised dividend stocks (a Worker URL in API Settings expands coverage beyond the built-in list).') }));
   }
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header + year selector
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
-      React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('dfTitle', 'Dividend Forecast')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } },
-          (isEstimated ? __('dfEstimated', 'Estimated from current holdings × known dividend rates') : __('dfProjected', 'Projected from your recorded dividend frequency and amount'))
-            + ' · ' + (basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.')))
-      ),
-      // Year range toggle
-      React.createElement('div', { style: { display: 'flex', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', gap: '0.15rem' } },
-        [1, 2, 3, 5, 10].map(y =>
-          React.createElement('button', {
-            key: y,
-            onClick: () => setForecastYears(y),
-            style: {
-              padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-              fontSize: 'var(--text-xs)', fontWeight: forecastYears === y ? '700' : '400',
-              background: forecastYears === y ? (theme.accentFill || theme.accent) : 'transparent',
-              color: forecastYears === y ? '#ffffff' : theme.textSecondary
-            }
-          }, `${y}Y`)
-        )
-      )
-    ),
+  const monthName = (m) => window.MaerminI18n.date(m.date, { month: 'long', year: 'numeric' });
+  return h('div', { className: 'ui-df' },
+    h('div', { className: 'ui-view__bar' },
+      h('p', { className: 'ui-view__lead' },
+        (isEstimated ? __('dfEstimated', 'Estimated from current holdings × known dividend rates') : __('dfProjected', 'Projected from your recorded dividend frequency and amount'))
+          + ' · ' + (basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.'))),
+      h(UIC.Segmented, { size: 'sm', label: __('dfTitle', 'Dividend Forecast'), value: forecastYears, onChange: (y) => { setForecastYears(y); setSelMonth(null); },
+        options: [1, 2, 3, 5, 10].map(y => ({ value: y, label: `${y}Y` })) })),
 
-    // KPI cards
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: __('dfTotalYears', '{n}Y Total Forecast', { n: forecastYears }), value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: theme.success }),
-      React.createElement(StatCell, { theme, label: __('dfPerYearAvg', 'Per Year (avg)'), value: `${formatPrice(totalForecast / forecastYears)} ${getCurrencySymbol()}` }),
-      React.createElement(StatCell, { theme, label: __('dfMonthlyAvg', 'Monthly Average'), value: `${formatPrice(totalForecast / (forecastYears * 12))} ${getCurrencySymbol()}` }),
-      React.createElement(StatCell, { theme, label: __('dfSources', 'Dividend Sources'), value: forecasts.length })
-    ),
+    // KPI tiles
+    h('div', { className: 'ui-tiles' },
+      h(UIC.Stat, { className: 'ui-tile', label: __('dfTotalYears', '{n}Y Total Forecast', { n: forecastYears }), value: money(totalForecast), tone: 'income' }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('dfPerYearAvg', 'Per Year (avg)'), value: money(totalForecast / forecastYears) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('dfMonthlyAvg', 'Monthly Average'), value: money(totalForecast / (forecastYears * 12)) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('dfSources', 'Dividend Sources'), value: String(forecasts.length) })),
 
-    // Annual summary table
-    forecastYears > 1 && React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('dfAnnualSummary', 'Annual Summary')),
-      React.createElement('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
-        byYear.map(({ year, total }) =>
-          React.createElement('div', { key: year, style: { flex: '1 1 120px', textAlign: 'center', padding: '0.875rem', background: theme.inputBg, borderRadius: '10px', border: `1px solid ${theme.cardBorder}` } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, year),
-            React.createElement('div', { style: { color: theme.success, fontWeight: '800', fontSize: 'var(--text-lg)' } }, `${formatPrice(total)} ${getCurrencySymbol()}`)
-          )
-        )
-      )
-    ),
+    // Annual summary
+    forecastYears > 1 && h(UIC.Card, { headingLevel: 'h3', title: __('dfAnnualSummary', 'Annual Summary') },
+      h('div', { className: 'ui-tiles' },
+        byYear.map(({ year, total }) => h(UIC.Stat, { key: year, className: 'ui-tile', label: String(year), value: money(total), tone: 'income' })))),
 
-    // Monthly bar chart (show up to 24 months at a time, scrollable)
-    React.createElement(Card, { theme, style: { marginBottom: '1.5rem', overflow: 'auto' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } },
-        forecastYears <= 2 ? __('dfMonthly', 'Monthly Breakdown') : __('dfMonthly24', 'Monthly Breakdown (first 24 months)')
-      ),
-      React.createElement('div', { 'data-testid': 'df-months', style: { display: 'flex', gap: '0.25rem', alignItems: 'flex-end', height: 132, minWidth: shownMonths.length * 36 } },
-        shownMonths.map((m, i) => {
-          const on = selMonth === i;
-          // P5-2.5: each month is a button that lists its payments below
-          return React.createElement('button', {
-            key: i, type: 'button', 'data-month': i, 'aria-pressed': on, onClick: () => setSelMonth(on ? null : i),
-            'aria-label': __('dfMonthAria', '{month}: {amount}', { month: window.MaerminI18n.date(m.date, { month: 'long', year: 'numeric' }), amount: `${formatPrice(m.amount)} ${getCurrencySymbol()}` }),
-            title: `${m.label}: ${formatPrice(m.amount)} ${getCurrencySymbol()}`,
-            style: { flex: '0 0 32px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '0.2rem', padding: 0, border: 'none', background: on ? `${window.MaerminTokens.alpha(theme.accent, 0x14)}` : 'transparent', borderRadius: '6px', cursor: 'pointer' }
-          },
-            React.createElement('div', {
-              style: {
-                width: '100%', background: on ? theme.accent : `${window.MaerminTokens.alpha(theme.accent, 0xcc)}`, borderRadius: '3px 3px 0 0',
-                height: `${Math.max(m.amount > 0 ? 8 : 0, Math.round(m.amount / maxMonth * 90))}px`,
-                transition: 'height 0.3s',
-                opacity: m.year === new Date().getFullYear() ? 1 : 0.7
-              }
-            }),
-            React.createElement('div', { style: { color: on ? theme.text : theme.textSecondary, fontSize: 'var(--text-3xs)', textAlign: 'center', whiteSpace: 'nowrap', fontWeight: on ? 700 : 400 } },
-              window.MaerminI18n.date(m.date, { month: 'short' })
-            ),
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.55rem', whiteSpace: 'nowrap' } }, String(m.year).slice(2))
-          );
-        })
-      ),
-      React.createElement('div', { 'data-testid': 'df-month-detail', style: { marginTop: '0.75rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.75rem' } },
+    // Monthly bars (up to 24 months); each month is a button that lists its payments below
+    h(UIC.ChartFrame, { className: 'ui-df-chart', title: forecastYears <= 2 ? __('dfMonthly', 'Monthly Breakdown') : __('dfMonthly24', 'Monthly Breakdown (first 24 months)'),
+      subtitle: __('dfMonthHint', 'Select a month for its payments.'),
+      table: { rows: shownMonths.map((m, i) => ({ id: i, m })), columns: [
+        { key: 'month', label: __('dfMonthCol', 'Month'), render: (r) => monthName(r.m) },
+        { key: 'amount', label: __('amount', 'Amount'), align: 'right', render: (r) => money(r.m.amount) }] } },
+      h('div', { className: 'ui-df-scroll' },
+        h('div', { 'data-testid': 'df-months', className: 'ui-df-bars', style: { minWidth: shownMonths.length * 36 + 'px' } },
+          shownMonths.map((m, i) => {
+            const on = selMonth === i;
+            return h('button', {
+              key: i, type: 'button', 'data-month': i, 'aria-pressed': on, onClick: () => setSelMonth(on ? null : i),
+              className: ['ui-df-bar', on ? 'is-on' : '', m.year === new Date().getFullYear() ? '' : 'is-later'].join(' ').trim(),
+              'aria-label': __('dfMonthAria', '{month}: {amount}', { month: monthName(m), amount: money(m.amount) }),
+              title: `${m.label}: ${money(m.amount)}`
+            },
+              h('span', { className: 'ui-df-bar__fill', style: { height: `${Math.max(m.amount > 0 ? 8 : 0, Math.round(m.amount / maxMonth * 90))}px` } }),
+              h('span', { className: 'ui-df-bar__m' }, window.MaerminI18n.date(m.date, { month: 'short' })),
+              h('span', { className: 'ui-df-bar__y' }, String(m.year).slice(2)));
+          }))),
+      h('div', { 'data-testid': 'df-month-detail', className: 'ui-df-detail' },
         !sel
-          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('dfMonthHint', 'Select a month for its payments.'))
-          : React.createElement('div', null,
-              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-                React.createElement('strong', { style: { color: theme.text, fontSize: 'var(--text-base)' } }, window.MaerminI18n.date(sel.date, { month: 'long', year: 'numeric' })),
-                React.createElement('strong', { 'data-v': sel.amount, style: { color: theme.success, fontSize: 'var(--text-base)' } }, `${formatPrice(sel.amount)} ${getCurrencySymbol()}`)),
+          ? h('p', { className: 'ui-muted' }, __('dfMonthHint', 'Select a month for its payments.'))
+          : h('div', null,
+              h('div', { className: 'ui-df-detail__head' },
+                h('strong', null, monthName(sel)),
+                h('strong', { 'data-v': sel.amount, className: ['num', 'tone-income'].join(' ') }, money(sel.amount))),
               sel.items.length === 0
-                ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('dfMonthNone', 'No payment expected this month.'))
-                : sel.items.slice().sort((a, b) => b.amount - a.amount).map((it, j) =>
-                    React.createElement('div', { key: j, 'data-sym': it.sym, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.35rem 0', fontSize: 'var(--text-sm)', borderTop: j ? `1px solid ${theme.cardBorder}` : 'none' } },
-                      React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, it.sym,
-                        React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.5rem', fontSize: 'var(--text-xs)' } },
-                          it.source === 'estimated' ? __('dfSrcEstimated', 'estimated, before tax') : __('dfSrcHistory', 'from your last 12 months'))),
-                      React.createElement('span', { style: { color: theme.text, fontVariantNumeric: 'tabular-nums' } }, `${formatPrice(it.amount)} ${getCurrencySymbol()}`))))
-      )
-    ),
+                ? h('p', { className: 'ui-muted' }, __('dfMonthNone', 'No payment expected this month.'))
+                : h('ul', { className: 'ui-rows' }, sel.items.slice().sort((a, b) => b.amount - a.amount).map((it, j) =>
+                    h('li', { key: j, 'data-sym': it.sym, className: 'ui-rows__row' },
+                      h('div', { className: 'ui-rows__main' }, h('b', null, it.sym),
+                        h('span', null, it.source === 'estimated' ? __('dfSrcEstimated', 'estimated, before tax') : __('dfSrcHistory', 'from your last 12 months'))),
+                      h('div', { className: 'ui-rows__side' }, h('b', { className: 'num' }, money(it.amount))))))))),
 
     // Per-symbol breakdown
-    React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.875rem' } }, __('dfBySource', 'By Source (annual rate)')),
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
+    h(UIC.Card, { headingLevel: 'h3', title: __('dfBySource', 'By Source (annual rate)') },
+      h('ul', { className: 'ui-rows' },
         forecasts.map((f, i) =>
-          React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: theme.inputBg, borderRadius: '8px' } },
-            React.createElement('div', null,
-              React.createElement('span', { style: { color: theme.text, fontWeight: '700', marginRight: '0.5rem' } }, f.sym),
-              React.createElement('span', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x18)}`, borderRadius: '3px' } }, freqLabel(f.frequency))
-            ),
-            React.createElement('span', { style: { color: theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } }, __('perYear', '{amount}/yr', { amount: `${formatPrice(f.annualRate)} ${getCurrencySymbol()}` }))
-          )
-        )
-      )
-    )
-  );
+          h('li', { key: i, className: 'ui-rows__row' },
+            h('div', { className: 'ui-df-src' }, h('b', null, f.sym), h(UIC.Badge, null, freqLabel(f.frequency))),
+            h('div', { className: 'ui-rows__side' }, h('b', { className: ['num', 'tone-income'].join(' ') }, __('perYear', '{amount}/yr', { amount: money(f.annualRate) }))))))));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -739,98 +688,67 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
   const entries = Object.values(fifo).filter(e => e.realized.length > 0 || e.unrealizedQty > 0.0001);
   const totalRealizedPnL = entries.reduce((s, e) => s + e.totalRealizedPnL, 0);
 
-  if (entries.length === 0) return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, __('fifoTitle', 'FIFO Cost Basis')),
-    React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary } }, __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis'))
-    )
-  );
+  // R4.6: the view layout, Stat tiles, the shared table look (rows open their lots), signed P&L
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
+  const sym = getCurrencySymbol();
+  const signed = (v) => `${v >= 0 ? '+' : ''}${formatPrice(v)} ${sym}`;
+  const tone = (v) => 'tone-' + UIC.toneOf(v);
+  if (entries.length === 0) return h('div', { className: ['ui-view', 'ui-view--cont'].join(' ') },
+    h(UIC.EmptyState, { title: __('fifoTitle', 'FIFO Cost Basis'), text: __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis') }));
 
   const detail = activeSymbol ? fifo[activeSymbol] : null;
+  const TABLE = ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ');
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' } },
-      React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('fifoTitle', 'FIFO Cost Basis')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, __('fifoSubtitle', 'First In, First Out — standard tax method in Germany'))
-      )
-    ),
+  return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-fifo'].join(' ') },
+    h('p', { className: 'ui-view__lead' }, __('fifoSubtitle', 'First In, First Out — standard tax method in Germany')),
 
     // Summary
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: __('fifoTotalRealized', 'Total Realized P&L'), value: `${totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(totalRealizedPnL)} ${getCurrencySymbol()}`,
-        color: totalRealizedPnL >= 0 ? theme.success : theme.danger }),
-      React.createElement(StatCell, { theme, label: __('positions', 'Positions'), value: entries.length }),
-      React.createElement(StatCell, { theme, label: __('fifoTotalLots', 'Total Realized Lots'), value: entries.reduce((s, e) => s + e.realized.length, 0) })
-    ),
+    h('div', { className: 'ui-tiles' },
+      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalRealized', 'Total Realized P&L'), value: signed(totalRealizedPnL), tone: UIC.toneOf(totalRealizedPnL) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('positions', 'Positions'), value: String(entries.length) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalLots', 'Total Realized Lots'), value: String(entries.reduce((s, e) => s + e.realized.length, 0)) })),
 
     // Position table
-    React.createElement(Card, { theme, style: { marginBottom: '1rem', overflow: 'auto' } },
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: 550, fontSize: 'var(--text-sm)' } },
-        React.createElement('thead', null,
-          React.createElement('tr', null,
-            [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg Cost (FIFO)'), __('fifoQtyHeld', 'Qty Held'), __('fifoTotalCost', 'Total Cost'), __('fifoRealizedPnl', 'Realized P&L'), __('fifoLots', 'Lots')].map((h, i) =>
-              React.createElement('th', { key: i, style: { padding: '0.625rem 0.875rem', textAlign: i > 0 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: 'var(--text-2xs)', letterSpacing: '0.05em', whiteSpace: 'nowrap' } }, h)
-            )
-          )
-        ),
-        React.createElement('tbody', null,
-          entries.map(e => {
-            const sym = (e.symbol || '').toLowerCase();
-            const key = sym + '-' + (e.category || 'crypto');
-            return React.createElement('tr', {
-              key,
-              ...window.MaerminUtils.clickable(() => setActiveSymbol(activeSymbol === key ? null : key)),
-              'aria-label': __('fifoToggleLots', 'Toggle lot details for {sym}', { sym: e.symbol || key }),
-              'aria-expanded': activeSymbol === key,
-              style: { borderBottom: `1px solid ${theme.cardBorder}`, cursor: 'pointer', transition: 'background 0.1s' },
-              onMouseEnter: el => el.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x08)}`,
-              onMouseLeave: el => el.currentTarget.style.background = 'transparent'
-            },
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, fontWeight: '700' } }, e.symbol),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(e.avgCostFIFO)} ${getCurrencySymbol()}`),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, window.MaerminI18n.num(e.unrealizedQty, 4)),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(e.unrealizedCost)} ${getCurrencySymbol()}`),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: e.totalRealizedPnL >= 0 ? theme.success : theme.danger, fontWeight: '700' } },
-                `${e.totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(e.totalRealizedPnL)} ${getCurrencySymbol()}`
-              ),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: theme.textSecondary } }, e.realized.length)
-            );
-          })
-        )
-      )
-    ),
+    h(UIC.Card, { headingLevel: 'h3', title: __('fifoTitle', 'FIFO Cost Basis') },
+      h('div', { className: 'ui-table-wrap' },
+        h('table', { className: TABLE },
+          h('thead', null, h('tr', null,
+            [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg Cost (FIFO)'), __('fifoQtyHeld', 'Qty Held'), __('fifoTotalCost', 'Total Cost'), __('fifoRealizedPnl', 'Realized P&L'), __('fifoLots', 'Lots')].map((label, i) =>
+              h('th', { key: i, scope: 'col', className: i > 0 ? 'is-right' : 'is-sticky' }, label)))),
+          h('tbody', null,
+            entries.map(e => {
+              const key = (e.symbol || '').toLowerCase() + '-' + (e.category || 'crypto');
+              return h('tr', {
+                key, className: ['is-clickable', activeSymbol === key ? 'is-selected' : ''].join(' ').trim(),
+                ...window.MaerminUtils.clickable(() => setActiveSymbol(activeSymbol === key ? null : key)),
+                'aria-label': __('fifoToggleLots', 'Toggle lot details for {sym}', { sym: e.symbol || key }),
+                'aria-expanded': activeSymbol === key
+              },
+                h('th', { scope: 'row', className: 'is-sticky' }, e.symbol),
+                h('td', null, `${formatPrice(e.avgCostFIFO)} ${sym}`),
+                h('td', null, window.MaerminI18n.num(e.unrealizedQty, 4)),
+                h('td', { className: 'is-dim' }, `${formatPrice(e.unrealizedCost)} ${sym}`),
+                h('td', { className: [tone(e.totalRealizedPnL), 'is-strong'].join(' ') }, signed(e.totalRealizedPnL)),
+                h('td', { className: 'is-dim' }, e.realized.length));
+            }))))),
 
     // Lot detail for active symbol
-    detail && React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem' } }, __('fifoRealizedLotsOf', '{sym} — Realized Lots', { sym: detail.symbol })),
-      React.createElement('div', { style: { overflowX: 'auto' } },
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', minWidth: 500 } },
-          React.createElement('thead', null,
-            React.createElement('tr', null,
-              [__('fifoBuyDate', 'Buy Date'), __('fifoSellDate', 'Sell Date'), __('colQty', 'Qty'), __('fifoBuyPrice', 'Buy Price'), __('fifoSellPrice', 'Sell Price'), __('colPnl', 'P&L')].map((h, i) =>
-                React.createElement('th', { key: i, style: { padding: '0.5rem 0.75rem', textAlign: i > 1 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: 'var(--text-3xs)', whiteSpace: 'nowrap' } }, h)
-              )
-            )
-          ),
-          React.createElement('tbody', null,
+    detail && h(UIC.Card, { headingLevel: 'h3', title: __('fifoRealizedLotsOf', '{sym} — Realized Lots', { sym: detail.symbol }) },
+      h('div', { className: 'ui-table-wrap' },
+        h('table', { className: TABLE },
+          h('thead', null, h('tr', null,
+            [__('fifoBuyDate', 'Buy Date'), __('fifoSellDate', 'Sell Date'), __('colQty', 'Qty'), __('fifoBuyPrice', 'Buy Price'), __('fifoSellPrice', 'Sell Price'), __('colPnl', 'P&L')].map((label, i) =>
+              h('th', { key: i, scope: 'col', className: i > 1 ? 'is-right' : 'is-left' }, label)))),
+          h('tbody', null,
             detail.realized.map((lot, i) =>
-              React.createElement('tr', { key: i, style: { borderBottom: `1px solid ${theme.cardBorder}` } },
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(lot.buyDate)),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(lot.sellDate)),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, textAlign: 'right' } }, window.MaerminI18n.num(lot.qty, 4)),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.buyPrice)}`),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.sellPrice)}`),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: '700', color: lot.pnl >= 0 ? theme.success : theme.danger } },
-                  `${lot.pnl >= 0 ? '+' : ''}${formatPrice(lot.pnl)} ${getCurrencySymbol()}`
-                )
-              )
-            )
-          )
-        )
-      )
-    )
-  );
+              h('tr', { key: i },
+                h('td', { className: ['is-left', 'is-dim'].join(' ') }, window.MaerminI18n.date(lot.buyDate)),
+                h('td', { className: ['is-left', 'is-dim'].join(' ') }, window.MaerminI18n.date(lot.sellDate)),
+                h('td', null, window.MaerminI18n.num(lot.qty, 4)),
+                h('td', { className: 'is-dim' }, formatPrice(lot.buyPrice)),
+                h('td', { className: 'is-dim' }, formatPrice(lot.sellPrice)),
+                h('td', { className: [tone(lot.pnl), 'is-strong'].join(' ') }, signed(lot.pnl)))))))));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

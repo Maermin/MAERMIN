@@ -165,55 +165,52 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var cin = pots(g && g.carryIn), used = g ? { shares: (g.carryUsed || {}).shares || 0, other: (g.carryUsed || {}).other || 0, private: (g.crypto || {}).carryUsed || 0 } : zero();
     var cout = pots(g && g.carryOut);
-    var cell = { padding: '0.4rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.8rem', color: text, textAlign: 'right' };
-    var head = { padding: '0.35rem 0.5rem', color: dim, fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' };
-    var inp = { width: '110px', padding: '0.3rem 0.45rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '6px', color: text, fontSize: '0.78rem', textAlign: 'right' };
+    // R4.6: Card, the shared table look, small inputs and a quiet Button
+    var UIC = window.MaerminComponents;
     var names = {};
     (props.portfolios || []).forEach(function (p) { names[String(p.id)] = p.name; });
+    var TABLE = ['ui-table', 'ui-table--dense'].join(' ');
 
-    return e('div', { 'data-testid': 'loss-carry-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('lcTitle', 'Loss carry-forward {y}', { y: year })),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('lcIntro', 'Losses an earlier year could not use, computed from your transactions for all portfolios together. Share losses only offset share gains, private-sale losses only private-sale gains. Carried losses are used before the Sparerpauschbetrag; a private-sale gain below the Freigrenze stays tax-free and leaves them untouched.')),
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+    return e(UIC.Card, { 'data-testid': 'loss-carry-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('lcTitle', 'Loss carry-forward {y}', { y: year }),
+      subtitle: __('lcIntro', 'Losses an earlier year could not use, computed from your transactions for all portfolios together. Share losses only offset share gains, private-sale losses only private-sale gains. Carried losses are used before the Sparerpauschbetrag; a private-sale gain below the Freigrenze stays tax-free and leaves them untouched.') },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { className: TABLE },
           e('thead', null, e('tr', null,
-            e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('lcPot', 'Pot')),
-            e('th', { style: head }, __('lcBroughtForward', 'Brought forward')),
-            e('th', { style: head }, __('lcUsed', 'Used in {y}', { y: year })),
-            e('th', { style: head }, __('lcCarried', 'Carried to {y}', { y: year + 1 })),
-            e('th', { style: head }, __('lcOpening', 'From your assessment')))),
+            e('th', { scope: 'col', className: 'is-sticky' }, __('lcPot', 'Pot')),
+            e('th', { scope: 'col', className: 'is-right' }, __('lcBroughtForward', 'Brought forward')),
+            e('th', { scope: 'col', className: 'is-right' }, __('lcUsed', 'Used in {y}', { y: year })),
+            e('th', { scope: 'col', className: 'is-right' }, __('lcCarried', 'Carried to {y}', { y: year + 1 })),
+            e('th', { scope: 'col', className: 'is-right' }, __('lcOpening', 'From your assessment')))),
           e('tbody', null, POTS.map(function (k) {
             return e('tr', { key: k, 'data-testid': 'lc-row-' + k },
-              e('td', { style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 600 }) }, potLabel(k)),
-              e('td', { style: cell }, money(cin[k])),
-              e('td', { style: cell }, money(used[k])),
-              e('td', { style: cell }, money(cout[k])),
-              e('td', { style: cell }, e('input', {
+              e('th', { scope: 'row', className: 'is-sticky' }, potLabel(k)),
+              e('td', null, money(cin[k])),
+              e('td', null, money(used[k])),
+              e('td', null, money(cout[k])),
+              e('td', null, e('input', {
                 key: k + '|' + year + '|' + opening[k], defaultValue: opening[k] ? String(opening[k]) : '', inputMode: 'decimal', placeholder: '0',
                 'data-testid': 'lc-open-' + k, 'aria-label': __('lcOpeningOf', 'Losses brought into {y} from your assessment: {pot}', { y: year, pot: potLabel(k) }),
                 onBlur: function (ev) { commit(k, ev.target.value.trim()); },
                 onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-                style: inp
+                className: ['ui-input', 'ui-input--sm', 'ui-gt-num'].join(' ')
               })));
           })))),
-      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('lcOpeningHint', 'From your assessment: the remaining loss carry-forward on your last Verlustfeststellungsbescheid, or a bank\'s Verlustbescheinigung, entered in the year it is brought into. It is added to what MAERMIN computes.')),
-      e('p', { role: 'note', style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.35rem 0 0', lineHeight: 1.5 } },
+      e('p', { role: 'note', className: 'ui-note' },
         __('lcKapNote', 'Anlage KAP stays per year: the tax office applies the carry-forward itself from its loss assessment.')),
-      (props.portfolios || []).length > 1 ? e('div', { style: { marginTop: '0.75rem' } },
-        e('button', { type: 'button', 'data-testid': 'lc-breakdown', 'aria-expanded': showBd, onClick: function () { setShowBd(!showBd); },
-          style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: 'var(--text-xs)', cursor: 'pointer' } },
+      (props.portfolios || []).length > 1 ? e('div', null,
+        e(UIC.Button, { size: 'sm', variant: 'quiet', 'data-testid': 'lc-breakdown', 'aria-expanded': showBd, onClick: function () { setShowBd(!showBd); } },
           showBd ? __('lcHideBreakdown', 'Hide per portfolio') : __('lcShowBreakdown', 'Per portfolio, as each bank would keep it')),
-        showBd ? e('table', { style: { width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' } },
+        showBd ? e('div', { className: 'ui-table-wrap' }, e('table', { className: TABLE },
           e('thead', null, e('tr', null,
-            e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('portfolio', 'Portfolio')),
-            POTS.map(function (k) { return e('th', { key: k, style: head }, potLabel(k)); }))),
+            e('th', { scope: 'col', className: 'is-sticky' }, __('portfolio', 'Portfolio')),
+            POTS.map(function (k) { return e('th', { key: k, scope: 'col', className: 'is-right' }, potLabel(k)); }))),
           e('tbody', null, bd.map(function (row) {
             return e('tr', { key: row.portfolioId },
-              e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, names[row.portfolioId] || row.portfolioId),
-              POTS.map(function (k) { return e('td', { key: k, style: cell }, money(row.carryOut[k])); }));
-          }))) : null) : null);
+              e('th', { scope: 'row', className: 'is-sticky' }, names[row.portfolioId] || row.portfolioId),
+              POTS.map(function (k) { return e('td', { key: k }, money(row.carryOut[k])); }));
+          })))) : null) : null);
   }
 
   var api = {

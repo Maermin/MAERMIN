@@ -212,89 +212,81 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }).catch(function () { setMsg(__('tcPdfError', 'The PDF could not be read. Enter the values by hand.')); });
     }
 
-    var input = { width: '100%', boxSizing: 'border-box', padding: '0.4rem 0.55rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
-    var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-    var btn = { padding: '0.45rem 0.9rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' };
+    // R4.6: Card, certificates as sub-cards with the shared table look, the form on shared Input / Select / Button
+    var UIC = window.MaerminComponents;
 
     function certView(c) {
       var fig = null;
       try { fig = maerminFigures(props.transactions || [], c, { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt }); } catch (err) { fig = null; }
       var rec = reconcile(c.values, fig || {});
       var names = c.portfolioIds.map(function (id) { var p = portfolios.filter(function (x) { return x.id === id; })[0]; return p ? p.name : id; }).join(', ');
-      return e('div', { key: c.id, 'data-testid': 'tc-cert', style: { border: '1px solid ' + border, borderRadius: '10px', padding: '0.75rem', marginTop: '0.75rem' } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'baseline' } },
-          e('div', { style: { color: text, fontWeight: 700 } }, (c.bank || __('tcBank', 'Bank')) + ' · ' + c.year,
-            e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)', marginLeft: '0.4rem' } }, names)),
-          e('div', { 'data-testid': 'tc-summary', style: { color: rec.differences ? warn : good, fontSize: 'var(--text-sm)', fontWeight: 700 } },
-            rec.differences ? __('tcDiffs', '{n} line(s) differ', { n: rec.differences }) : __('tcAllMatch', 'All lines match'))),
-        e('div', { style: { overflowX: 'auto' } },
-          e('table', { style: { width: '100%', borderCollapse: 'collapse', marginTop: '0.4rem' } },
+      return e('div', { key: c.id, 'data-testid': 'tc-cert', className: 'ui-taxp__box' },
+        e('div', { className: 'ui-dlg-sec__head' },
+          e('div', { className: 'ui-rows__main' }, e('b', null, (c.bank || __('tcBank', 'Bank')) + ' · ' + c.year), e('span', null, names)),
+          e(UIC.Badge, { 'data-testid': 'tc-summary', tone: rec.differences ? 'warning' : 'gain' },
+            rec.differences ? '! ' + __('tcDiffs', '{n} line(s) differ', { n: rec.differences }) : '✓ ' + __('tcAllMatch', 'All lines match'))),
+        e('div', { className: 'ui-table-wrap' },
+          e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
             e('thead', null, e('tr', null, [__('tcLine', 'Line'), __('tcCertificate', 'Certificate'), 'MAERMIN', __('tcDiff', 'Difference')].map(function (h, i) {
-              return e('th', { key: i, style: Object.assign({}, head, i === 0 ? { textAlign: 'left' } : null) }, h);
+              return e('th', { key: i, scope: 'col', className: i === 0 ? 'is-left' : 'is-right' }, h);
             }))),
             e('tbody', null, rec.rows.map(function (r) {
-              var col = r.status === 'differs' ? warn : r.status === 'match' ? good : dim;
+              var cls = r.status === 'differs' ? 'tone-warning' : r.status === 'match' ? 'tone-gain' : 'is-dim';
               return e('tr', { key: r.key, 'data-testid': 'tc-row-' + r.key },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left', whiteSpace: 'normal' }) }, r.label),
-                e('td', { style: cell }, r.cert != null ? money(r.cert) : '–'),
-                e('td', { style: cell }, r.maermin != null ? money(r.maermin) : '–'),
-                e('td', { style: Object.assign({}, cell, { color: col, fontWeight: 700 }) },
+                e('td', { className: ['is-left', 'is-wrap'].join(' ') }, r.label),
+                e('td', null, r.cert != null ? money(r.cert) : '–'),
+                e('td', null, r.maermin != null ? money(r.maermin) : '–'),
+                e('td', { className: [cls, 'is-strong'].join(' ') },
                   r.status === 'match' ? '✓' : r.status === 'differs' ? (r.diff > 0 ? '+' : '') + money(r.diff) : r.status === 'info' ? __('tcInfo', 'bank only') : '–'));
             })))),
-        rec.differences ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem', lineHeight: 1.5 } },
+        rec.differences ? e('p', { className: 'ui-note' },
           __('tcCauses', 'Typical causes: a trade or dividend missing in MAERMIN or booked in another portfolio, a fund type (Teilfreistellung) not set, the FX rate of the day, a Vorabpauschale, or an Ersatzbemessungsgrundlage the bank used for a transferred position.')) : null,
-        e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
-          e('button', { style: btn, onClick: function () { setMsg(''); setDraft(Object.assign({}, c)); } }, __('tcEdit', 'Edit')),
-          e('button', { style: btn, onClick: function () { commit(remove(state, c.id)); } }, __('tcDelete', 'Delete'))));
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { size: 'sm', onClick: function () { setMsg(''); setDraft(Object.assign({}, c)); } }, __('tcEdit', 'Edit')),
+          e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { commit(remove(state, c.id)); } }, __('tcDelete', 'Delete'))));
     }
 
     function form() {
       var d = draft;
-      return e('div', { 'data-testid': 'tc-form', style: { border: '1px solid ' + border, borderRadius: '10px', padding: '0.75rem', marginTop: '0.75rem' } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem' } },
-          e('div', null, e('label', { style: label, htmlFor: 'tc-bank' }, __('tcBank', 'Bank')),
-            brokers.length ? e('select', { id: 'tc-bank', 'data-testid': 'tc-bank', value: d.bank, style: input, onChange: function (ev) {
-              var b = brokers.filter(function (x) { return x.name === ev.target.value; })[0];
-              setD(b ? { bank: b.name, portfolioIds: b.portfolioIds.slice(), allowance: b.amount } : { bank: ev.target.value });
-            } }, brokers.map(function (b) { return e('option', { key: b.id, value: b.name }, b.name); }))
-              : e('input', { id: 'tc-bank', 'data-testid': 'tc-bank', value: d.bank, style: input, onChange: function (ev) { setD({ bank: ev.target.value }); } })),
-          e('div', null, e('label', { style: label, htmlFor: 'tc-allowance' }, __('tcAllowance', 'Freistellungsauftrag at this bank (EUR)')),
-            e('input', { id: 'tc-allowance', 'data-testid': 'tc-allowance', inputMode: 'decimal', value: d.allowance != null ? String(d.allowance) : '', style: input, onChange: function (ev) { var n = parseNum(ev.target.value); setD({ allowance: n != null ? n : null }); } })),
-          e('div', null, e('label', { style: label, htmlFor: 'tc-pdf' }, __('tcPdf', 'Certificate PDF (read on this device)')),
-            e('input', { id: 'tc-pdf', 'data-testid': 'tc-pdf', type: 'file', accept: 'application/pdf', onChange: onFile, style: { color: dim, fontSize: 'var(--text-xs)' } }))),
-        e('div', { style: { marginTop: '0.6rem' } },
-          e('div', { style: label }, __('tcPortfolios', 'Portfolios at this bank')),
-          e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.75rem' } }, portfolios.map(function (p) {
+      return e('div', { 'data-testid': 'tc-form', className: 'ui-taxp__box' },
+        e('div', { className: 'ui-form-grid' },
+          brokers.length
+            ? e(UIC.Select, { id: 'tc-bank', 'data-testid': 'tc-bank', label: __('tcBank', 'Bank'), value: d.bank, onChange: function (ev) {
+                var b = brokers.filter(function (x) { return x.name === ev.target.value; })[0];
+                setD(b ? { bank: b.name, portfolioIds: b.portfolioIds.slice(), allowance: b.amount } : { bank: ev.target.value });
+              }, options: brokers.map(function (b) { return { value: b.name, label: b.name }; }) })
+            : e(UIC.Input, { id: 'tc-bank', 'data-testid': 'tc-bank', label: __('tcBank', 'Bank'), value: d.bank, onChange: function (ev) { setD({ bank: ev.target.value }); } }),
+          e(UIC.Input, { id: 'tc-allowance', 'data-testid': 'tc-allowance', inputMode: 'decimal', label: __('tcAllowance', 'Freistellungsauftrag at this bank (EUR)'), value: d.allowance != null ? String(d.allowance) : '', onChange: function (ev) { var n = parseNum(ev.target.value); setD({ allowance: n != null ? n : null }); } }),
+          e('div', { className: 'ui-field' }, e('label', { className: 'ui-field__label', htmlFor: 'tc-pdf' }, __('tcPdf', 'Certificate PDF (read on this device)')),
+            e('input', { id: 'tc-pdf', 'data-testid': 'tc-pdf', type: 'file', accept: 'application/pdf', onChange: onFile, className: 'ui-file' }))),
+        e('div', { className: 'ui-field' },
+          e('span', { className: 'ui-field__label' }, __('tcPortfolios', 'Portfolios at this bank')),
+          e('div', { className: 'ui-actions' }, portfolios.map(function (p) {
             var on = d.portfolioIds.indexOf(p.id) !== -1;
-            return e('label', { key: p.id, style: { color: text, fontSize: 'var(--text-sm)', display: 'flex', gap: '0.3rem', alignItems: 'center' } },
+            return e('label', { key: p.id, className: 'ui-check' },
               e('input', { type: 'checkbox', 'data-testid': 'tc-pf-' + p.id, checked: on, onChange: function () {
                 setD({ portfolioIds: on ? d.portfolioIds.filter(function (x) { return x !== p.id; }) : d.portfolioIds.concat([p.id]) });
               } }), p.name);
           }))),
-        msg ? e('div', { 'data-testid': 'tc-msg', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null,
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem', marginTop: '0.6rem' } },
+        msg ? e('p', { 'data-testid': 'tc-msg', role: 'status', className: 'ui-note' }, msg) : null,
+        e('div', { className: ['ui-form-grid', 'ui-tc-fields'].join(' ') },
           FIELDS.map(function (f) {
             var v = d.values[f.key];
-            return e('div', { key: f.key }, e('label', { style: Object.assign({}, label, { textTransform: 'none', letterSpacing: 0 }), htmlFor: 'tc-v-' + f.key }, f.label),
-              e('input', { id: 'tc-v-' + f.key, 'data-testid': 'tc-v-' + f.key, inputMode: 'decimal', style: input, value: v != null ? String(v).replace('.', I18N_SEP()) : '',
-                onChange: function (ev) { var vals = Object.assign({}, d.values); var n = parseNum(ev.target.value); if (n == null || ev.target.value === '') delete vals[f.key]; else vals[f.key] = n; setD({ values: vals }); } }));
+            return e(UIC.Input, { key: f.key, id: 'tc-v-' + f.key, 'data-testid': 'tc-v-' + f.key, inputMode: 'decimal', label: f.label, value: v != null ? String(v).replace('.', I18N_SEP()) : '',
+              onChange: function (ev) { var vals = Object.assign({}, d.values); var n = parseNum(ev.target.value); if (n == null || ev.target.value === '') delete vals[f.key]; else vals[f.key] = n; setD({ values: vals }); } });
           })),
-        e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
-          e('button', { 'data-testid': 'tc-save', style: Object.assign({}, btn, { borderColor: good }), disabled: !d.portfolioIds.length,
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'tc-save', disabled: !d.portfolioIds.length,
             onClick: function () { commit(upsert(state, d)); setDraft(null); setMsg(''); } }, __('tcSave', 'Save and compare')),
-          e('button', { style: btn, onClick: function () { setDraft(null); setMsg(''); } }, __('cancel', 'Cancel'))));
+          e(UIC.Button, { onClick: function () { setDraft(null); setMsg(''); } }, __('cancel', 'Cancel'))));
     }
     function I18N_SEP() { var I = window.MaerminI18n; return I && I.num ? (I.num(1.5, 1).indexOf(',') >= 0 ? ',' : '.') : '.'; }
 
-    return e('div', { 'data-testid': 'tax-cert-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('tcTitle', 'Check the Jahressteuerbescheinigung')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.5rem', lineHeight: 1.5 } },
-        __('tcIntro', 'Compare your bank\'s annual tax certificate for {y} with MAERMIN, line by line. The PDF is read on this device and never uploaded. MAERMIN uses only the bank\'s portfolios, the year on its own (the bank nets each year separately) and the bank\'s Freistellungsauftrag.', { y: year })),
+    return e(UIC.Card, { 'data-testid': 'tax-cert-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('tcTitle', 'Check the Jahressteuerbescheinigung'),
+      subtitle: __('tcIntro', 'Compare your bank\'s annual tax certificate for {y} with MAERMIN, line by line. The PDF is read on this device and never uploaded. MAERMIN uses only the bank\'s portfolios, the year on its own (the bank nets each year separately) and the bank\'s Freistellungsauftrag.', { y: year }) },
       certs.map(certView),
-      draft ? form() : e('button', { 'data-testid': 'tc-add', style: Object.assign({}, btn, { marginTop: '0.5rem' }), onClick: startNew }, __('tcAdd', 'Add a certificate')),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      draft ? form() : e('div', { className: 'ui-actions' }, e(UIC.Button, { 'data-testid': 'tc-add', onClick: startNew }, __('tcAdd', 'Add a certificate'))),
+      e('p', { className: 'ui-note' },
         __('tcNote', 'The lines follow the official template of the Steuerbescheinigung; wording can differ slightly between banks, so check every value read from the PDF. A match is within 1 EUR. Not tax advice.')));
   }
 

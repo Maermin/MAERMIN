@@ -270,82 +270,80 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s0 = useState(loadSettings); var st = s0[0], setSt = s0[1];
     var s1 = useState(''); var newSym = s1[0], setNewSym = s1[1];
     function update(next) { setSt(saveSettings(next)); if (props.onChange) props.onChange(); }
-    function line(lbl, val, tid, color, strong) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
-        e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: strong ? 800 : 700 } }, val));
+    // R4.6: Card, shared rows and table look, small inputs, quiet buttons; criteria with a mark and words
+    var UIC = window.MaerminComponents;
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
+    function line(lbl, val, tid, tone, strong) {
+      return e('li', { key: tid, 'data-testid': tid, className: 'ui-rows__row' },
+        e('span', { className: 'ui-muted' }, lbl), e('b', { className: ['num', tone ? 'tone-' + tone : '', strong ? 'ui-taxp__strong' : ''].join(' ').trim() }, val));
     }
-    var input = { boxSizing: 'border-box', padding: '0.35rem 0.5rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
-    var btn = { padding: '0.35rem 0.8rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 };
-    var sub = { color: text, fontWeight: 700, fontSize: '0.86rem', margin: '0.75rem 0 0.3rem' };
-    var cell = { padding: '0.25rem 0.4rem', borderTop: '1px solid ' + border, fontSize: '0.76rem', textAlign: 'right', whiteSpace: 'nowrap' };
     var syms = Object.keys(st.funds).sort();
-    var ksColor = function (s) { return s === 'met' ? good : s === 'not-met' ? bad : warn; };
-    return e('div', { 'data-testid': 'ch-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('chTitle', 'Switzerland: Wertschriftenverzeichnis {y}', { y: year })),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.5 } },
-        __('chIntro', 'Year-end values in CHF for the wealth tax, gross income in column A (Swiss, with 35 % Verrechnungssteuer) or B, the foreign withholding for form DA-1. Private capital gains are tax-free. MAERMIN does not estimate the tax itself: it is cantonal and progressive.')),
-      d ? e('div', null,
-        d.provisional ? e('div', { 'data-testid': 'ch-provisional', style: { color: warn, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('chProvisional', 'The year is not over: values at today\'s prices.')) : null,
-        d.missingRate ? e('div', { style: { color: bad, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('chNoRate', 'No CHF exchange rate: amounts in other currencies are missing.')) : null,
-        line(__('chValue', 'Securities and crypto at year-end (wealth)'), chf(d.totals.valueCHF), 'ch-value', null, true),
-        line(__('chIncomeA', 'Income with Verrechnungssteuer (column A)'), chf(d.totals.incomeA), 'ch-income-a'),
-        line(__('chIncomeB', 'Income without Verrechnungssteuer (column B)'), chf(d.totals.incomeB), 'ch-income-b'),
-        d.totals.fundIncome ? line(__('chFundIncome', 'Of which accumulating funds'), chf(d.totals.fundIncome), 'ch-fund') : null,
-        line(__('chVst', 'Verrechnungssteuer to reclaim (35 % of A)'), chf(d.totals.vstClaim), 'ch-vst', good),
-        line(__('chGains', 'Capital gains, tax-free (for information)'), chf(d.gains.realized), 'ch-gains', good),
-        d.positions.length ? e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
-          e('table', { 'data-testid': 'ch-positions', style: { width: '100%', borderCollapse: 'collapse', color: text } },
+    var ksTone = function (s) { return s === 'met' ? 'gain' : s === 'not-met' ? 'loss' : 'warning'; };
+    var ksMark = function (s) { return s === 'met' ? '✓ ' : s === 'not-met' ? '✗ ' : '? '; };
+    return e(UIC.Card, { 'data-testid': 'ch-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('chTitle', 'Switzerland: Wertschriftenverzeichnis {y}', { y: year }),
+      subtitle: __('chIntro', 'Year-end values in CHF for the wealth tax, gross income in column A (Swiss, with 35 % Verrechnungssteuer) or B, the foreign withholding for form DA-1. Private capital gains are tax-free. MAERMIN does not estimate the tax itself: it is cantonal and progressive.') },
+      d ? e('div', { className: 'ui-taxp__body' },
+        d.provisional ? e('p', { 'data-testid': 'ch-provisional', className: ['ui-callout', 'ui-callout--warn'].join(' ') }, __('chProvisional', 'The year is not over: values at today\'s prices.')) : null,
+        d.missingRate ? e('p', { className: ['ui-muted', 'is-error'].join(' ') }, __('chNoRate', 'No CHF exchange rate: amounts in other currencies are missing.')) : null,
+        e('ul', { className: 'ui-rows' },
+          line(__('chValue', 'Securities and crypto at year-end (wealth)'), chf(d.totals.valueCHF), 'ch-value', null, true),
+          line(__('chIncomeA', 'Income with Verrechnungssteuer (column A)'), chf(d.totals.incomeA), 'ch-income-a'),
+          line(__('chIncomeB', 'Income without Verrechnungssteuer (column B)'), chf(d.totals.incomeB), 'ch-income-b'),
+          d.totals.fundIncome ? line(__('chFundIncome', 'Of which accumulating funds'), chf(d.totals.fundIncome), 'ch-fund') : null,
+          line(__('chVst', 'Verrechnungssteuer to reclaim (35 % of A)'), chf(d.totals.vstClaim), 'ch-vst'),
+          line(__('chGains', 'Capital gains, tax-free (for information)'), chf(d.gains.realized), 'ch-gains')),
+        d.positions.length ? e('div', { className: 'ui-table-wrap' },
+          e('table', { 'data-testid': 'ch-positions', className: ['ui-table', 'ui-table--dense'].join(' ') },
             e('thead', null, e('tr', null, [__('symbol', 'Symbol'), __('colQty', 'Qty'), __('chColValue', 'Value 31.12.'), 'A', 'B'].map(function (h, i) {
-              return e('th', { key: i, style: Object.assign({}, cell, { color: dim, fontWeight: 600, textAlign: i ? 'right' : 'left' }) }, h);
+              return e('th', { key: i, scope: 'col', className: i ? 'is-right' : 'is-sticky' }, h);
             }))),
             e('tbody', null, d.positions.map(function (p) {
               return e('tr', { key: p.symbol },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 700 }) }, p.symbol),
-                e('td', { style: cell }, window.MaerminI18n.num(p.quantity, 4)),
-                e('td', { style: Object.assign({}, cell, { color: p.missingPrice ? warn : text }), title: p.missingPrice ? __('chAtCost', '(at cost, no price)') : '' }, chf(p.valueCHF) + (p.missingPrice ? ' *' : '')),
-                e('td', { style: cell }, p.incomeA ? chf(p.incomeA) : '–'),
-                e('td', { style: cell }, p.incomeB ? chf(p.incomeB) : '–'));
+                e('th', { scope: 'row', className: 'is-sticky' }, p.symbol),
+                e('td', null, window.MaerminI18n.num(p.quantity, 4)),
+                e('td', { className: p.missingPrice ? 'tone-warning' : '', title: p.missingPrice ? __('chAtCost', '(at cost, no price)') : '' }, chf(p.valueCHF) + (p.missingPrice ? ' *' : '')),
+                e('td', null, p.incomeA ? chf(p.incomeA) : '–'),
+                e('td', null, p.incomeB ? chf(p.incomeB) : '–'));
             })))) : null,
-        d.positions.some(function (p) { return p.missingPrice; }) ? e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, __('chAtCostNote', '* No year-end price: valued at cost. Take the value from the ESTV Kursliste.')) : null,
+        d.positions.some(function (p) { return p.missingPrice; }) ? e('p', { className: 'ui-note' }, __('chAtCostNote', '* No year-end price: valued at cost. Take the value from the ESTV Kursliste.')) : null,
         d.foreign.length ? e('div', { 'data-testid': 'ch-da1' },
-          e('div', { style: sub }, __('chDa1Title', 'Form DA-1: foreign withholding')),
-          d.foreign.map(function (f) {
+          e('h4', { className: 'ui-dlg-sec__title' }, __('chDa1Title', 'Form DA-1: foreign withholding')),
+          e('ul', { className: 'ui-rows' }, d.foreign.map(function (f) {
             return line(__('chDa1Line', '{c}: gross {g}, withheld {w}', { c: f.country === 'unknown' ? __('chCountryUnknown', 'country unknown') : f.country, g: chf(f.gross), w: chf(f.withheld) }),
               __('chDa1Credit', 'credit {cred} · reclaim abroad {ex}', { cred: chf(f.creditable), ex: chf(f.excess) }), 'ch-da1-' + f.country);
-          })) : null,
+          }))) : null,
         e('div', { 'data-testid': 'ch-ks36' },
-          e('div', { style: sub }, __('chKsTitle', 'Private asset management (ESTV Kreisschreiben 36)')),
-          d.ks36.criteria.map(function (c) { return line(criterionLabel(c.key), statusLabel(c.status), 'ch-ks-' + c.key, ksColor(c.status)); }),
-          e('div', { 'data-testid': 'ch-ks-status', style: { color: d.ks36.status === 'private' ? good : warn, fontSize: 'var(--text-xs)', fontWeight: 700, marginTop: '0.35rem' } },
+          e('h4', { className: 'ui-dlg-sec__title' }, __('chKsTitle', 'Private asset management (ESTV Kreisschreiben 36)')),
+          e('ul', { className: 'ui-rows' }, d.ks36.criteria.map(function (c) { return line(criterionLabel(c.key), ksMark(c.status) + statusLabel(c.status), 'ch-ks-' + c.key, ksTone(c.status)); })),
+          e('p', { 'data-testid': 'ch-ks-status', className: ['ui-verdict', 'ui-taxp__verdict'].join(' '), 'data-level': d.ks36.status === 'private' ? 'good' : 'warn' },
             d.ks36.status === 'private' ? __('chKsPrivate', 'All criteria met: private asset management, gains tax-free.')
               : d.ks36.status === 'check' ? __('chKsCheck', 'Not every criterion is met: the tax office decides case by case whether this is professional trading (gains then taxable as income).')
                 : __('chKsUnknownMsg', 'Answer the questions below to complete the check.'))))
-        : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('chNoReport', 'Open the Tax Report to see the statement.')),
-      e('div', { style: { borderTop: '1px solid ' + border, marginTop: '0.75rem', paddingTop: '0.6rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-        e('label', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('chOtherIncome', 'Net income {y} without capital gains (CHF)', { y: year })),
-        e('input', { 'data-testid': 'ch-other-income', inputMode: 'decimal', style: Object.assign({}, input, { width: '130px' }), defaultValue: st.otherIncome != null ? String(st.otherIncome) : '',
+        : e('p', { className: 'ui-muted' }, __('chNoReport', 'Open the Tax Report to see the statement.')),
+      e('div', { className: ['ui-form-grid', 'ui-taxp__sec'].join(' ') },
+        e(UIC.Input, { 'data-testid': 'ch-other-income', inputMode: 'decimal', label: __('chOtherIncome', 'Net income {y} without capital gains (CHF)', { y: year }), defaultValue: st.otherIncome != null ? String(st.otherIncome) : '',
           onBlur: function (ev) { var v = parseFloat(String(ev.target.value).replace(/'/g, '').replace(',', '.')); update(Object.assign({}, st, { otherIncome: isFinite(v) ? v : null })); } }),
-        e('label', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('chDebtQ', 'Investments financed with debt?')),
-        e('select', { 'data-testid': 'ch-debt', style: input, value: st.debtFinanced == null ? '' : st.debtFinanced ? 'yes' : 'no',
-          onChange: function (ev) { update(Object.assign({}, st, { debtFinanced: ev.target.value === 'yes' ? true : ev.target.value === 'no' ? false : null })); } },
-          e('option', { value: '' }, __('chNoAnswer', '–')), e('option', { value: 'no' }, __('chNo', 'No')), e('option', { value: 'yes' }, __('chYes', 'Yes')))),
-      e('div', { style: { borderTop: '1px solid ' + border, marginTop: '0.75rem', paddingTop: '0.6rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.3rem' } }, __('chFundsTitle', 'Accumulating funds')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.5rem', lineHeight: 1.5 } },
+        e(UIC.Select, { 'data-testid': 'ch-debt', label: __('chDebtQ', 'Investments financed with debt?'), value: st.debtFinanced == null ? '' : st.debtFinanced ? 'yes' : 'no',
+          onChange: function (ev) { update(Object.assign({}, st, { debtFinanced: ev.target.value === 'yes' ? true : ev.target.value === 'no' ? false : null })); },
+          options: [{ value: '', label: __('chNoAnswer', '–') }, { value: 'no', label: __('chNo', 'No') }, { value: 'yes', label: __('chYes', 'Yes') }] })),
+      e('div', { className: 'ui-taxp__sec' },
+        e('h4', { className: 'ui-dlg-sec__title' }, __('chFundsTitle', 'Accumulating funds')),
+        e('p', { className: 'ui-note' },
           __('chFundsHint', 'Enter the reinvested income of {y} for your whole holding (ESTV Kursliste or the fund\'s tax report). Swiss funds go in column A, foreign funds in B.', { y: year })),
-        syms.map(function (sym) {
+        e('ul', { className: 'ui-rows' }, syms.map(function (sym) {
           var f = st.funds[sym];
-          return e('div', { key: sym, 'data-testid': 'ch-fund-' + sym, style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
-            e('span', { style: { color: text, fontWeight: 700, minWidth: '90px', fontSize: 'var(--text-sm)' } }, sym),
-            e('input', { 'data-testid': 'ch-age-' + sym, inputMode: 'decimal', placeholder: __('chAgePlaceholder', 'CHF {y}', { y: year }), style: Object.assign({}, input, { width: '120px' }),
+          return e('li', { key: sym, 'data-testid': 'ch-fund-' + sym, className: ['ui-rows__row', 'ui-taxp__fund'].join(' ') },
+            e('b', null, sym),
+            e('input', { 'data-testid': 'ch-age-' + sym, inputMode: 'decimal', placeholder: __('chAgePlaceholder', 'CHF {y}', { y: year }), className: [INPUT, 'ui-gt-num'].join(' '),
+              'aria-label': __('chAgePlaceholder', 'CHF {y}', { y: year }) + ' ' + sym,
               defaultValue: f.age[String(year)] != null ? String(f.age[String(year)]) : '',
               onBlur: function (ev) { var v = parseFloat(String(ev.target.value).replace(',', '.')); var n = Object.assign({}, st.funds); var age = Object.assign({}, f.age); if (isFinite(v)) age[String(year)] = v; else delete age[String(year)]; n[sym] = { age: age }; update(Object.assign({}, st, { funds: n })); } }),
-            e('button', { style: btn, onClick: function () { var n = Object.assign({}, st.funds); delete n[sym]; update(Object.assign({}, st, { funds: n })); } }, __('chRemove', 'Remove')));
-        }),
-        e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
-          e('input', { 'data-testid': 'ch-new-fund', value: newSym, placeholder: __('chFundSymbol', 'Fund symbol, e.g. CHSPI.SW'), style: Object.assign({}, input, { flex: '1 1 160px' }), onChange: function (ev) { setNewSym(ev.target.value); } }),
-          e('button', { 'data-testid': 'ch-add-fund', style: btn, onClick: function () { var s = newSym.trim().toUpperCase(); if (!s) return; var n = Object.assign({}, st.funds); n[s] = n[s] || { age: {} }; update(Object.assign({}, st, { funds: n })); setNewSym(''); } }, __('chAddFund', 'Add fund')))),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+            e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { var n = Object.assign({}, st.funds); delete n[sym]; update(Object.assign({}, st, { funds: n })); } }, __('chRemove', 'Remove')));
+        })),
+        e('div', { className: 'ui-ca-add' },
+          e('input', { 'data-testid': 'ch-new-fund', value: newSym, placeholder: __('chFundSymbol', 'Fund symbol, e.g. CHSPI.SW'), 'aria-label': __('chFundSymbol', 'Fund symbol, e.g. CHSPI.SW'), className: 'ui-input', onChange: function (ev) { setNewSym(ev.target.value); } }),
+          e(UIC.Button, { 'data-testid': 'ch-add-fund', onClick: function () { var s = newSym.trim().toUpperCase(); if (!s) return; var n = Object.assign({}, st.funds); n[s] = n[s] || { age: {} }; update(Object.assign({}, st, { funds: n })); setNewSym(''); } }, __('chAddFund', 'Add fund')))),
+      e('p', { className: 'ui-note' },
         __('chNote', 'Helper for the Wertschriftenverzeichnis, not tax advice. Sources: Art. 16 Abs. 3, Art. 20 DBG; Art. 7, 13, 14 StHG; Art. 4 VStG; form DA-1; ESTV Kreisschreiben Nr. 36. The canton of Thurgau reads the holding period as one year, not six months. The DA-1 credit assumes a treaty residual rate of 15 %.')));
   }
 

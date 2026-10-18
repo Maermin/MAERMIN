@@ -131,34 +131,33 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     }
 
-    return e('div', { 'data-testid': 'kap-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('kapTitle', 'Anlage KAP / KAP-INV {y} (brokers without German tax withholding)', { y: props.year })),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.5 } },
-        __('kapIntro', 'Tick the portfolios you hold at a broker that does not withhold German tax (a foreign broker). For German banks, take the figures from their annual tax certificate (Steuerbescheinigung) instead.')),
-      e('div', { role: 'note', 'data-testid': 'kap-check', style: { color: warn, fontSize: 'var(--text-xs)', margin: '0 0 0.8rem', lineHeight: 1.5 } },
+    // R4.6: Card, a warning callout, checkboxes, the shared table look and a quiet Button
+    var UIC = window.MaerminComponents;
+    return e(UIC.Card, { 'data-testid': 'kap-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('kapTitle', 'Anlage KAP / KAP-INV {y} (brokers without German tax withholding)', { y: props.year }),
+      subtitle: __('kapIntro', 'Tick the portfolios you hold at a broker that does not withhold German tax (a foreign broker). For German banks, take the figures from their annual tax certificate (Steuerbescheinigung) instead.') },
+      e('p', { role: 'note', 'data-testid': 'kap-check', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('kapCheckLines', 'Line numbers follow the 2024/2025 forms. Check them against the form of your year before you file; fund losses are shown as negative amounts in the gain line.')),
-      e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.8rem' } },
+      e('div', { className: 'ui-actions' },
         (props.portfolios || []).map(function (p) {
-          return e('label', { key: p.id, style: { marginRight: '0.9rem', whiteSpace: 'nowrap', cursor: 'pointer' } },
-            e('input', { type: 'checkbox', checked: ids.indexOf(String(p.id)) > -1, onChange: function () { toggle(String(p.id)); }, style: { marginRight: '0.3rem' } }), p.name);
+          return e('label', { key: p.id, className: 'ui-check' },
+            e('input', { type: 'checkbox', checked: ids.indexOf(String(p.id)) > -1, onChange: function () { toggle(String(p.id)); } }), p.name);
         })),
       !ids.length ? null : rows.length === 0
-        ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('kapNone', 'No capital income in {y} for these portfolios.', { y: props.year }))
-        : e('div', null,
-            e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', color: text } },
-              e('thead', null, e('tr', { style: { color: dim, textAlign: 'left' } },
+        ? e('p', { className: 'ui-muted' }, __('kapNone', 'No capital income in {y} for these portfolios.', { y: props.year }))
+        : e('div', { className: 'ui-taxp__body' },
+            e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
+              e('thead', null, e('tr', null,
                 [__('kapForm', 'Form'), __('kapLine', 'Line'), __('kapWhat', 'What'), __('kapAmount', 'Amount')].map(function (h, i) {
-                  return e('th', { key: i, style: { padding: '0.4rem 0.5rem', fontWeight: 600, borderBottom: '1px solid ' + border, textAlign: i === 3 ? 'right' : 'left' } }, h);
+                  return e('th', { key: i, scope: 'col', className: i === 3 ? 'is-right' : 'is-left' }, h);
                 }))),
               e('tbody', null, rows.map(function (r) {
-                return e('tr', { key: r.form + r.line, 'data-kap-line': r.form + ':' + r.line, style: { borderBottom: '1px solid ' + border } },
-                  e('td', { style: { padding: '0.4rem 0.5rem', whiteSpace: 'nowrap' } }, 'Anlage ' + r.form),
-                  e('td', { style: { padding: '0.4rem 0.5rem' } }, r.line),
-                  e('td', { style: { padding: '0.4rem 0.5rem', color: dim } }, r.label),
-                  e('td', { style: { padding: '0.4rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap' } }, money(r.amount)));
-              }))),
-            e('button', { type: 'button', onClick: download, style: { marginTop: '0.8rem', padding: '0.45rem 0.9rem', borderRadius: '7px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)',
-              background: 'transparent', color: th.accent || '#8b7cff', border: '1px solid ' + border } }, __('kapCsv', 'Download as CSV'))));
+                return e('tr', { key: r.form + r.line, 'data-kap-line': r.form + ':' + r.line },
+                  e('td', { className: 'is-left' }, 'Anlage ' + r.form),
+                  e('td', { className: 'is-left' }, r.line),
+                  e('td', { className: ['is-left', 'is-dim', 'is-wrap'].join(' ') }, r.label),
+                  e('td', null, money(r.amount)));
+              })))),
+            e('div', { className: 'ui-actions' }, e(UIC.Button, { onClick: download }, __('kapCsv', 'Download as CSV')))));
   }
 
   var api = { KEY: KEY, map: map, toCSV: toCSV, loadForeign: loadForeign, saveForeign: saveForeign, Panel: Panel };

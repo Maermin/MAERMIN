@@ -14,6 +14,7 @@ globalThis.localStorage = { _d: {}, getItem(k) { return Object.prototype.hasOwnP
 const _log = console.log; console.log = () => {};
 window.MaerminI18n = require('../i18n.js');
 window.MaerminUtils = require('../utils.js');
+window.MaerminComponents = require('../renderer-components.js').Components; // R4.6: the calendar renders the shared components
 require('../features2.js');
 console.log = _log;
 

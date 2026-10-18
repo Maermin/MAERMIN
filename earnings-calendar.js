@@ -95,36 +95,29 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return function () { alive = false; };
     }, [workerUrl, symbols.join(',')]);
 
-    var card = function (children) {
-      return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } }, children);
+    // R4.6: Card with the sample badge as its action, the shared rows
+    var UIC = window.MaerminComponents;
+    var card = function (body) {
+      return h(UIC.Card, { className: 'ui-ec', headingLevel: 'h3', title: __('ecTitle', 'Earnings Calendar'),
+        action: window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, th, workerUrl) : null }, body);
     };
-    var title = h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.75rem' } }, __('ecTitle', 'Earnings Calendar'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, th, workerUrl));
+    var note = function (msg, err) { return h('p', { className: err ? ['ui-muted', 'is-error'].join(' ') : 'ui-muted' }, msg); };
 
-    if (!workerUrl || workerUrl.length < 5) {
-      return card([title, h('div', { key: 'm' }, window.MaerminUtils.workerNote(__('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.')))]);
-    }
-    if (state.unsupported) {
-      return card([title, h('div', { key: 'm', style: { fontSize: 'var(--text-sm)', color: th.textSecondary || '#8b94a7' } }, __('ecUnsupported', 'Your Worker does not support earnings yet. Re-deploy the latest cf-worker/worker.js (action=earnings).'))]);
-    }
-    if (state.loading) return card([title, h('div', { key: 'm', style: { fontSize: 'var(--text-sm)', color: th.textSecondary || '#8b94a7' } }, __('loadingEllipsis', 'Loading…'))]);
-    if (state.error) return card([title, h('div', { key: 'm', style: { fontSize: 'var(--text-sm)', color: th.danger || '#f87171' } }, state.error)]);
-    if (!state.rows.length) return card([title, h('div', { key: 'm', style: { fontSize: 'var(--text-sm)', color: th.textSecondary || '#8b94a7' } }, __('ecNone', 'No upcoming earnings found for your holdings.'))]);
+    if (!workerUrl || workerUrl.length < 5) return card(window.MaerminUtils.workerNote(__('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.')));
+    if (state.unsupported) return card(note(__('ecUnsupported', 'Your Worker does not support earnings yet. Re-deploy the latest cf-worker/worker.js (action=earnings).')));
+    if (state.loading) return card(note(__('loadingEllipsis', 'Loading…')));
+    if (state.error) return card(note(state.error, true));
+    if (!state.rows.length) return card(note(__('ecNone', 'No upcoming earnings found for your holdings.')));
 
-    return card([
-      title,
-      h('div', { key: 'list', role: 'list' }, state.rows.slice(0, 20).map(function (r) {
-        return h('div', { key: r.symbol, role: 'listitem', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', borderBottom: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.05)') } },
-          h('div', null,
-            h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, r.symbol),
-            h('div', { style: { fontSize: 'var(--text-xs)', color: th.textSecondary || '#8b94a7' } }, r.epsEstimate != null ? __('ecEstEps', 'Est. EPS {v}', { v: window.MaerminI18n.num(r.epsEstimate, 2) }) : (r.name || ''))
-          ),
-          h('div', { style: { textAlign: 'right' } },
-            h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, window.MaerminI18n.date(r.earningsDate) + (r.isEstimate ? ' ' + __('ecEst', '(est.)') : '')),
-            h('div', { style: { fontSize: 'var(--text-xs)', color: th.accent || '#8b7cff' } }, __('ecInDays', 'in {n} {n:day|days}', { n: r.daysUntil }))
-          )
-        );
-      }))
-    ]);
+    return card(h('ul', { className: 'ui-rows' }, state.rows.slice(0, 20).map(function (r) {
+      return h('li', { key: r.symbol, className: 'ui-rows__row' },
+        h('div', { className: 'ui-rows__main' },
+          h('b', null, r.symbol),
+          h('span', null, r.epsEstimate != null ? __('ecEstEps', 'Est. EPS {v}', { v: window.MaerminI18n.num(r.epsEstimate, 2) }) : (r.name || ''))),
+        h('div', { className: 'ui-rows__side' },
+          h('b', { className: 'num' }, window.MaerminI18n.date(r.earningsDate) + (r.isEstimate ? ' ' + __('ecEst', '(est.)') : '')),
+          h('span', null, __('ecInDays', 'in {n} {n:day|days}', { n: r.daysUntil }))));
+    })));
   }
 
   var api = { parseResponse: parseResponse, buildCalendar: buildCalendar, Panel: Panel };

@@ -2899,3 +2899,138 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-tax__note { margin: 0 var(--space-4); }
   .ui-ra-icon { display: none; }
 }
+/* ============================================================================
+   R4.6 part 2 (PLAN Phase 6): dividend panels (calendar, forecast, history,
+   quality, yield on cost, earnings) and the tax tabs with their panels.
+   ========================================================================== */
+.ui-rows__side b { color: var(--text); }
+.ui-rows__side b.tone-income, .ui-rows__row b.tone-income { color: var(--income); }
+.ui-rows__side b.tone-warning { color: var(--warning); }
+.ui-rows__row > b.tone-gain { color: var(--gain); } .ui-rows__row > b.tone-loss { color: var(--loss); } .ui-rows__row > b.tone-warning { color: var(--warning); }
+.ui-table td.is-dim, .ui-table th.is-dim { color: var(--text-dim); }
+.ui-table td.is-wrap, .ui-table th.is-wrap { white-space: normal; }
+.ui-table td.tone-gain { color: var(--gain); } .ui-table td.tone-loss { color: var(--loss); } .ui-table td.tone-warning { color: var(--warning); } .ui-table td.tone-income { color: var(--income); }
+.ui-table td .tone-gain { color: var(--gain); } .ui-table td .tone-loss { color: var(--loss); }
+.ui-table--tall td, .ui-table--tall th { height: auto; padding-top: var(--space-2); padding-bottom: var(--space-2); vertical-align: top; }
+.ui-table th.is-current { color: var(--text); }
+.ui-tcell__sub { display: block; color: var(--text-dim); font-size: var(--type-caption); font-weight: 400; white-space: normal; }
+.ui-tcell__sub.tone-warning { color: var(--warning); }
+.ui-dh-total th, .ui-dh-total td { border-top: 2px solid var(--border-strong); font-weight: 700; }
+.ui-div-extra { padding: 0 var(--space-7) var(--space-5); display: flex; flex-direction: column; gap: var(--space-5); max-width: 1400px; }
+
+/* dividend calendar */
+.ui-dc { display: flex; flex-direction: column; gap: var(--space-5); }
+.ui-dc-card .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-dc-nav { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-dc-nav__month { min-width: 6.5rem; text-align: center; color: var(--text); font-weight: 600; font-size: var(--type-body); }
+.ui-dcal { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.ui-dcal__head, .ui-dcal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.ui-dcal__head div { padding: var(--space-2); text-align: center; color: var(--text-dim); font-size: var(--type-caption); font-weight: 600; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.ui-dcal__day { min-height: 72px; padding: var(--space-1); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-width: 0; }
+.ui-dcal__day:nth-child(7n) { border-right: 0; }
+.ui-dcal__day.is-blank { background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+.ui-dcal__day.is-today { background: var(--accent-soft); }
+.ui-dcal__num { font-size: var(--type-caption); color: var(--text); margin-bottom: 2px; }
+.ui-dcal__day.is-today .ui-dcal__num { font-weight: 700; }
+.ui-dcal__ev { font-size: 11px; font-weight: 600; padding: 2px 4px; margin-bottom: 2px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 2px solid transparent; }
+.ui-dcal__ev[data-kind="derived"] { background: color-mix(in srgb, var(--income) 14%, var(--surface)); color: var(--text); border-left-color: var(--income); }
+.ui-dcal__ev[data-kind="manual"] { background: color-mix(in srgb, var(--gain) 14%, var(--surface)); color: var(--text); cursor: pointer; }
+.ui-dcal__ev[data-kind="past"] { background: var(--surface-2); color: var(--text-dim); border-left-color: var(--border-strong); }
+.ui-dcal__ev:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ui-dcal__legend { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--type-caption); color: var(--text-dim); }
+.ui-dcal__legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ui-dcal__key { width: 12px; height: 12px; border-radius: 3px; border-left: 2px solid transparent; }
+.ui-dcal__key[data-kind="derived"] { background: color-mix(in srgb, var(--income) 30%, var(--surface)); border-left-color: var(--income); }
+.ui-dcal__key[data-kind="manual"] { background: color-mix(in srgb, var(--gain) 30%, var(--surface)); }
+.ui-dcal__key[data-kind="past"] { background: var(--surface-2); border-left-color: var(--border-strong); }
+
+/* dividend forecast and history */
+.ui-df, .ui-dh { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.ui-df-scroll { overflow-x: auto; max-width: 100%; }
+.ui-df-bars { display: flex; gap: var(--space-1); align-items: flex-end; height: 140px; }
+.ui-df-bar { flex: 0 0 32px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; padding: 0 0 2px; border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer; font: inherit; }
+.ui-df-bar:hover, .ui-df-bar.is-on { background: var(--accent-soft); }
+.ui-df-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ui-df-bar__fill { width: 100%; border-radius: 3px 3px 0 0; background: var(--chart-1); }
+.ui-df-bar.is-later .ui-df-bar__fill { background: color-mix(in srgb, var(--chart-1) 60%, var(--surface)); }
+.ui-df-bar.is-on .ui-df-bar__fill { background: var(--accent-fill); }
+.ui-df-bar__m { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.ui-df-bar.is-on .ui-df-bar__m { color: var(--text); font-weight: 700; }
+.ui-df-bar__y { font-size: 10px; color: var(--text-dim); }
+.ui-df-detail { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.ui-df-detail__head { display: flex; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); color: var(--text); }
+.ui-df-detail__head .tone-income { color: var(--income); }
+.ui-df-src { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.ui-df-src b { color: var(--text); }
+.ui-dh-card .ui-card__body, .ui-dq .ui-card__body, .ui-cc .ui-card__body, .ui-ta .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-dh-right { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-dh-bt { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* dividend quality */
+.ui-dq-table tbody tr.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ui-dq-cut { margin-left: var(--space-2); }
+.ui-dq-rating { margin-left: var(--space-1); color: var(--text-dim); font-size: var(--type-caption); font-weight: 400; }
+.ui-dq-detail td { white-space: normal; text-align: left !important; height: auto; padding: var(--space-2) var(--space-3) var(--space-3); color: var(--text-dim); font-size: var(--type-caption); line-height: 1.6; background: var(--surface-2); }
+.ui-dq .ui-verdict { margin: 0; }
+
+/* tax report: toolbar and data checks */
+.ui-tax-report { padding-top: var(--space-4); }
+.ui-tax-report__bar { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end; }
+.ui-tax-report__bar > .ui-field { min-width: 9rem; }
+.ui-tax-report__owner { flex: 1 1 12rem; }
+.ui-tax-report__exports { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
+.ui-dq-issues__summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.ui-dq-issues__list { margin: var(--space-2) 0 0; padding-left: var(--space-5); line-height: 1.6; }
+.ui-dq-issues__list li { margin-bottom: var(--space-1); }
+.ui-dq-issues__act { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: var(--space-2); vertical-align: middle; }
+.ui-dq-issues__act code, .ui-dq-fix code { font-size: 11px; color: var(--text-dim); }
+.ui-dq-fix { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.ui-dq-fix__text { flex: 1 1 260px; min-width: 0; line-height: 1.5; }
+.ui-dq-fix__text code { margin-right: var(--space-2); }
+.ui-dq-fix__hint { display: block; font-size: var(--type-caption); }
+
+/* tax panels */
+.ui-taxp .ui-card__body, .ui-gt .ui-card__body, .ui-gt-settings .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-taxp__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-taxp__form { max-width: 460px; }
+.ui-taxp__sec { padding-top: var(--space-4); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-taxp__sec.ui-form-grid { display: grid; }
+.ui-taxp__box { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-taxp__box .ui-actions { margin-top: 0; }
+.ui-taxp__strong { font-weight: 800; }
+.ui-taxp__fund { justify-content: flex-start; flex-wrap: wrap; }
+.ui-taxp__fund > b:first-child { min-width: 7rem; color: var(--text); }
+.ui-taxp__fund > .ui-btn { margin-left: auto; }
+.ui-taxp__verdict { margin: var(--space-2) 0 0; font-size: var(--type-caption); }
+.ui-taxp .ui-note, .ui-gt .ui-note, .ui-gt-settings .ui-note { margin: 0; }
+.ui-gt-params { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.ui-gt-param { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-dim); font-size: var(--type-caption); }
+.ui-gt-num { width: 7rem; text-align: right; }
+.ui-gt-class { max-width: 22rem; }
+.ui-gt-unit { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-dim); font-size: var(--type-caption); }
+.ui-gt-settings__body { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-gt-settings__body .ui-sublabel { margin: var(--space-2) 0 0; }
+.ui-gt-detail .ui-sublabel, .ui-taxp .ui-sublabel { margin-top: 0; }
+.ui-fsa-row th, .ui-fsa-row td { border-bottom: 0; }
+.ui-fsa-pf td { white-space: normal; text-align: left !important; color: var(--text-dim); font-size: var(--type-caption); }
+.ui-fsa-pf td > span { margin-right: var(--space-2); }
+.ui-fsa-pf .ui-check { margin-right: var(--space-3); font-size: var(--type-caption); }
+.ui-fsa-pf p { margin: var(--space-1) 0 0; }
+.ui-fsa-amount { flex: 0 0 7rem !important; }
+.ui-uc-bar { padding: var(--space-3) 0; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-uc-notes p { margin: 0; color: var(--text-dim); font-size: var(--type-caption); line-height: 1.5; }
+.ui-uc-notes p.tone-loss { color: var(--loss); }
+.ui-uc-amt { width: 9rem; }
+.ui-stm-sof { margin-top: var(--space-3); color: var(--text); font-size: var(--type-body); line-height: 1.6; white-space: pre-wrap; }
+.ui-file { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-tc-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.ui-wht-country { min-width: 11rem; }
+.ui-fifo, .ui-ru, .ui-harvest { padding-top: var(--space-4); }
+
+@media (max-width: 767px) {
+  .ui-div-extra { padding: 0 var(--space-4) var(--space-4); }
+  .ui-dcal__day { min-height: 56px; }
+  .ui-dcal__ev { font-size: 10px; padding: 1px 2px; }
+  .ui-tax-report__exports { margin-left: 0; }
+  .ui-gt-params { width: 100%; }
+}

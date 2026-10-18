@@ -274,68 +274,59 @@
       return r;
     }, [holdings, market.rev, years, props.exchangeRate, props.fxAt]);
 
-    var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
+    // R4.6: Cards, the shared table look (cells keep their data attributes), Stat tiles, Segmented years
+    var UIC = window.MaerminComponents;
     var pct = function (v, dec) { return v === null || v === undefined ? '–' : I.pct(v * 100, dec === undefined ? 1 : dec, true); };
-    var tone = function (v) { return v > 1e-9 ? theme.success : v < -1e-9 ? theme.danger : dim; };
+    var toneCls = function (v) { return v > 1e-9 ? 'tone-gain' : v < -1e-9 ? 'tone-loss' : 'is-dim'; };
     var card = function (testid, title, sub, body, right) {
-      return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
-          e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
-          right || null),
-        body);
+      return e(UIC.Card, { 'data-testid': testid, className: 'ui-dh-card', headingLevel: 'h3', title: title, subtitle: sub, action: right || null }, body);
     };
     var th = function (label, i, left) {
-      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
+      return e('th', { key: i, scope: 'col', className: left ? 'is-sticky' : 'is-right' }, label);
     };
-    var tdS = function (extra) { return Object.assign({ padding: '0.45rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums' }, extra || {}); };
-    var symCell = function (label, bold) { return e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: bold ? 800 : 700, position: 'sticky', left: 0, background: theme.card }) }, label); };
-    var scroll = function (table) { return e('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, table); };
+    var td = function (cls, attrs, content) { return e('td', Object.assign({ className: cls || undefined }, attrs || {}), content); };
+    var symCell = function (label, bold) { return e('th', { scope: 'row', className: ['is-sticky', bold ? 'is-strong' : ''].join(' ').trim() }, label); };
+    var table = function (head, body) {
+      return e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') }, e('thead', null, e('tr', null, head)), e('tbody', null, body)));
+    };
     var basisNote = basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.');
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
+    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
 
     // ---- matrix ----
     var yearsDesc = mx.years.slice().reverse();
     var matrixBody = !mx.rows.length
       ? muted(__('dhEmpty', 'No dividends recorded yet. Book received dividends (or import them) to see them by year.'))
-      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
-          e('thead', null, e('tr', null, [th(__('dhSecurity', 'Security'), 's', true)].concat(yearsDesc.map(function (y) { return th(String(y), y); }), [th(__('dhTotal', 'Total'), 't')]))),
-          e('tbody', null,
-            mx.rows.map(function (r) {
-              return e('tr', { key: r.sym, 'data-sym': r.sym }, symCell(r.sym),
-                yearsDesc.map(function (y) { var v = r.byYear[y] || 0; return e('td', { key: y, 'data-y': y, 'data-v': v, style: tdS({ color: v > 0 ? text : dim }) }, v > 0 ? fmt(v) : '–'); }),
-                e('td', { 'data-total': r.total, style: tdS({ color: text, fontWeight: 700 }) }, fmt(r.total)));
-            }),
-            e('tr', { key: '__total', 'data-row': 'total' }, symCell(__('dhTotal', 'Total'), true),
-              yearsDesc.map(function (y) { return e('td', { key: y, 'data-y': y, 'data-v': mx.totals[y], style: tdS({ color: theme.success, fontWeight: 800 }) }, fmt(mx.totals[y])); }),
-              e('td', { 'data-total': mx.grand, style: tdS({ color: theme.success, fontWeight: 800 }) }, fmt(mx.grand))))));
+      : table([th(__('dhSecurity', 'Security'), 's', true)].concat(yearsDesc.map(function (y) { return th(String(y), y); }), [th(__('dhTotal', 'Total'), 't')]),
+          mx.rows.map(function (r) {
+            return e('tr', { key: r.sym, 'data-sym': r.sym }, symCell(r.sym),
+              yearsDesc.map(function (y) { var v = r.byYear[y] || 0; return td(v > 0 ? '' : 'is-dim', { key: y, 'data-y': y, 'data-v': v }, v > 0 ? fmt(v) : '–'); }),
+              td('is-strong', { 'data-total': r.total }, fmt(r.total)));
+          }).concat([
+            e('tr', { key: '__total', 'data-row': 'total', className: 'ui-dh-total' }, symCell(__('dhTotal', 'Total'), true),
+              yearsDesc.map(function (y) { return td(['is-strong', 'tone-income'].join(' '), { key: y, 'data-y': y, 'data-v': mx.totals[y] }, fmt(mx.totals[y])); }),
+              td(['is-strong', 'tone-income'].join(' '), { 'data-total': mx.grand }, fmt(mx.grand)))]));
 
     // ---- growth ----
     var payers = gr.payers.slice().sort(function (a, b) { return a.sym < b.sym ? -1 : 1; });
     var dv = function (v) { return v === null || v === undefined ? '' : v; };
     var growthBody = !payers.length
       ? muted(__('dhGrowthEmpty', 'Growth needs dividends booked with shares and an amount per share.'))
-      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
-          e('thead', null, e('tr', null, th(__('dhSecurity', 'Security'), 0, true), th(__('dhLastPayment', 'Last payment'), 1), th(__('dhPerShare', 'Per share'), 2), th(__('dhYoy', 'vs. a year before'), 3), th(__('dhCagr', 'CAGR {n}Y', { n: 3 }), 4), th(__('dhCagr', 'CAGR {n}Y', { n: 5 }), 5))),
-          e('tbody', null, payers.map(function (p) {
+      : table([th(__('dhSecurity', 'Security'), 0, true), th(__('dhLastPayment', 'Last payment'), 1), th(__('dhPerShare', 'Per share'), 2), th(__('dhYoy', 'vs. a year before'), 3), th(__('dhCagr', 'CAGR {n}Y', { n: 3 }), 4), th(__('dhCagr', 'CAGR {n}Y', { n: 5 }), 5)],
+          payers.map(function (p) {
             var l = p.last || {};
             return e('tr', { key: p.sym, 'data-sym': p.sym }, symCell(p.sym),
-              e('td', { style: tdS({ color: dim }) }, l.date ? I.date(l.date) : '–'),
-              e('td', { style: tdS({ color: text }) }, l.dps ? I.num(l.dps, 4) : '–'),
-              e('td', { 'data-k': 'yoy', 'data-v': dv(l.yoy), style: tdS({ color: tone(l.yoy || 0), fontWeight: 600 }) }, pct(l.yoy)),
-              e('td', { 'data-k': 'cagr3', 'data-v': dv(p.cagr3), style: tdS({ color: tone(p.cagr3 || 0) }) }, pct(p.cagr3)),
-              e('td', { 'data-k': 'cagr5', 'data-v': dv(p.cagr5), style: tdS({ color: tone(p.cagr5 || 0) }) }, pct(p.cagr5)));
-          }))));
+              td('is-dim', null, l.date ? I.date(l.date) : '–'),
+              td('', null, l.dps ? I.num(l.dps, 4) : '–'),
+              td([toneCls(l.yoy || 0), 'is-strong'].join(' '), { 'data-k': 'yoy', 'data-v': dv(l.yoy) }, pct(l.yoy)),
+              td(toneCls(p.cagr3 || 0), { 'data-k': 'cagr3', 'data-v': dv(p.cagr3) }, pct(p.cagr3)),
+              td(toneCls(p.cagr5 || 0), { 'data-k': 'cagr5', 'data-v': dv(p.cagr5) }, pct(p.cagr5)));
+          }));
 
     // ---- backtest ----
-    var yrBtn = function (n) {
-      return e('button', { key: n, type: 'button', 'data-testid': 'bt-years-' + n, 'aria-pressed': years === n, onClick: function () { setYears(n); },
-        style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: years === n ? 700 : 500,
-          background: years === n ? (theme.accentFill || theme.accent) : 'transparent', color: years === n ? 'var(--on-accent)' : dim } }, __('dhYears', '{n} years', { n: n }));
-    };
     var DFX = window.MaerminDemoFixtures;
-    var btRight = e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } }, DFX && DFX.badge ? DFX.badge(React, theme, workerUrl) : null, e('div', { role: 'group', 'aria-label': __('dhBacktestPeriod', 'Backtest period'), style: { display: 'flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem' } }, [5, 10].map(yrBtn)));
+    var btRight = e('div', { className: 'ui-dh-right' }, DFX && DFX.badge ? DFX.badge(React, theme, workerUrl) : null,
+      e(UIC.Segmented, { size: 'sm', label: __('dhBacktestPeriod', 'Backtest period'), value: years, onChange: setYears,
+        options: [5, 10].map(function (n) { return { value: n, label: __('dhYears', '{n} years', { n: n }), attrs: { 'data-testid': 'bt-years-' + n } }; }) }));
     var btBody;
     if (!holdings.length) btBody = muted(__('dhBtNoHoldings', 'No stock or ETF holdings to test.'));
     else if (!workerUrl) btBody = window.MaerminUtils.workerNote(__('dhBtNeedWorker', 'The past dividends and prices of your holdings are loaded through your Worker - add its URL in API Settings.'));
@@ -345,31 +336,24 @@
       : __('dhBtNone', 'No past dividends or prices found for your holdings.'));
     else {
       var lastY = bt.years[bt.years.length - 1];
-      var stat = function (k) {
-        return e('div', { key: k[3], 'data-stat': k[3], style: { background: theme.inputBg, borderRadius: '10px', padding: '0.6rem 0.75rem' } },
-          e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, k[0]),
-          e('div', { style: { color: k[2], fontWeight: 800, fontSize: 'var(--text-body)', marginTop: '0.15rem' } }, k[1]));
-      };
-      btBody = e('div', null,
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem', marginBottom: '0.8rem' } },
-          [[__('dhBtIncome', 'Income {y}', { y: lastY.y }), fmt(lastY.income) + ' ' + cur, text, 'income'],
-           [__('dhBtYield', 'Yield {y}', { y: lastY.y }), lastY.yield === null ? '–' : I.pct(lastY.yield * 100, 2), text, 'yield'],
-           [__('dhBtCagr', 'Growth p.a.'), pct(bt.cagr), tone(bt.cagr || 0), 'cagr']].map(stat)),
-        scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
-          e('thead', null, e('tr', null, th(__('dhYear', 'Year'), 0, true), th(__('dhBtIncomeCol', 'Income'), 1), th(__('dhBtStartValue', 'Value at start'), 2), th(__('dhBtYieldCol', 'Yield'), 3), th(__('dhYoy', 'vs. a year before'), 4))),
-          e('tbody', null, bt.years.slice().reverse().map(function (r) {
+      btBody = e('div', { className: 'ui-dh-bt' },
+        e('div', { className: 'ui-tiles' },
+          e(UIC.Stat, { 'data-stat': 'income', className: 'ui-tile', label: __('dhBtIncome', 'Income {y}', { y: lastY.y }), value: fmt(lastY.income) + ' ' + cur }),
+          e(UIC.Stat, { 'data-stat': 'yield', className: 'ui-tile', label: __('dhBtYield', 'Yield {y}', { y: lastY.y }), value: lastY.yield === null ? '–' : I.pct(lastY.yield * 100, 2) }),
+          e(UIC.Stat, { 'data-stat': 'cagr', className: 'ui-tile', label: __('dhBtCagr', 'Growth p.a.'), value: pct(bt.cagr), tone: bt.cagr ? UIC.toneOf(bt.cagr) : null })),
+        table([th(__('dhYear', 'Year'), 0, true), th(__('dhBtIncomeCol', 'Income'), 1), th(__('dhBtStartValue', 'Value at start'), 2), th(__('dhBtYieldCol', 'Yield'), 3), th(__('dhYoy', 'vs. a year before'), 4)],
+          bt.years.slice().reverse().map(function (r) {
             return e('tr', { key: r.y, 'data-y': r.y }, symCell(String(r.y)),
-              e('td', { 'data-k': 'income', 'data-v': r.income, style: tdS({ color: text, fontWeight: 600 }) }, fmt(r.income) + ' ' + cur),
-              e('td', { style: tdS({ color: dim }) }, r.startValue === null ? '–' : fmt(r.startValue) + ' ' + cur),
-              e('td', { 'data-k': 'yield', style: tdS({ color: text }) }, r.yield === null ? '–' : I.pct(r.yield * 100, 2)),
-              e('td', { 'data-k': 'growth', style: tdS({ color: tone(r.growth || 0) }) }, pct(r.growth)));
-          })))),
-        bt.missing.length > 0 && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } }, __('dhBtMissing', 'Not included (no market history): {list}.', { list: bt.missing.join(', ') })));
+              td('is-strong', { 'data-k': 'income', 'data-v': r.income }, fmt(r.income) + ' ' + cur),
+              td('is-dim', null, r.startValue === null ? '–' : fmt(r.startValue) + ' ' + cur),
+              td('', { 'data-k': 'yield' }, r.yield === null ? '–' : I.pct(r.yield * 100, 2)),
+              td(toneCls(r.growth || 0), { 'data-k': 'growth' }, pct(r.growth)));
+          })),
+        bt.missing.length > 0 && e('p', { className: 'ui-note' }, __('dhBtMissing', 'Not included (no market history): {list}.', { list: bt.missing.join(', ') })));
     }
 
-    return e('div', { style: { padding: '1.5rem' }, 'data-testid': 'dividend-history' },
-      e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.25rem' } }, __('dhTitle', 'Dividend history')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1.25rem' } }, __('dhSubtitle', 'Your dividends by security and year, their growth, and what today\'s holdings would have paid in past years.')),
+    return e('div', { className: 'ui-dh', 'data-testid': 'dividend-history' },
+      e('p', { className: 'ui-view__lead' }, __('dhSubtitle', 'Your dividends by security and year, their growth, and what today\'s holdings would have paid in past years.')),
       card('div-matrix', __('dhMatrixTitle', 'Dividends by security and year'), __('dhMatrixSub', 'In {cur}, since your first dividend.', { cur: cur }) + ' ' + basisNote, matrixBody),
       card('div-growth', __('dhGrowthTitle', 'Dividend growth'), __('dhGrowthSub', 'Per share, before tax: each payer\'s latest payment against the one a year before, and the growth per year over the last 3 and 5 complete years.'), growthBody),
       card('div-backtest', __('dhBtTitle', 'Backtest of today\'s holdings'), __('dhBtSub', 'Your current shares as if held through each past year: the dividends they would have paid (before tax) and the yield on their value at the start of the year. Market data through your Worker; only symbols are sent.'), btBody, btRight));

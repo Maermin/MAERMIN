@@ -3273,12 +3273,13 @@ function InvestmentTracker() {
         jurisdiction: taxJurisdiction, exchangeRate, fxAt, settings: TSm && TSm.load ? TSm.load() : undefined
       }) : { available: false, rows: [] };
       const sym = getCurrencySymbol();
-      const sumCard = (label, value, color) => React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem' } },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
-        React.createElement('div', { style: { color, fontSize: 'var(--text-title-lg)', fontWeight: 800 } }, `${formatPrice(value)} ${sym}`));
-      return React.createElement('div', { style: { padding: '1.5rem' } },
-        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
+      // R4.6: the view layout, answer tiles, holdings on the shared rows; a loss carries its sign and ▼
+      const UICh = window.MaerminComponents;
+      const neg = (v) => '−' + formatPrice(Math.abs(v)) + ' ' + sym;
+      const sumCard = (label, value, tone) => React.createElement(UICh.Card, { variant: 'answer', className: 'ui-ov-tile' },
+        React.createElement(UICh.Stat, { label, value, tone }));
+      return React.createElement('div', { className: ['ui-view', 'ui-view--cont', 'ui-harvest'].join(' ') },
+        React.createElement('p', { className: 'ui-view__lead' }, taxJurisdiction === 'us'
           ? (t.taxHarvestSubtitleUs || 'Positions at an unrealised loss you could realise to offset gains. Estimated at 24 % for lots held up to a year and 15 % for longer - not tax advice.')
           : taxJurisdiction === 'ch'
             ? __('taxHarvestSubtitleCh', 'Positions at an unrealised loss. In Switzerland private capital gains are tax-free and losses are not deductible, so selling saves no tax.')
@@ -3286,26 +3287,20 @@ function InvestmentTracker() {
             ? __('taxHarvestSubtitleAt', 'Positions at an unrealised loss you could realise to offset this year\'s gains (Austria: losses offset only within the same year). Estimated at 27.5 % - not tax advice.')
             : (t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.')),
         !h.available
-          ? React.createElement('div', { style: { color: theme.textSecondary } }, t.taxHarvestNone || 'No positions are currently at an unrealised loss.')
-          : React.createElement('div', null,
-              React.createElement('div', { style: { display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
-                sumCard(t.taxHarvestTotalLoss || 'Harvestable loss', h.totalLoss, theme.danger),
-                sumCard(t.taxHarvestTotalSavings || 'Est. tax savings', h.totalSavings, theme.success)
-              ),
-              h.rows.map((r, i) =>
-                React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', marginBottom: '0.5rem' } },
-                  React.createElement('div', null,
-                    React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, r.symbol),
-                    r.washSale && React.createElement('span', { style: { marginLeft: '0.5rem', fontSize: 'var(--text-2xs)', padding: '0.1rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--warning) 20%, transparent)', color: theme.warning } }, t.taxHarvestWashSale || 'wash-sale risk')
-                  ),
-                  React.createElement('div', { style: { textAlign: 'right' } },
-                    React.createElement('div', { style: { color: theme.danger, fontWeight: 700 } }, `${formatPrice(r.unrealizedLoss)} ${sym}`),
-                    !r.washSale && React.createElement('div', { style: { color: theme.success, fontSize: 'var(--text-xs)' } }, `${t.taxHarvestSaves || 'saves'} ~${formatPrice(r.taxSavings)} ${sym}`)
-                  )
-                )
-              )
-            )
-      );
+          ? React.createElement(UICh.EmptyState, { title: t.taxHarvestTitle || 'Tax-loss harvesting', text: t.taxHarvestNone || 'No positions are currently at an unrealised loss.' })
+          : React.createElement(React.Fragment, null,
+              React.createElement('div', { className: 'ui-ov-tiles' },
+                sumCard(t.taxHarvestTotalLoss || 'Harvestable loss', '▼ ' + neg(h.totalLoss), 'loss'),
+                sumCard(t.taxHarvestTotalSavings || 'Est. tax savings', `${formatPrice(h.totalSavings)} ${sym}`, null)),
+              React.createElement(UICh.Card, { headingLevel: 'h3', title: t.taxHarvestTitle || 'Tax-loss harvesting' },
+                React.createElement('ul', { className: 'ui-rows' }, h.rows.map((r, i) =>
+                  React.createElement('li', { key: i, className: 'ui-rows__row' },
+                    React.createElement('div', { className: 'ui-df-src' },
+                      React.createElement('b', null, r.symbol),
+                      r.washSale && React.createElement(UICh.Badge, { tone: 'warning' }, t.taxHarvestWashSale || 'wash-sale risk')),
+                    React.createElement('div', { className: 'ui-rows__side' },
+                      React.createElement('b', { className: 'tone-loss' }, '▼ ' + neg(r.unrealizedLoss)),
+                      !r.washSale && React.createElement('span', null, `${t.taxHarvestSaves || 'saves'} ~${formatPrice(r.taxSavings)} ${sym}`))))))));
     };
 
     // Phase 6 B-7: the answer first - estimated tax for the selected year, the
@@ -3689,7 +3684,7 @@ function InvestmentTracker() {
           }),
           // Yield-on-cost + DRIP (WI-6): per-payer YoC over FIFO cost basis.
           window.MaerminDividendYoc && window.MaerminDividendYoc.Panel &&
-            React.createElement('div', { style: { padding: '0 1.5rem' } },
+            React.createElement('div', { className: 'ui-div-extra' },
               React.createElement(window.MaerminDividendYoc.Panel, {
                 portfolio, prices, transactions: activeTransactions, exchangeRate, fxAt,
                 theme: currentTheme, t, formatPrice, getCurrencySymbol
@@ -3697,7 +3692,7 @@ function InvestmentTracker() {
           // Earnings calendar for held stocks (read-only, gated like Discovery).
           // VIS-010: in the same content column as the cards above.
           window.MaerminEarnings && window.MaerminEarnings.Panel &&
-            React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            React.createElement('div', { className: 'ui-div-extra' },
               React.createElement(window.MaerminEarnings.Panel, {
                 theme: currentTheme,
                 workerUrl: viewWorkerUrl,
@@ -4739,21 +4734,20 @@ function InvestmentTracker() {
         ? __('issueNoDayRate', "{cur} (e.g. {eg}): no {cur} rate for the trade date (not loaded through the Worker yet, or the rate history does not reach that date) - today's rate is used.", { cur: i.currency, eg })
         : __('issueTodayOnly', "{cur} (e.g. {eg}): converted at today's rate for every date - there is no daily history for this currency.", { cur: i.currency, eg });
     };
+    // R4.6: a callout (warning tone when a finding affects cost basis or tax), quiet action buttons
     return React.createElement('details', {
-      'data-testid': 'ledger-issues',
-      style: { background: warnings ? 'color-mix(in srgb, var(--warning) 8%, transparent)' : currentTheme.inputBg, border: `1px solid ${warnings ? 'color-mix(in srgb, var(--warning) 35%, transparent)' : currentTheme.inputBorder}`, borderRadius: '10px', padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text }
+      'data-testid': 'ledger-issues', className: ['ui-callout', 'ui-dq-issues', warnings ? 'ui-callout--warn' : ''].join(' ').trim()
     },
-      React.createElement('summary', { style: { cursor: 'pointer', fontWeight: 700 } },
+      React.createElement('summary', { className: 'ui-dq-issues__summary' },
         __('issueSummary', 'Data check: {n} {n:issue|issues}', { n: ledgerIssues.length }) + (warnings ? ' ' + __('issueSummaryWarn', '({n} affect cost basis or tax)', { n: warnings }) : '')),
-      React.createElement('ul', { style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6, color: currentTheme.textSecondary } },
+      React.createElement('ul', { className: 'ui-dq-issues__list' },
         ledgerIssues.slice(0, 20).map((i, k) => {
           // P4-6: stable code + one action per finding
           const c = DC ? DC.classify(i, { hasWorker, hasHistory: (cur) => !!(window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(cur)) }) : null;
-          return React.createElement('li', { key: k, 'data-dq-code': c ? c.code : undefined, style: { marginBottom: '0.35rem' } }, line(i),
-            c && React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', flexWrap: 'wrap', verticalAlign: 'middle' } },
-              React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary } }, c.code),
-              React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, 'aria-label': DC.actionLabel(c.action) || c.code, onClick: () => runDataAction(c.action),
-                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x55)}` } },
+          return React.createElement('li', { key: k, 'data-dq-code': c ? c.code : undefined }, line(i),
+            c && React.createElement('span', { className: 'ui-dq-issues__act' },
+              React.createElement('code', null, c.code),
+              React.createElement(window.MaerminComponents.Button, { size: 'sm', variant: 'quiet', 'data-dq-action': c.action.type, 'aria-label': DC.actionLabel(c.action) || c.code, onClick: () => runDataAction(c.action) },
                 DC.actionLabel(c.action))));
         }),
         ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: ledgerIssues.length - 20 }))));
@@ -4803,17 +4797,15 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'misfiled-skins', 'data-dq-code': DC ? DC.CODES.skinMisfiled : undefined,
-      style: { background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix'].join(' ')
     },
-      React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
-        DC && React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.skinMisfiled),
+      React.createElement('div', { className: 'ui-dq-fix__text' },
+        DC && React.createElement('code', null, DC.CODES.skinMisfiled),
         React.createElement('strong', null, __('skinMisfiled', '{n} CS2 {n:item is|items are} filed as {cat}', { n: found.length, cat: found.some(f => f.category === 'stocks') ? (t.stocks || 'Stocks') : (t.crypto || 'Crypto') })),
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
+        React.createElement('span', { className: 'ui-dq-fix__hint' },
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('skinMisfiledHint', 'they get no price there. Move them to CS2 Skins to get their skin prices.')}`)),
-      React.createElement('button', {
-        onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
-      }, skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
+      React.createElement(window.MaerminComponents.Button, { variant: 'primary', onClick: () => repairMisfiledSkins(found), loading: skinRepairBusy },
+        skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
   };
 
   // DQ-CRYPTO-PAIR: crypto rows imported with the exchange pair as symbol
@@ -4823,17 +4815,14 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'crypto-pairs', 'data-dq-code': DC.CODES.cryptoPair,
-      style: { background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix'].join(' ')
     },
-      React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
-        React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.cryptoPair),
+      React.createElement('div', { className: 'ui-dq-fix__text' },
+        React.createElement('code', null, DC.CODES.cryptoPair),
         React.createElement('strong', null, __('dqCryptoPair', '{n} crypto {n:symbol is|symbols are} an exchange pair', { n: found.length })),
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
+        React.createElement('span', { className: 'ui-dq-fix__hint' },
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('dqCryptoPairHint', 'they get no price. Edit each row: the coin as symbol (e.g. BTC) and the quote as currency (USDT/USDC count as USD).')}`)),
-      React.createElement('button', {
-        onClick: () => setTxSearch(found[0].symbol),
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
-      }, __('dcShowTx', 'Show transactions')));
+      React.createElement(window.MaerminComponents.Button, { variant: 'primary', onClick: () => setTxSearch(found[0].symbol) }, __('dcShowTx', 'Show transactions')));
   };
 
   const renderTransactionsView = () => {
@@ -5085,129 +5074,34 @@ function InvestmentTracker() {
       return Array.from(set).filter(y => y > 1990 && y < 2100).sort((a, b) => b - a);
     })();
 
-    const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
+    // R4.6: the view layout, year / rules / exports on the shared Select and Button, taxpayer fields, Stat tiles
+    const UIC = window.MaerminComponents;
+    const h = React.createElement;
+    const sym = getCurrencySymbol();
 
-    return React.createElement('div', { style: { padding: '1.5rem' } },
+    return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-tax-report'].join(' ') },
       renderMisfiledSkins(),
       renderCryptoPairs(),
       renderLedgerIssues(),
-      React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }
-      },
-        React.createElement('h2', {
-          style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
-        }, t.taxReport || 'Tax Report'),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          React.createElement('select', {
-            value: currentYear, onChange: (e) => setTaxYear(parseInt(e.target.value, 10)),
-            style: inputStyle, title: t.taxYear || 'Tax Year'
-          }, availableYears.map(y => React.createElement('option', { key: y, value: y }, y))),
-          React.createElement('select', {
-            value: taxJurisdiction,
-            onChange: (e) => setTaxJurisdiction(e.target.value),
-            style: inputStyle, 'aria-label': __('taxRulesLabel', 'Tax rules'), title: __('taxRulesLabel', 'Tax rules')
-          },
-            React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
-            React.createElement('option', { value: 'at' }, __('austria', 'Austria')),
-            React.createElement('option', { value: 'ch' }, __('switzerland', 'Switzerland')),
-            React.createElement('option', { value: 'us' }, t.usa || 'USA')
-          ),
-          window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportPDF(r); },
-            style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
-          }, t.exportPdf || 'Export PDF'),
-          window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportExcel(r); },
-            style: { padding: '0.5rem 1rem', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: currentTheme.success, border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
-          }, t.exportExcel || 'Export Excel')
-        )
-      ),
+      h('div', { className: 'ui-tax-report__bar' },
+        h(UIC.Select, { label: t.taxYear || 'Tax Year', value: currentYear, onChange: (e) => setTaxYear(parseInt(e.target.value, 10)),
+          options: availableYears.map(y => ({ value: y, label: String(y) })) }),
+        h(UIC.Select, { label: __('taxRulesLabel', 'Tax rules'), value: taxJurisdiction, onChange: (e) => setTaxJurisdiction(e.target.value),
+          options: [{ value: 'de', label: t.germany || 'Germany' }, { value: 'at', label: __('austria', 'Austria') }, { value: 'ch', label: __('switzerland', 'Switzerland') }, { value: 'us', label: t.usa || 'USA' }] }),
+        h(UIC.Input, { label: __('taxpayerNamePh', 'Taxpayer name (optional)'), value: taxOwner.name || '', fieldClassName: 'ui-tax-report__owner',
+          onChange: (e) => setTaxOwner(o => ({ ...o, name: e.target.value })) }),
+        h(UIC.Input, { label: __('taxIdPh', 'Tax ID (optional)'), value: taxOwner.taxId || '', fieldClassName: 'ui-tax-report__owner',
+          onChange: (e) => setTaxOwner(o => ({ ...o, taxId: e.target.value })) }),
+        window.MaerminTaxReport && h('div', { className: 'ui-tax-report__exports' },
+          h(UIC.Button, { variant: 'primary', onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportPDF(r); } }, t.exportPdf || 'Export PDF'),
+          h(UIC.Button, { onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportExcel(r); } }, t.exportExcel || 'Export Excel'))),
 
-      // Taxpayer details (appear on the exported report).
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
-        React.createElement('input', { placeholder: __('taxpayerNamePh', 'Taxpayer name (optional)'), value: taxOwner.name || '',
-          onChange: (e) => setTaxOwner(o => ({ ...o, name: e.target.value })), style: { ...inputStyle, flex: 1, minWidth: 180 } }),
-        React.createElement('input', { placeholder: __('taxIdPh', 'Tax ID (optional)'), value: taxOwner.taxId || '',
-          onChange: (e) => setTaxOwner(o => ({ ...o, taxId: e.target.value })), style: { ...inputStyle, flex: 1, minWidth: 140 } })
-      ),
-      
-      // Tax stats
-      React.createElement('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
-          marginBottom: '2rem'
-        }
-      },
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.25rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.realizedGains || 'Realized Gains'
-          ),
-          React.createElement('div', {
-            style: {
-              color: taxData.realizedGains >= 0 ? currentTheme.success : currentTheme.danger,
-              fontSize: 'var(--text-xl)',
-              fontWeight: '700'
-            }
-          }, `${formatPrice(taxData.realizedGains)} ${getCurrencySymbol()}`)
-        ),
-        
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.25rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
-            (taxData.labels && taxData.labels.shortTerm) || t.shortTermGains || 'Short-term'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(taxData.shortTerm || 0)} ${getCurrencySymbol()}`
-          )
-        ),
-        
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.25rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
-            (taxData.labels && taxData.labels.longTerm) || t.longTermGains || 'Long-term'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(taxData.longTerm || 0)} ${getCurrencySymbol()}`
-          )
-        ),
-        
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.25rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.taxLiability || 'Est. Tax'
-          ),
-          React.createElement('div', { style: { color: currentTheme.warning, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(taxData.taxLiability || 0)} ${getCurrencySymbol()}`
-          )
-        )
-      ),
+      // Tax stats (the taxpayer details above appear on the exported report)
+      h('div', { className: 'ui-tiles' },
+        h(UIC.Stat, { className: 'ui-tile', label: t.realizedGains || 'Realized Gains', value: `${formatPrice(taxData.realizedGains)} ${sym}` }),
+        h(UIC.Stat, { className: 'ui-tile', label: (taxData.labels && taxData.labels.shortTerm) || t.shortTermGains || 'Short-term', value: `${formatPrice(taxData.shortTerm || 0)} ${sym}` }),
+        h(UIC.Stat, { className: 'ui-tile', label: (taxData.labels && taxData.labels.longTerm) || t.longTermGains || 'Long-term', value: `${formatPrice(taxData.longTerm || 0)} ${sym}` }),
+        h(UIC.Stat, { className: 'ui-tile', label: t.taxLiability || 'Est. Tax', value: `${formatPrice(taxData.taxLiability || 0)} ${sym}`, tone: taxData.taxLiability > 0 ? 'warning' : null })),
 
       // Tax advisor (WI-3): forward-looking crypto Freigrenze countdown +
       // Sparerpauschbetrag headroom + loss-harvesting findings. Estimate only.
@@ -5334,13 +5228,11 @@ function InvestmentTracker() {
         const cb = taxReport && taxReport.summary && taxReport.summary.cashBookings;
         const keys = cb ? ['tax', 'tax_refund', 'fee', 'fee_refund', 'interest_charge'].filter(k => cb[k] > 0) : [];
         if (!keys.length) return null;
-        return React.createElement('div', { 'data-testid': 'tax-cash-bookings', style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.25rem 1.5rem', marginTop: '1rem' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, marginBottom: '0.35rem' } }, __('taxCashTitle', 'Cash bookings {year}', { year: currentYear })),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-            __('taxCashNote', 'For information. Taxes already paid or refunded, stand-alone fees and interest charges you booked. They do not change the tax computed above.')),
-          keys.map(k => React.createElement('div', { key: k, 'data-tax-cash': k, style: { display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.3rem 0', fontSize: 'var(--text-base)', borderTop: `1px solid ${currentTheme.cardBorder}` } },
-            React.createElement('span', { style: { color: currentTheme.textSecondary } }, window.MaerminUtils.txTypeInfo(k, t).label),
-            React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600 } }, privacyMode ? '••••••' : window.MaerminI18n.money(cb[k], 'EUR')))));
+        return React.createElement(window.MaerminComponents.Card, { 'data-testid': 'tax-cash-bookings', headingLevel: 'h3', title: __('taxCashTitle', 'Cash bookings {year}', { year: currentYear }),
+          subtitle: __('taxCashNote', 'For information. Taxes already paid or refunded, stand-alone fees and interest charges you booked. They do not change the tax computed above.') },
+          React.createElement('ul', { className: 'ui-rows' }, keys.map(k => React.createElement('li', { key: k, 'data-tax-cash': k, className: 'ui-rows__row' },
+            React.createElement('span', { className: 'ui-muted' }, window.MaerminUtils.txTypeInfo(k, t).label),
+            React.createElement('b', { className: 'num' }, privacyMode ? '••••••' : window.MaerminI18n.money(cb[k], 'EUR'))))));
       })(),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.

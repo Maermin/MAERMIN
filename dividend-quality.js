@@ -241,10 +241,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.6: Card, Stat tiles, the verdict line, the shared table look with keyboard-openable rows
+    var UIC = window.MaerminComponents;
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return I18N().num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -334,88 +332,82 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
     var health = scorePortfolio(rows.map(function (r) { return { score: r.q.score, cutRisk: r.q.cutRisk, incomeEUR: r.payer.income }; }));
 
-    var ratingColor = { safe: good, moderate: warn, risky: bad, unknown: dim };
+    var ratingTone = { safe: 'gain', moderate: 'warning', risky: 'loss', unknown: null };
     var pctTxt = function (x, digits) { return x == null ? '-' : I18N().pct(x * 100, digits == null ? 0 : digits); };
     var ratingLabel = function (r) { return ({ safe: __('dqlSafe', 'safe'), moderate: __('dqlModerate', 'moderate'), risky: __('dqlRisky', 'risky'), unknown: __('dqUnknownLower', 'unknown'), healthy: __('dqlHealthy', 'healthy'), mixed: __('dqlMixed', 'mixed'), fragile: __('dqlFragile', 'fragile') })[r] || r; };
 
-    function kpi(label, value, color) {
-      return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '130px' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
+    function kpi(label, value, tone) {
+      return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     }
+    var toggle = function (symbol) { setOpen(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c[symbol] = !c[symbol]; return c; }); };
 
     var body;
     if (!payers.length) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
+      body = e('p', { className: 'ui-muted' },
         __('dqlNone', 'No dividend-paying positions detected yet. Quality scoring starts once a holding has dividend data.'));
     } else {
       var parts = [];
-      parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
+      parts.push(e('div', { key: 'kpi', className: 'ui-tiles' },
         kpi(__('dqlHealth', 'Dividend health'), health.available ? (health.score + '/100 (' + ratingLabel(health.label) + ')') : '-',
-          health.available ? (health.score >= 70 ? good : (health.score >= 45 ? warn : bad)) : dim),
+          health.available ? (health.score >= 70 ? 'gain' : (health.score >= 45 ? 'warning' : 'loss')) : null),
         kpi(__('dqlScored', 'Payers scored'), String(rows.filter(function (r) { return r.q.score != null; }).length) + ' / ' + payers.length),
         kpi(__('dqlAtRisk', 'Income at cut risk'), I18N().pct(health.incomeAtRiskPct > 0 ? health.incomeAtRiskPct : 0, 0),
-          health.incomeAtRiskPct > 25 ? bad : (health.incomeAtRiskPct > 0 ? warn : good))));
+          health.incomeAtRiskPct > 25 ? 'loss' : (health.incomeAtRiskPct > 0 ? 'warning' : 'gain'))));
       // P5-1.6: dividend safety in one plain sentence (rules in verdicts.js).
       var VD = typeof window !== 'undefined' ? window.MaerminVerdicts : null;
       var verdict = VD && health.available ? VD.dividendSafety(health.score, health.incomeAtRiskPct) : null;
-      if (verdict) parts.push(e('div', { key: 'verdict', 'data-testid': 'verdict-dividends', 'data-level': verdict.level, style: { color: ({ good: good, warn: warn, bad: bad })[verdict.level] || text, fontSize: 'var(--text-base)', lineHeight: 1.5, marginBottom: '0.9rem' } },
-        verdict.text, e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, ' ' + VD.disclaimer())));
+      if (verdict) parts.push(e('p', { key: 'verdict', 'data-testid': 'verdict-dividends', 'data-level': verdict.level, className: 'ui-verdict' },
+        verdict.text, e('span', { className: 'ui-note' }, ' ' + VD.disclaimer())));
 
       var header = [__('position', 'Position'), __('dqlIncomePa', 'Income p.a.'), __('dqlPayout', 'Payout'), __('dqlStreakCol', 'Streak'), __('dqlGrowth', 'Growth'), __('dqlCoverage', 'Coverage'), __('dqlScore', 'Score')];
-      parts.push(e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      parts.push(e('div', { key: 'table', className: 'ui-table-wrap' },
+        e('table', { className: ['ui-table', 'ui-table--dense', 'ui-dq-table'].join(' ') },
           e('thead', null, e('tr', null, header.map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+            return e('th', { key: h, scope: 'col', className: i === 0 ? 'is-left' : 'is-right' }, h);
           }))),
           e('tbody', null, rows.map(function (r) {
             var p = r.payer, q = r.q, m = q.metrics;
             var isOpen = !!open[p.symbol];
             var mainRow = e('tr', {
-              key: p.symbol,
-              onClick: function () { setOpen(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c[p.symbol] = !c[p.symbol]; return c; }); },
-              style: { borderTop: '1px solid ' + border, cursor: 'pointer' }
+              key: p.symbol, className: 'is-clickable', tabIndex: 0, 'aria-expanded': isOpen,
+              onClick: function () { toggle(p.symbol); },
+              onKeyDown: function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(p.symbol); } }
             },
-              e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
+              e('td', { className: ['is-left', 'is-strong'].join(' ') },
                 p.symbol,
-                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: 'var(--text-3xs)', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: 'var(--text-xs)' } }, fmt(p.income) + ' ' + sym),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.payoutRatio != null && m.payoutRatio > 0.8 ? warn : dim, fontSize: 'var(--text-xs)' } }, pctTxt(m.payoutRatio)),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.growth != null ? (m.growth >= 0 ? good : bad) : dim, fontSize: 'var(--text-xs)' } }, m.growth != null ? I18N().pct(m.growth * 100, 1, true) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, m.coverage != null ? I18N().num(m.coverage, 1) + '×' : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
-                e('span', { style: { color: ratingColor[q.rating], fontWeight: 800, fontSize: 'var(--text-sm)' } },
-                  q.score != null ? String(q.score) : '-'),
-                e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', marginLeft: '0.3rem' } }, ratingLabel(q.rating))));
+                q.cutRisk ? e(UIC.Badge, { tone: 'loss', className: 'ui-dq-cut' }, __('dqlCutRisk', 'CUT RISK')) : null),
+              e('td', null, fmt(p.income) + ' ' + sym),
+              e('td', { className: m.payoutRatio != null && m.payoutRatio > 0.8 ? 'tone-warning' : 'is-dim' }, pctTxt(m.payoutRatio)),
+              e('td', { className: 'is-dim' }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),
+              e('td', { className: m.growth != null ? 'tone-' + UIC.toneOf(m.growth) : 'is-dim' }, m.growth != null ? I18N().pct(m.growth * 100, 1, true) : '-'),
+              e('td', { className: 'is-dim' }, m.coverage != null ? I18N().num(m.coverage, 1) + '×' : '-'),
+              e('td', null,
+                e('b', { className: ratingTone[q.rating] ? 'tone-' + ratingTone[q.rating] : '' }, q.score != null ? String(q.score) : '-'),
+                e('span', { className: 'ui-dq-rating' }, ratingLabel(q.rating))));
             if (!isOpen) return mainRow;
-            var detail = e('tr', { key: p.symbol + '-detail' },
-              e('td', { colSpan: header.length, style: { padding: '0.2rem 0.5rem 0.7rem', background: inputBg } },
-                e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.6 } },
-                  (q.reasons.length ? q.reasons.join(' ') : __('dqlNoFindings', 'No notable findings.')) + ' ' +
-                  (r.hasFundamentals ? __('dqlBasedLive', 'Based on live fundamentals + dividend history.') : __('dqlBasedHistory', 'Based on dividend history only (no fundamentals available).')))));
+            var detail = e('tr', { key: p.symbol + '-detail', className: 'ui-dq-detail' },
+              e('td', { colSpan: header.length },
+                (q.reasons.length ? q.reasons.join(' ') : __('dqlNoFindings', 'No notable findings.')) + ' ' +
+                (r.hasFundamentals ? __('dqlBasedLive', 'Based on live fundamentals + dividend history.') : __('dqlBasedHistory', 'Based on dividend history only (no fundamentals available).'))));
             return [mainRow, detail];
           })))));
 
       if (state.loading) {
-        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('dqlLoading', 'Loading fundamentals...')));
+        parts.push(e('p', { key: 'loading', className: 'ui-note' }, __('dqlLoading', 'Loading fundamentals...')));
       }
       if (state.unsupported) {
-        parts.push(e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        parts.push(e('p', { key: 'unsup', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
           __('dqlUnsupported', 'Your Worker does not support fundamentals yet. Re-deploy the latest cf-worker/worker.js (action=fundamentals) for payout/earnings data; until then scores use dividend history only.')));
       } else if (!workerBase) {
-        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        parts.push(e('p', { key: 'worker', className: 'ui-note' },
           __('dqlNeedWorker', 'Add a Worker URL in API Settings to include payout/earnings data; scores currently use dividend history only.')));
       }
-      parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      parts.push(e('p', { key: 'disc', className: 'ui-note' },
         __('dqlDisclaimer', 'The safety score is a heuristic from payout ratio, growth streak, dividend growth and yield level - higher is safer. Click a row for the reasoning. Not investment advice.')));
-      body = e('div', null, parts);
+      body = parts;
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem 1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.9rem' } }, t.dividendQualityTitle || 'Dividend quality & safety'),
-      body
-    );
+    return e(UIC.Card, { className: 'ui-dq', headingLevel: 'h3', title: t.dividendQualityTitle || 'Dividend quality & safety', 'data-testid': 'dividend-quality' }, body);
   }
 
   var api = {

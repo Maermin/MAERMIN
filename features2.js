@@ -1450,103 +1450,81 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 
   const monthNames = window.MaerminI18n.monthNames('short');
 
-  const inp = (field, placeholder, type='text', opts) =>
-    React.createElement('input', { type, value: form[field], placeholder, ...opts, onChange: e => setForm(p=>({...p,[field]:e.target.value})),
-      style: { flex: 1, padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-base)' }
-    });
+  // R4.6: Card with month IconButtons and the add Button, shared inputs, the grid on tokens, upcoming on shared rows
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
+  const inp = (field, label, type = 'text', opts) =>
+    h(UIC.Input, { key: field, type, label, value: form[field], ...opts, onChange: e => setForm(p => ({ ...p, [field]: e.target.value })) });
+  const shiftMonth = (n) => setViewMonth(p => { const d = new Date(p.year, p.month + n); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const evKind = (e) => e.past ? 'past' : (e.derived ? 'derived' : 'manual');
+  const upcoming = events.filter(e => new Date(e.date) >= today).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
-      React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginTop: '0.25rem' } },
-          `${monthNames[month]} ${year}: ${amt(window.MaerminI18n.money(totalThisMonth, 'EUR'))} · ${__('dcYear', 'Year {y}', { y: year })}: ${amt(window.MaerminI18n.money(totalYear, 'EUR'))}`
+  return h('div', { className: 'ui-dc' },
+    h(UIC.Card, { className: 'ui-dc-card', headingLevel: 'h3', title: (t.dividendCalendar || 'Dividend Calendar'),
+      subtitle: `${monthNames[month]} ${year}: ${amt(window.MaerminI18n.money(totalThisMonth, 'EUR'))} · ${__('dcYear', 'Year {y}', { y: year })}: ${amt(window.MaerminI18n.money(totalYear, 'EUR'))}`,
+      action: h('div', { className: 'ui-dc-nav' },
+        h(UIC.IconButton, { size: 'sm', label: __('dcPrevMonth', 'Previous month'), onClick: () => shiftMonth(-1), icon: h('span', { 'aria-hidden': 'true' }, '←') }),
+        h('span', { className: 'ui-dc-nav__month', 'aria-live': 'polite' }, `${monthNames[month]} ${year}`),
+        h(UIC.IconButton, { size: 'sm', label: __('dcNextMonth', 'Next month'), onClick: () => shiftMonth(1), icon: h('span', { 'aria-hidden': 'true' }, '→') }),
+        h(UIC.Button, { size: 'sm', variant: 'primary', 'aria-expanded': showAdd, onClick: () => setShowAdd(p => !p) }, __('dcAddBtn', '+ Dividend'))) },
+
+      // Add form
+      showAdd && h('div', { className: ['ui-form-grid', 'ui-dc-form'].join(' ') },
+        inp('symbol', __('dcSymbolPh', 'Symbol (e.g. AAPL)')),
+        inp('date', __('date', 'Date'), 'date'),
+        inp('amount', __('amount', 'Amount'), 'number', { step: '0.01' }),
+        inp('withholding', __('dcWhtPh', 'Withholding tax (opt.)'), 'text', { inputMode: 'decimal' }),
+        h(UIC.Select, { label: __('currency', 'Currency'), value: form.currency, onChange: e => setForm(p => ({ ...p, currency: e.target.value })),
+          options: [{ value: 'EUR', label: '€' }, { value: 'USD', label: '$' }] }),
+        inp('notes', __('dcNotePh', 'Note (opt.)')),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'primary', onClick: addEvent }, __('add', 'Add')))),
+
+      // Calendar grid
+      h('div', { className: 'ui-dcal' },
+        h('div', { className: 'ui-dcal__head', 'aria-hidden': 'true' },
+          window.MaerminI18n.weekdayNames('short').map(d => h('div', { key: d }, d))),
+        h('div', { className: 'ui-dcal__grid' },
+          days.map((d, i) => {
+            const evs = d ? dayEvents(d) : [];
+            const isToday = d && today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+            return h('div', { key: i, className: ['ui-dcal__day', d ? '' : 'is-blank', isToday ? 'is-today' : ''].join(' ').trim() },
+              d && h('div', { className: 'ui-dcal__num' }, d),
+              evs.map(e =>
+                h('div', Object.assign({
+                  key: e.id, className: 'ui-dcal__ev', 'data-kind': evKind(e),
+                  title: `${e.symbol}: ${window.MaerminI18n.money(e.amount, e.currency || 'EUR')}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · ' + __('dcProjected', 'projected') : ''}`,
+                  'aria-label': e.derived ? __('dcProjectedAria', 'Projected dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }) : __('dcDeleteAria', 'Delete dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') })
+                }, e.derived ? {} : window.MaerminUtils.clickable(() => {
+                  // In-app confirmation (the native dialog only if MaerminUI is missing).
+                  const ask = (window.MaerminUI && window.MaerminUI.confirm)
+                    ? window.MaerminUI.confirm({ title: __('dcDeleteTitle', 'Delete this dividend?'), message: __('dcDeleteMsg', '{sym} {amount} on {date}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR'), date: window.MaerminI18n.date(e.date) }), confirmLabel: __('delete', 'Delete'), danger: true })
+                    : Promise.resolve(window.confirm(__('dcDeleteTitle', 'Delete this dividend?')));
+                  ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
+                })),
+                `${e.symbol} ${amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))}`)
+              )
+            );
+          })
         )
       ),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
-        React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
-        React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
-      )
-    ),
-
-    // Add form
-    showAdd && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' } },
-      inp('symbol', __('dcSymbolPh', 'Symbol (e.g. AAPL)')),
-      inp('date', __('date', 'Date'), 'date'),
-      inp('amount', __('amount', 'Amount'), 'number', { step: '0.01' }),
-      inp('withholding', __('dcWhtPh', 'Withholding tax (opt.)'), 'text', { inputMode: 'decimal', 'aria-label': __('dcWhtPh', 'Withholding tax (opt.)') }),
-      React.createElement('select', { value: form.currency, onChange: e=>setForm(p=>({...p,currency:e.target.value})), style: { padding: '0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text } },
-        React.createElement('option', { value: 'EUR' }, '€'),
-        React.createElement('option', { value: 'USD' }, '$')
-      ),
-      inp('notes', __('dcNotePh', 'Note (opt.)')),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
-    ),
-
-    // Calendar grid
-    React.createElement('div', { style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, overflow: 'hidden' } },
-      // Weekdays header
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' } },
-        window.MaerminI18n.weekdayNames('short').map(d =>
-          React.createElement('div', { key: d, style: { padding: '0.625rem', textAlign: 'center', color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', borderBottom: `1px solid ${theme.cardBorder}` } }, d)
-        )
-      ),
-      // Days
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' } },
-        days.map((d, i) => {
-          const evs = d ? dayEvents(d) : [];
-          const isToday = d && today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
-          return React.createElement('div', {
-            key: i,
-            style: {
-              minHeight: '70px', padding: '0.375rem', borderRight: i%7<6 ? `1px solid ${theme.cardBorder}` : 'none',
-              borderBottom: `1px solid ${theme.cardBorder}`,
-              background: isToday ? 'rgba(139,124,255,0.08)' : 'transparent'
-            }
-          },
-            d && React.createElement('div', { style: { fontSize: 'var(--text-xs)', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
-            evs.map(e =>
-              React.createElement('div', Object.assign({
-                key: e.id,
-                title: `${e.symbol}: ${window.MaerminI18n.money(e.amount, e.currency || 'EUR')}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · ' + __('dcProjected', 'projected') : ''}`,
-                'aria-label': e.derived ? __('dcProjectedAria', 'Projected dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }) : __('dcDeleteAria', 'Delete dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }),
-                style: {
-                  background: e.past ? 'color-mix(in srgb, var(--text-dim) 12%, transparent)' : (e.derived ? 'color-mix(in srgb, var(--info) 14%, transparent)' : 'color-mix(in srgb, var(--success) 15%, transparent)'),
-                  color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
-                  fontSize: 'var(--text-3xs)', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  cursor: e.derived ? 'default' : 'pointer',
-                  borderLeft: e.past ? '2px solid color-mix(in srgb, var(--text-dim) 50%, transparent)' : (e.derived ? '2px solid color-mix(in srgb, var(--info) 60%, transparent)' : 'none')
-                }
-              }, e.derived ? {} : window.MaerminUtils.clickable(() => {
-                // In-app confirmation (the native dialog only if MaerminUI is missing).
-                const ask = (window.MaerminUI && window.MaerminUI.confirm)
-                  ? window.MaerminUI.confirm({ title: __('dcDeleteTitle', 'Delete this dividend?'), message: __('dcDeleteMsg', '{sym} {amount} on {date}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR'), date: window.MaerminI18n.date(e.date) }), confirmLabel: __('delete', 'Delete'), danger: true })
-                  : Promise.resolve(window.confirm(__('dcDeleteTitle', 'Delete this dividend?')));
-                ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
-              })),
-              `${e.symbol} ${amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))}`)
-            )
-          );
-        })
-      )
+      h('ul', { className: 'ui-dcal__legend' },
+        h('li', null, h('span', { className: 'ui-dcal__key', 'data-kind': 'derived', 'aria-hidden': 'true' }), __('dcProjected', 'projected')),
+        h('li', null, h('span', { className: 'ui-dcal__key', 'data-kind': 'manual', 'aria-hidden': 'true' }), __('dcManual', 'entered by you (select to delete)')),
+        h('li', null, h('span', { className: 'ui-dcal__key', 'data-kind': 'past', 'aria-hidden': 'true' }), __('dcReceived', 'received')))
     ),
 
     // Upcoming list
-    events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).length > 0 &&
-    React.createElement('div', { style: { marginTop: '1rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.5rem' } }, __('dcUpcoming', 'Upcoming dividends')),
-      events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,60).map(e =>
-        React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
-          // R3.5: the holding's name next to its symbol
-          React.createElement('span', { className: 'ui-asset__text', style: { minWidth: '64px', flex: '1 1 40%' } },
-            React.createElement('span', { className: 'ui-asset__name' }, e.symbol),
-            nameOf(e.symbol) ? React.createElement('span', { className: 'ui-asset__sub' }, nameOf(e.symbol)) : null),
-          React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, window.MaerminI18n.date(e.date)),
-          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR')))
+    upcoming.length > 0 && h(UIC.Card, { className: 'ui-dc-up', headingLevel: 'h3', title: __('dcUpcoming', 'Upcoming dividends') },
+      h('ul', { className: 'ui-rows' },
+        upcoming.slice(0, 60).map(e =>
+          h('li', { key: e.id, className: 'ui-rows__row' },
+            // R3.5: the holding's name next to its symbol
+            h('div', { className: 'ui-rows__main' },
+              h('b', null, e.symbol),
+              nameOf(e.symbol) ? h('span', null, nameOf(e.symbol)) : null),
+            h('div', { className: 'ui-rows__side' },
+              h('b', { className: ['num', 'tone-income'].join(' ') }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))),
+              h('span', { className: 'num' }, window.MaerminI18n.date(e.date) + (e.derived ? ' · ' + __('dcProjected', 'projected') : ''))))
         )
       )
     )
