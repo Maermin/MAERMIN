@@ -128,12 +128,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var privacy = !!props.privacyMode;
     var shown = privacy && level === 'full' ? null : level; // Privacy Mode hides a full summary at once
     var text = shown ? build(shown, props) : null;
-    var dim = th.textSecondary, border = th.cardBorder;
+    // R4.6: level choice on Chips, the shared textarea and Button
+    var UIC = window.MaerminComponents;
     function btn(id, label, onClick) {
-      var on = shown === id;
-      return e('button', { type: 'button', 'data-ai-level': id, 'aria-pressed': on, onClick: onClick,
-        style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', minHeight: '32px',
-          background: on ? (th.accentFill || th.accent) : 'transparent', color: on ? 'var(--on-accent)' : th.text, border: '1px solid ' + (on ? 'transparent' : border) } }, label);
+      return e(UIC.Chip, { 'data-ai-level': id, pressed: shown === id, onClick: onClick }, label);
     }
     function askFull() {
       window.MaerminUI.confirm({
@@ -149,23 +147,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       } catch (err) { /* fall through */ }
       setCopied(__('aiCopyFailed', 'Copy did not work - select the text and copy it yourself.'));
     }
-    return e('section', { 'data-testid': 'ai-export', style: { borderTop: '1px solid ' + border, padding: '0.85rem 0' } },
-      e('h3', { style: { color: th.text, fontSize: 'var(--text-md)', fontWeight: 700, margin: '0 0 0.4rem' } }, __('aiTitle', 'Summary for an AI assistant')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.55 } },
+    return e('section', { 'data-testid': 'ai-export', className: 'ui-pv-sec' },
+      e('h3', { className: 'ui-dlg-sec__title' }, __('aiTitle', 'Summary for an AI assistant')),
+      e('p', { className: 'ui-muted' },
         __('aiIntro', 'Builds a text about your portfolio that you can copy and paste into any AI assistant. Nothing is sent from here: the text only leaves this device when you paste it somewhere. Journal notes and API keys are never part of it.')),
-      e('div', { role: 'group', 'aria-label': __('aiLevelAria', 'What the summary contains'), style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' } },
+      e('div', { role: 'group', 'aria-label': __('aiLevelAria', 'What the summary contains'), className: 'ui-actions' },
         btn('redacted', __('aiRedacted', 'Without amounts (percentages only)'), function () { setCopied(''); setLevel('redacted'); }),
         privacy ? null : btn('full', __('aiFull', 'With holdings and amounts…'), askFull)),
-      privacy ? e('p', { 'data-testid': 'ai-privacy-note', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem' } },
+      privacy ? e('p', { 'data-testid': 'ai-privacy-note', className: 'ui-note' },
         __('aiPrivacyOnly', '"Hide amounts" is on, so only the summary without amounts is offered.')) : null,
-      shown && !text ? e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: 0 } }, __('aiEmpty', 'There is nothing to summarise yet: add transactions first.')) : null,
-      text ? e('div', null,
+      shown && !text ? e('p', { className: 'ui-muted' }, __('aiEmpty', 'There is nothing to summarise yet: add transactions first.')) : null,
+      text ? e('div', { className: 'ui-ai-out' },
         e('textarea', { readOnly: true, value: text, 'aria-label': __('aiTextAria', 'Summary text'), 'data-testid': 'ai-text', rows: Math.min(18, text.split('\n').length + 1),
-          onFocus: function (ev) { ev.target.select(); },
-          style: { width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.75rem', background: th.inputBg, color: th.text, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', fontSize: 'var(--text-sm)', fontFamily: 'ui-monospace, Menlo, monospace', lineHeight: 1.5, resize: 'vertical' } }),
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.4rem' } },
-          e('button', { type: 'button', 'data-testid': 'ai-copy', onClick: copy, style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', minHeight: '32px', background: th.accentFill || th.accent, color: 'var(--on-accent)', border: 'none' } }, __('aiCopy', 'Copy text')),
-          copied ? e('span', { role: 'status', style: { color: dim, fontSize: 'var(--text-sm)' } }, copied) : null)) : null);
+          onFocus: function (ev) { ev.target.select(); }, className: ['ui-input', 'ui-textarea'].join(' ') }),
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'ai-copy', onClick: copy }, __('aiCopy', 'Copy text')),
+          copied ? e('span', { role: 'status', className: 'ui-note' }, copied) : null)) : null);
   }
 
   var api = { redactedText: redactedText, positionsOf: positionsOf, fullText: fullText, build: build, Panel: Panel };

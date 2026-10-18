@@ -3347,7 +3347,7 @@ function InvestmentTracker() {
           ].concat(showHarvest ? [{ value: 'harvest', label: t.taxTabHarvest || 'Tax-loss harvesting' }] : [])
         })
       ),
-      window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', style: { margin: '0 1.5rem' } }),
+      window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', className: 'ui-tax__note' }),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, exchangeRate, fxAt, theme, formatPrice, getCurrencySymbol }) : null,
@@ -4536,14 +4536,14 @@ function InvestmentTracker() {
       // panel renders nothing when no option transactions exist.
       // P5-3.9: bonds - terms, manual price, next coupon, accrued interest, yield
       window.MaerminBonds && portfolio && (portfolio.bonds || []).length > 0 &&
-        React.createElement('div', { style: { marginTop: '1.5rem' } },
+        React.createElement('div', { className: 'ui-ov-extra' },
           React.createElement(window.MaerminBonds.Panel, {
             theme: currentTheme, positions: portfolio.bonds, today: window.MaerminUtils.todayISO(),
             formatMoney: (v, cur) => window.MaerminI18n.money(v, cur || 'EUR'), onChange: () => setBondsRev(v => v + 1)
           })
         ),
       window.MaerminOptions && window.MaerminOptions.Panel &&
-        React.createElement('div', { style: { marginTop: '1.5rem' } },
+        React.createElement('div', { className: 'ui-ov-extra' },
           React.createElement(window.MaerminOptions.Panel, {
             transactions: overviewTransactions, prices, exchangeRate,
             theme: currentTheme, t, formatPrice, getCurrencySymbol

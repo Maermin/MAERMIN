@@ -24,8 +24,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var th = props.theme || {};
-    // R4.2: the shared note look (.ui-disclaimer); a caller may still add spacing
-    return React.createElement('div', { role: 'note', 'data-testid': 'disclaimer', 'data-kind': props.kind || 'invest', className: 'ui-disclaimer', style: props.style || undefined },
+    // R4.2: the shared note look (.ui-disclaimer); R4.6: a caller adds spacing by class, not inline
+    return React.createElement('div', { role: 'note', 'data-testid': 'disclaimer', 'data-kind': props.kind || 'invest', className: ['ui-disclaimer', props.className || ''].join(' ').trim() },
       React.createElement('span', { 'aria-hidden': 'true', className: 'ui-disclaimer__mark' }, '!'),
       React.createElement('span', null, disclaimerText(props.kind)));
   }
@@ -61,20 +61,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    return e('div', { 'data-testid': 'privacy-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', maxWidth: '52rem' } },
-      e('h2', { style: { color: text, fontSize: 'var(--text-title)', fontWeight: 800, margin: '0 0 0.4rem' } }, __('pvTitle', 'Privacy')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1rem', lineHeight: 1.55 } },
-        __('pvIntro', 'MAERMIN has no server of its own. Apart from loading the app itself (from GitHub Pages or wherever you host it), this page lists everything that leaves your device and where it goes.')),
+    // R4.6: one Card; sections as dialog-style blocks with the shared text styles
+    var UIC = window.MaerminComponents;
+    // the page header has the title; the intro is the view's lead
+    return e('div', { className: 'ui-view', 'data-testid': 'privacy-view' },
+      e('p', { className: 'ui-view__lead' }, __('pvIntro', 'MAERMIN has no server of its own. Apart from loading the app itself (from GitHub Pages or wherever you host it), this page lists everything that leaves your device and where it goes.')),
+      e(UIC.Card, { className: 'ui-pv' },
       privacySections().map(function (sec, i) {
-        return e('section', { key: i, style: { borderTop: '1px solid ' + border, padding: '0.85rem 0' } },
-          e('h3', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, margin: '0 0 0.4rem' } }, sec[0]),
-          e('ul', { style: { margin: 0, paddingLeft: '1.1rem', color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.6 } },
+        return e('section', { key: i, className: 'ui-pv-sec' },
+          e('h3', { className: 'ui-dlg-sec__title' }, sec[0]),
+          e('ul', { className: 'ui-pv-list' },
             sec[1].map(function (line, j) { return e('li', { key: j }, line); })));
       }),
       // P4-5: copy a summary for an AI assistant (built here, never sent)
       (typeof window !== 'undefined' && window.MaerminAIPrompt) ? e(window.MaerminAIPrompt.Panel, { theme: th, portfolio: props.portfolio, prices: props.prices, transactions: props.transactions, priceHistory: props.priceHistory, privacyMode: props.privacyMode }) : null,
-      e(Disclaimer, { theme: th, kind: 'invest', style: { marginTop: '0.5rem' } }));
+      e(Disclaimer, { theme: th, kind: 'invest' })));
   }
 
   var api = { disclaimerText: disclaimerText, Disclaimer: Disclaimer, privacySections: privacySections, PrivacyView: PrivacyView };

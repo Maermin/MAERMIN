@@ -346,12 +346,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // ---- UI ----------------------------------------------------------------------------
   function R() { return (typeof window !== 'undefined') ? window.React : null; }
-  function themeOf(th) {
-    th = th || {};
-    return { text: th.text || '#e6edf3', dim: th.textSecondary || '#9aa4b2', border: th.cardBorder || 'rgba(255,255,255,0.1)',
-      input: th.inputBg || '#0f172a', inputBorder: th.inputBorder || 'rgba(255,255,255,0.15)', accent: th.accentFill || th.accent || '#3b82f6',
-      warn: th.warning || '#f59e0b', card: th.cardBg || th.card || 'transparent' };
-  }
   function freqLabel(f) {
     return ({ 1: __('bondFreq1', 'yearly'), 2: __('bondFreq2', 'half-yearly'), 4: __('bondFreq4', 'quarterly'), 12: __('bondFreq12', 'monthly') })[f] || String(f);
   }
@@ -363,32 +357,33 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function FormFields(props) {
     var React = R();
     if (!React) return null;
-    var e = React.createElement, c = themeOf(props.theme), form = props.form || {};
+    // R4.6: the shared inputs and buttons
+    var e = React.createElement, UIC = window.MaerminComponents, form = props.form || {};
     var known = termsOf(load(), form.symbol);
-    var inp = { padding: '0.6rem 0.75rem', background: c.input, border: '1px solid ' + c.inputBorder, borderRadius: '8px', color: c.text, fontSize: '0.875rem', minWidth: 0, boxSizing: 'border-box' };
     var set = function (k) { return function (ev) { var o = {}; o[k] = ev.target.value; props.onChange(o); }; };
     var trade = form.type === 'buy' || form.type === 'sell';
-    return e('div', { 'data-testid': 'bond-fields', style: { marginBottom: '1rem' } },
-      e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem', lineHeight: 1.5 } },
+    return e('div', { 'data-testid': 'bond-fields', className: 'ui-bond-fields' },
+      e('p', { className: 'ui-note' },
         __('bondFormHint', 'Quantity = nominal value, price in % of the nominal (e.g. 98.5). Coupons and the redemption at maturity are booked automatically.')),
-      known ? e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem' } },
+      known ? e('p', { className: 'ui-note' },
         __('bondKnownTerms', '{coupon} % {freq}, matures {date}', { coupon: fmtNum(known.coupon, 3), freq: freqLabel(known.frequency), date: fmtDate(known.maturity) }))
-        : e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.6rem' } },
-          e('input', { type: 'text', inputMode: 'decimal', value: form.bondCoupon || '', onChange: set('bondCoupon'), placeholder: __('bondCouponPh', 'Coupon % p.a.'), 'aria-label': __('bondCoupon', 'Coupon (% p.a.)'), 'data-testid': 'bond-coupon', style: inp }),
-          e('select', { value: String(form.bondFrequency || 1), onChange: set('bondFrequency'), 'aria-label': __('bondFrequency', 'Coupon frequency'), style: inp },
-            FREQUENCIES.map(function (f) { return e('option', { key: f, value: String(f) }, freqLabel(f)); })),
-          e('input', { type: 'date', value: form.bondMaturity || '', onChange: set('bondMaturity'), 'aria-label': __('bondMaturity', 'Maturity'), title: __('bondMaturity', 'Maturity'), 'data-testid': 'bond-maturity', style: inp })),
-      trade && e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
-        e('input', { type: 'text', inputMode: 'decimal', value: form.accruedInterest || '', onChange: set('accruedInterest'), 'data-testid': 'bond-accrued',
-          placeholder: __('bondAccruedPh', 'Accrued interest ({cur})', { cur: form.currency || props.currency || 'EUR' }), 'aria-label': __('bondAccrued', 'Accrued interest'), style: Object.assign({ flex: 1 }, inp) }),
-        e('button', { type: 'button', 'data-testid': 'bond-propose', onClick: function () {
-          var v = proposeAccrued(load(), form);
-          if (v != null) props.onChange({ accruedInterest: String(v) });
-        }, style: { padding: '0.6rem 0.8rem', background: c.input, border: '1px solid ' + c.inputBorder, borderRadius: '8px', color: c.text, cursor: 'pointer', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' } },
-          __('bondPropose', 'Calculate'))),
-      trade && e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginTop: '0.35rem' } },
-        form.type === 'buy' ? __('bondAccruedBuy', 'Paid to the seller on top of the price; negative capital income this year.')
-          : __('bondAccruedSell', 'Received from the buyer on top of the price; capital income this year.')));
+        : e('div', { className: 'ui-form-grid' },
+          e(UIC.Input, { type: 'text', inputMode: 'decimal', value: form.bondCoupon || '', onChange: set('bondCoupon'), placeholder: __('bondCouponPh', 'Coupon % p.a.'), label: __('bondCoupon', 'Coupon (% p.a.)'), 'data-testid': 'bond-coupon' }),
+          e(UIC.Select, { value: String(form.bondFrequency || 1), onChange: set('bondFrequency'), label: __('bondFrequency', 'Coupon frequency'),
+            options: FREQUENCIES.map(function (f) { return { value: String(f), label: freqLabel(f) }; }) }),
+          e(UIC.Input, { type: 'date', value: form.bondMaturity || '', onChange: set('bondMaturity'), label: __('bondMaturity', 'Maturity'), 'data-testid': 'bond-maturity' })),
+      trade && e('div', { className: 'ui-field' },
+        e('label', { className: 'ui-field__label', htmlFor: 'bond-accrued' }, __('bondAccrued', 'Accrued interest')),
+        e('div', { className: 'ui-ca-add' },
+          e('input', { id: 'bond-accrued', type: 'text', inputMode: 'decimal', value: form.accruedInterest || '', onChange: set('accruedInterest'), 'data-testid': 'bond-accrued', className: 'ui-input',
+            placeholder: __('bondAccruedPh', 'Accrued interest ({cur})', { cur: form.currency || props.currency || 'EUR' }), 'aria-describedby': 'bond-accrued-msg' }),
+          e(UIC.Button, { 'data-testid': 'bond-propose', onClick: function () {
+            var v = proposeAccrued(load(), form);
+            if (v != null) props.onChange({ accruedInterest: String(v) });
+          } }, __('bondPropose', 'Calculate'))),
+        e('div', { className: 'ui-field__msg', id: 'bond-accrued-msg' },
+          form.type === 'buy' ? __('bondAccruedBuy', 'Paid to the seller on top of the price; negative capital income this year.')
+            : __('bondAccruedSell', 'Received from the buyer on top of the price; capital income this year.'))));
   }
 
   // Bonds section of the Overview. Renders nothing without bond positions.
@@ -400,13 +395,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var st = React.useState(null), editing = st[0], setEditing = st[1];
     var dr = React.useState({}), draft = dr[0], setDraft = dr[1];
     if (!positions.length) return null;
-    var e = React.createElement, c = themeOf(props.theme);
+    // R4.6: a Card with the shared table look; the terms editor opens under its row
+    var e = React.createElement, UIC = window.MaerminComponents;
     var store = load();
     var today = ymd(props.today) || new Date().toISOString().slice(0, 10);
     var money = props.formatMoney || function (v) { return fmtNum(v, 2); };
-    var inp = { padding: '0.45rem 0.6rem', background: c.input, border: '1px solid ' + c.inputBorder, borderRadius: '6px', color: c.text, fontSize: '0.8rem', minWidth: 0, boxSizing: 'border-box' };
-    var cell = { padding: '0.5rem 0.6rem', borderBottom: '1px solid ' + c.border, fontSize: '0.82rem', color: c.text, whiteSpace: 'nowrap' };
-    var head = Object.assign({}, cell, { color: c.dim, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'left' });
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
     var commit = function (next) { save(next); if (props.onChange) props.onChange(); };
     var openTerms = function (sym, bt, name) {
       setEditing(sym);
@@ -421,48 +415,46 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var nextC = bt ? schedule(bt, today, bt.maturity)[0] : null;
       var y = bt && bt.price ? ytm(bt, bt.price, today) : null;
       rows.push(e('tr', { key: sym, 'data-testid': 'bond-row' },
-        e('td', { style: cell }, e('div', { style: { fontWeight: 600 } }, name), e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, sym)),
-        e('td', { style: cell }, fmtNum(nominal, 0)),
-        e('td', { style: cell }, bt ? fmtNum(bt.coupon, 3) + ' % · ' + freqLabel(bt.frequency) : e('span', { style: { color: c.warn } }, __('bondNoTerms', 'Terms missing: no coupons'))),
-        e('td', { style: cell }, bt ? fmtDate(bt.maturity) : '-'),
-        e('td', { style: cell }, nextC ? fmtDate(nextC) + ' · ' + money(couponAmount(bt, nominal, nextC), bt.currency) : '-'),
-        e('td', { style: cell }, bt ? money(accrued(bt, nominal, today), bt.currency) : '-'),
-        e('td', { style: cell }, bt ? e('input', { type: 'text', inputMode: 'decimal', key: sym + '|' + (bt.price || ''), defaultValue: bt.price ? String(bt.price) : '', 'data-testid': 'bond-price',
-          placeholder: '%', 'aria-label': __('bondPriceAria', 'Price of {name} in %', { name: name }), style: Object.assign({ width: '80px' }, inp),
+        e('td', { className: 'is-left' }, e('div', { className: 'ui-bond-name' }, e('b', null, name), e('span', null, sym))),
+        e('td', { className: 'is-right' }, fmtNum(nominal, 0)),
+        e('td', { className: 'is-left' }, bt ? fmtNum(bt.coupon, 3) + ' % · ' + freqLabel(bt.frequency) : e(UIC.Badge, { tone: 'warning' }, __('bondNoTerms', 'Terms missing: no coupons'))),
+        e('td', { className: 'is-left' }, bt ? fmtDate(bt.maturity) : '-'),
+        e('td', { className: 'is-left' }, nextC ? fmtDate(nextC) + ' · ' + money(couponAmount(bt, nominal, nextC), bt.currency) : '-'),
+        e('td', { className: 'is-right' }, bt ? money(accrued(bt, nominal, today), bt.currency) : '-'),
+        e('td', { className: 'is-right' }, bt ? e('input', { type: 'text', inputMode: 'decimal', key: sym + '|' + (bt.price || ''), defaultValue: bt.price ? String(bt.price) : '', 'data-testid': 'bond-price',
+          placeholder: '%', 'aria-label': __('bondPriceAria', 'Price of {name} in %', { name: name }), className: [INPUT, 'ui-input--num', 'ui-bond-price'].join(' '),
           onBlur: function (ev) { var v = ev.target.value; if (String(v) !== String(bt.price || '')) commit(setPrice(load(), sym, v, today)); } }) : '-'),
-        e('td', { style: cell }, y != null ? fmtNum(y * 100, 2) + ' %' : '-'),
-        e('td', { style: cell }, e('button', { type: 'button', 'data-testid': 'bond-terms', onClick: function () { editing === sym ? setEditing(null) : openTerms(sym, bt, name); },
-          style: { padding: '0.35rem 0.65rem', background: 'transparent', border: '1px solid ' + c.inputBorder, borderRadius: '6px', color: c.text, cursor: 'pointer', fontSize: 'var(--text-xs)' } },
+        e('td', { className: 'is-right' }, y != null ? fmtNum(y * 100, 2) + ' %' : '-'),
+        e('td', { className: 'is-right' }, e(UIC.Button, { size: 'sm', variant: 'quiet', 'data-testid': 'bond-terms', 'aria-expanded': editing === sym, onClick: function () { editing === sym ? setEditing(null) : openTerms(sym, bt, name); } },
           bt ? __('bondEditTerms', 'Terms') : __('bondAddTerms', 'Add terms')))));
       if (editing === sym) {
         var setD = function (k) { return function (ev) { var o = Object.assign({}, draft); o[k] = ev.target.value; setDraft(o); }; };
         var valid = cleanTerms({ coupon: parseAmount(draft.coupon), maturity: draft.maturity });
-        rows.push(e('tr', { key: sym + '-edit' }, e('td', { colSpan: 9, style: Object.assign({}, cell, { whiteSpace: 'normal' }) },
-          e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', alignItems: 'end' } },
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondCoupon', 'Coupon (% p.a.)'), e('input', { type: 'text', inputMode: 'decimal', value: draft.coupon, onChange: setD('coupon'), 'data-testid': 'bond-t-coupon', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondFrequency', 'Coupon frequency'), e('select', { value: draft.frequency, onChange: setD('frequency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
-              FREQUENCIES.map(function (f) { return e('option', { key: f, value: String(f) }, freqLabel(f)); }))),
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondMaturity', 'Maturity'), e('input', { type: 'date', value: draft.maturity, onChange: setD('maturity'), 'data-testid': 'bond-t-maturity', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondIssueDate', 'Issue date (optional)'), e('input', { type: 'date', value: draft.issueDate, onChange: setD('issueDate'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondDayCount', 'Day count'), e('select', { value: draft.dayCount, onChange: setD('dayCount'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
-              DAY_COUNTS.map(function (dc) { return e('option', { key: dc, value: dc }, dc === 'act/act' ? __('bondActAct', 'act/act (ICMA)') : dc === '30/360' ? __('bond30360', '30E/360') : dc); }))),
-            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('currency', 'Currency'), e('select', { value: draft.currency, onChange: setD('currency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
-              ['EUR', 'USD', 'CHF', 'GBP'].map(function (cur) { return e('option', { key: cur, value: cur }, cur); }))),
-            e('button', { type: 'button', disabled: !valid, 'data-testid': 'bond-t-save', onClick: function () {
-              commit(setTerms(load(), sym, { name: draft.name, coupon: parseAmount(draft.coupon), frequency: draft.frequency, maturity: draft.maturity, issueDate: draft.issueDate, dayCount: draft.dayCount, currency: draft.currency }));
-              setEditing(null);
-            }, style: { padding: '0.5rem 0.9rem', background: valid ? c.accent : c.input, border: 'none', borderRadius: '8px', color: valid ? 'var(--on-accent)' : c.dim, cursor: valid ? 'pointer' : 'default', fontWeight: 600, fontSize: 'var(--text-sm)' } },
-              __('save', 'Save'))))));
+        rows.push(e('tr', { key: sym + '-edit', className: 'ui-bond-edit' }, e('td', { colSpan: 9 },
+          e('div', { className: 'ui-form-grid' },
+            e(UIC.Input, { type: 'text', inputMode: 'decimal', label: __('bondCoupon', 'Coupon (% p.a.)'), value: draft.coupon, onChange: setD('coupon'), 'data-testid': 'bond-t-coupon' }),
+            e(UIC.Select, { label: __('bondFrequency', 'Coupon frequency'), value: draft.frequency, onChange: setD('frequency'),
+              options: FREQUENCIES.map(function (f) { return { value: String(f), label: freqLabel(f) }; }) }),
+            e(UIC.Input, { type: 'date', label: __('bondMaturity', 'Maturity'), value: draft.maturity, onChange: setD('maturity'), 'data-testid': 'bond-t-maturity' }),
+            e(UIC.Input, { type: 'date', label: __('bondIssueDate', 'Issue date (optional)'), value: draft.issueDate, onChange: setD('issueDate') }),
+            e(UIC.Select, { label: __('bondDayCount', 'Day count'), value: draft.dayCount, onChange: setD('dayCount'),
+              options: DAY_COUNTS.map(function (dc) { return { value: dc, label: dc === 'act/act' ? __('bondActAct', 'act/act (ICMA)') : dc === '30/360' ? __('bond30360', '30E/360') : dc }; }) }),
+            e(UIC.Select, { label: __('currency', 'Currency'), value: draft.currency, onChange: setD('currency'),
+              options: ['EUR', 'USD', 'CHF', 'GBP'].map(function (cur) { return { value: cur, label: cur }; }) }),
+            e('div', { className: 'ui-form-grid__action' },
+              e(UIC.Button, { variant: 'primary', disabled: !valid, 'data-testid': 'bond-t-save', onClick: function () {
+                commit(setTerms(load(), sym, { name: draft.name, coupon: parseAmount(draft.coupon), frequency: draft.frequency, maturity: draft.maturity, issueDate: draft.issueDate, dayCount: draft.dayCount, currency: draft.currency }));
+                setEditing(null);
+              } }, __('save', 'Save')))))));
       }
     });
-    return e('div', { 'data-testid': 'bonds-panel', style: { border: '1px solid ' + c.border, borderRadius: '14px', padding: '1rem 1.1rem', background: c.card } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' } },
-        e('h3', { style: { margin: 0, color: c.text, fontSize: 'var(--text-body)' } }, __('bondsTitle', 'Bonds')),
-        e('span', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondsHint', 'Prices are entered by hand in % of the nominal. Coupons and the redemption are booked on their dates; the yield is for information.'))),
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null, [__('bondColBond', 'Bond'), __('bondColNominal', 'Nominal'), __('bondColCoupon', 'Coupon'), __('bondColMaturity', 'Maturity'),
-            __('bondColNext', 'Next coupon'), __('bondColAccrued', 'Accrued today'), __('bondColPrice', 'Price %'), __('bondColYield', 'Yield'), ''].map(function (h, i) { return e('th', { key: i, style: head }, h); }))),
+    var cols = [[__('bondColBond', 'Bond'), 'is-left'], [__('bondColNominal', 'Nominal'), 'is-right'], [__('bondColCoupon', 'Coupon'), 'is-left'], [__('bondColMaturity', 'Maturity'), 'is-left'],
+      [__('bondColNext', 'Next coupon'), 'is-left'], [__('bondColAccrued', 'Accrued today'), 'is-right'], [__('bondColPrice', 'Price %'), 'is-right'], [__('bondColYield', 'Yield'), 'is-right'], [e('span', { className: 'sr-only' }, __('bondEditTerms', 'Terms')), 'is-right']];
+    return e(UIC.Card, { 'data-testid': 'bonds-panel', className: 'ui-bonds', headingLevel: 'h3', title: __('bondsTitle', 'Bonds'),
+      subtitle: __('bondsHint', 'Prices are entered by hand in % of the nominal. Coupons and the redemption are booked on their dates; the yield is for information.') },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { className: 'ui-table' },
+          e('thead', null, e('tr', null, cols.map(function (c, i) { return e('th', { key: i, scope: 'col', className: c[1] }, c[0]); }))),
           e('tbody', null, rows))));
   }
 

@@ -39,7 +39,6 @@ function calcCAGR(invested, currentValue, purchaseDateStr) {
 // ─────────────────────────────────────────────────────────────────────────────
 function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sinceDate }) {
   const CA = window.MaerminCorporateActions;
-  const clickable = (window.MaerminUtils && window.MaerminUtils.clickable) || ((h) => ({ onClick: h, role: 'button', tabIndex: 0 }));
   const [rev, setRev] = useState(0);            // bump to re-read the store
   const [form, setForm] = useState({ date: '', num: '', den: '1', note: '' });
   const [scan, setScan] = useState({ busy: false, msg: '', preview: null });
@@ -55,9 +54,10 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
     catch (e) { return ''; }
   })();
 
-  const label = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-  const input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
-  const btn = (bg, color) => ({ padding: '0.45rem 0.8rem', background: bg, color: color, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' });
+  // R4.6: a dialog section on the shared inputs, buttons and rows
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
+  const INPUT = ['ui-input', 'ui-input--sm'].join(' ');
 
   const ratioText = (a) => `${a.num}:${a.den}` + (a.num >= a.den ? '' : ` (${t.caReverse || 'reverse'})`);
 
@@ -112,61 +112,44 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
   };
   const patchPreview = (i, patch) => setScan((s) => ({ ...s, preview: s.preview.map((p, j) => j === i ? { ...p, ...patch } : p) }));
 
-  return React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.caTitle || 'Corporate actions (splits)'),
-      React.createElement('button', { onClick: runScan, disabled: scan.busy, style: { ...btn(theme.inputBg, theme.text), opacity: scan.busy ? 0.6 : 1 } },
-        scan.busy ? (t.caScanning || 'Scanning…') : (t.caScan || 'Scan for splits'))
-    ),
+  return h('section', { className: 'ui-dlg-sec', 'data-testid': 'ca-panel' },
+    h('div', { className: 'ui-dlg-sec__head' },
+      h('h3', { className: 'ui-dlg-sec__title' }, t.caTitle || 'Corporate actions (splits)'),
+      h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: runScan, loading: scan.busy },
+        scan.busy ? (t.caScanning || 'Scanning…') : (t.caScan || 'Scan for splits'))),
 
     // Existing actions
     actions.length === 0
-      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.75rem' } }, t.caNone || 'No splits recorded for this holding.')
-      : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '0.75rem' } },
-          actions.map((a) => React.createElement('div', {
-            key: a.id,
-            style: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${theme.cardBorder}`, fontSize: 'var(--text-sm)' }
-          },
-            React.createElement('span', { style: { color: theme.textSecondary } }, a.date),
-            React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, ratioText(a) + (a.source === 'auto' ? ' · ' + (t.caAuto || 'auto') : '')),
-            React.createElement('span', Object.assign({}, clickable(() => removeAction(a)), {
-              style: { color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-xs)', justifySelf: 'end' },
-              'aria-label': (t.caRemove || 'Remove') + ' ' + a.date
-            }), t.caRemove || 'Remove')
-          ))
-        ),
+      ? h('p', { className: 'ui-muted' }, t.caNone || 'No splits recorded for this holding.')
+      : h('ul', { className: 'ui-rows' },
+          actions.map((a) => h('li', { key: a.id, className: 'ui-rows__row' },
+            h('div', { className: 'ui-rows__main' },
+              h('b', { className: 'num' }, ratioText(a)),
+              h('span', null, window.MaerminI18n.date(a.date) + (a.source === 'auto' ? ' · ' + (t.caAuto || 'auto') : ''))),
+            h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: () => removeAction(a), 'aria-label': (t.caRemove || 'Remove') + ' ' + a.date }, t.caRemove || 'Remove')))),
 
     // Scan preview (editable, write only on confirm)
-    scan.preview && React.createElement('div', { style: { background: theme.inputBg, borderRadius: '10px', padding: '0.75rem', marginBottom: '0.75rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
-      scan.preview.map((p, i) => React.createElement('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr auto', gap: '0.4rem', alignItems: 'center', marginBottom: '0.4rem', opacity: p.skip ? 0.45 : 1 } },
-        React.createElement('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), style: input }),
-        React.createElement('input', { type: 'number', min: '1', value: p.num, onChange: (e) => patchPreview(i, { num: e.target.value }), style: input, 'aria-label': 'numerator' }),
-        React.createElement('input', { type: 'number', min: '1', value: p.den, onChange: (e) => patchPreview(i, { den: e.target.value }), style: input, 'aria-label': 'denominator' }),
-        React.createElement('span', Object.assign({}, clickable(() => patchPreview(i, { skip: !p.skip })), { style: { color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }), p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip'))
-      )),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
-        React.createElement('button', { onClick: confirmPreview, style: btn(theme.success || '#22c55e', '#08130b') }, t.caConfirm || 'Add selected'),
-        React.createElement('button', { onClick: () => setScan({ busy: false, msg: '', preview: null }), style: btn(theme.inputBg, theme.text) }, t.caCancel || 'Cancel')
-      )
-    ),
+    scan.preview && h('div', { className: 'ui-callout' },
+      h('strong', null, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
+      scan.preview.map((p, i) => h('div', { key: i, className: ['ui-ca-preview', p.skip ? 'is-skipped' : ''].join(' ') },
+        h('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), className: INPUT }),
+        h('input', { type: 'number', min: '1', value: p.num, onChange: (e) => patchPreview(i, { num: e.target.value }), className: INPUT, 'aria-label': t.caNum || 'New' }),
+        h('input', { type: 'number', min: '1', value: p.den, onChange: (e) => patchPreview(i, { den: e.target.value }), className: INPUT, 'aria-label': t.caDen || 'Old' }),
+        h(UIC.Button, { size: 'sm', variant: 'quiet', 'aria-pressed': !!p.skip, onClick: () => patchPreview(i, { skip: !p.skip }) }, p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip')))),
+      h('div', { className: 'ui-actions' },
+        h(UIC.Button, { size: 'sm', variant: 'primary', onClick: confirmPreview }, t.caConfirm || 'Add selected'),
+        h(UIC.Button, { size: 'sm', onClick: () => setScan({ busy: false, msg: '', preview: null }) }, t.caCancel || 'Cancel'))),
 
     // Manual add
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr', gap: '0.5rem', alignItems: 'end' } },
-      React.createElement('div', null, React.createElement('label', { style: label }, t.caDate || 'Date'),
-        React.createElement('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }), style: input })),
-      React.createElement('div', null, React.createElement('label', { style: label }, t.caNum || 'New'),
-        React.createElement('input', { type: 'number', 'aria-label': t.caNum || 'New', min: '1', placeholder: '10', value: form.num, onChange: (e) => setForm({ ...form, num: e.target.value }), style: input })),
-      React.createElement('div', null, React.createElement('label', { style: label }, t.caDen || 'Old'),
-        React.createElement('input', { type: 'number', 'aria-label': t.caDen || 'Old', min: '1', placeholder: '1', value: form.den, onChange: (e) => setForm({ ...form, den: e.target.value }), style: input }))
-    ),
-    React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
-      React.createElement('input', { 'aria-label': t.caNotePh || 'Note (optional)', placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
-      React.createElement('button', { onClick: addManual, style: btn(theme.accentFill || theme.accent, '#ffffff') }, t.caAdd || 'Add split')
-    ),
-    scan.msg && React.createElement('div', { style: { color: theme.warning || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, scan.msg),
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
-      t.caHint || 'Ratio New:Old — e.g. 10:1 forward, 1:10 reverse. Splits apply to lots before the date.')
+    h('div', { className: ['ui-form-grid', 'ui-ca-grid'].join(' ') },
+      h(UIC.Input, { type: 'date', label: t.caDate || 'Date', value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }) }),
+      h(UIC.Input, { type: 'number', label: t.caNum || 'New', min: '1', placeholder: '10', value: form.num, onChange: (e) => setForm({ ...form, num: e.target.value }) }),
+      h(UIC.Input, { type: 'number', label: t.caDen || 'Old', min: '1', placeholder: '1', value: form.den, onChange: (e) => setForm({ ...form, den: e.target.value }) })),
+    h('div', { className: 'ui-ca-add' },
+      h('input', { 'aria-label': t.caNotePh || 'Note (optional)', placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), className: 'ui-input' }),
+      h(UIC.Button, { variant: 'primary', onClick: addManual }, t.caAdd || 'Add split')),
+    scan.msg && h('p', { className: ['ui-muted', 'is-error'].join(' '), role: 'status' }, scan.msg),
+    h('p', { className: 'ui-note' }, t.caHint || 'Ratio New:Old — e.g. 10:1 forward, 1:10 reverse. Splits apply to lots before the date.')
   );
 }
 
@@ -239,8 +222,47 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
     saveJournal({ reviews: [{ date: new Date().toISOString().slice(0, 10), text: reviewDraft.trim() }, ...(j.reviews || [])] });
     setReviewDraft('');
   };
-  const jLabel = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-  const jInput = { width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
+  // R4.6: figures on Stat tiles, the history on the shared Table, the journal on the shared fields
+  const h = React.createElement;
+  const sym = getCurrencySymbol();
+  const money = (v) => `${formatPrice(v)} ${sym}`;
+  const signed = (v) => `${v >= 0 ? '+' : ''}${formatPrice(v)} ${sym}`;
+  const TONE = window.MaerminComponents.toneOf;
+  const figures = position.closedRow ? [
+    // P4-2: a fully sold position - realised figures from the FIFO ledger
+    { label: __('colRealizedPnl', 'Realized P&L'), value: signed(position.closedRow.gain), tone: TONE(position.closedRow.gain) },
+    { label: __('pdRealizedReturn', 'Realized return'), value: position.closedRow.ret === null ? '—' : window.MaerminI18n.pct(position.closedRow.ret * 100, 2, true),
+      tone: position.closedRow.ret === null ? null : TONE(position.closedRow.ret) },
+    { label: __('colDisposedCost', 'Cost basis sold'), value: money(position.closedRow.cost) },
+    { label: __('colProceeds', 'Proceeds'), value: money(position.closedRow.proceeds) },
+    { label: __('pdHeld', 'Held'), value: window.MaerminI18n.date(position.closedRow.opened) + ' – ' + window.MaerminI18n.date(position.closedRow.closed) },
+    { label: __('feeTotalPaid', 'Total Fees Paid'), value: money(metrics.totalFees) }
+  ] : [
+    { label: __('retCurrentValue', 'Current Value'), value: money(metrics.currentValue) },
+    { label: __('pdUnrealized', 'Unrealized P&L'), value: signed(metrics.unrealizedPL), tone: TONE(metrics.unrealizedPL) },
+    { label: __('pdAvgCost', 'Avg Cost'), value: money(metrics.avgCost) },
+    { label: __('pdCurrentPrice', 'Current Price'), value: money(metrics.currentPrice) },
+    { label: __('pdUnrealisedPct', 'Unrealised return'), value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true), tone: TONE(metrics.unrealizedPct) },
+    { label: __('pdCagr', 'CAGR (annualized)'), value: metrics.cagr !== null ? window.MaerminI18n.pct(metrics.cagr, 2, true) : '—', tone: metrics.cagr !== null ? TONE(metrics.cagr) : null },
+    { label: __('totalInvested', 'Total Invested'), value: money(metrics.totalInvested) },
+    { label: __('feeTotalPaid', 'Total Fees Paid'), value: money(metrics.totalFees) }
+  ];
+  const txAmount = (tx) => {
+    const qty = parseFloat(tx.quantity) || 0, price = parseFloat(tx.price) || 0, fees = parseFloat(tx.fees) || 0;
+    return qty * price + (tx.type === 'buy' ? fees : -fees);
+  };
+  const txColumns = [
+    { key: 'type', label: __('type', 'Type'), phone: 'title', render: (tx) => {
+      const info = window.MaerminUtils.txTypeInfo(tx.type, t);
+      return h('span', { className: 'ui-txtype', 'data-tone': info.tone }, info.label);
+    } },
+    { key: 'date', label: __('date', 'Date'), phone: 'meta', render: (tx) => window.MaerminI18n.date(tx.date) },
+    { key: 'qty', label: __('quantity', 'Quantity'), align: 'right', phone: 'meta', render: (tx) => `${window.MaerminI18n.num(parseFloat(tx.quantity) || 0, 4)} @ ${formatPrice(parseFloat(tx.price) || 0)}` },
+    { key: 'amount', label: __('amount', 'Amount'), align: 'right', phone: 'value', render: (tx) => h('b', null, money(txAmount(tx))) }
+  ];
+  const jField = (key, label, ph, rows) => h('div', { className: 'ui-field' },
+    h('label', { className: 'ui-field__label', htmlFor: 'pd-j-' + key }, label),
+    h('textarea', { id: 'pd-j-' + key, value: j[key], rows: rows || 2, onChange: e => saveJournal({ [key]: e.target.value }), placeholder: ph, className: ['ui-input', 'ui-pd-text'].join(' ') }));
 
   // R3.1: on the shared Modal (a bottom sheet on phones); the title keeps its
   // id and test hook, Research moves to the footer.
@@ -265,114 +287,40 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         theme, formatPrice, getCurrencySymbol }),
 
       // P5-2.4: monthly returns of this holding, with the same drill-down
-      posPath && window.MaerminFeatures2 && window.MaerminFeatures2.ReturnsHeatmap && React.createElement('div', { style: { padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.modalBorder}` } },
+      posPath && window.MaerminFeatures2 && window.MaerminFeatures2.ReturnsHeatmap && h('div', { className: 'ui-dlg-sec' },
         React.createElement(window.MaerminFeatures2.ReturnsHeatmap, {
           steps: posPath.points.map(p => ({ d: p.d, r: p.r })), points: posPath.points, transactions: posTxs, source: 'daily',
           theme, formatPrice, getCurrencySymbol, testid: 'pos-heatmap', flat: true,
           title: __('rhdHoldingTitle', 'Monthly returns of this holding'),
           note: __('rhdHoldingNote', 'Time-weighted, from the daily closing prices: buys and sales do not count as gains, fees and payouts do.') })),
 
-      // Key metrics grid
-      React.createElement('div', {
-        style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: theme.modalBorder, borderBottom: `1px solid ${theme.modalBorder}` }
-      },
-        (position.closedRow ? [
-          // P4-2: a fully sold position - realised figures from the FIFO ledger
-          { label: __('colRealizedPnl', 'Realized P&L'), value: `${position.closedRow.gain >= 0 ? '+' : ''}${formatPrice(position.closedRow.gain)} ${getCurrencySymbol()}`,
-            color: position.closedRow.gain >= 0 ? theme.success : theme.danger, big: true },
-          { label: __('pdRealizedReturn', 'Realized return'), value: position.closedRow.ret === null ? '—' : window.MaerminI18n.pct(position.closedRow.ret * 100, 2, true),
-            color: position.closedRow.ret === null ? theme.textSecondary : (position.closedRow.ret >= 0 ? theme.success : theme.danger), big: true },
-          { label: __('colDisposedCost', 'Cost basis sold'), value: `${formatPrice(position.closedRow.cost)} ${getCurrencySymbol()}` },
-          { label: __('colProceeds', 'Proceeds'), value: `${formatPrice(position.closedRow.proceeds)} ${getCurrencySymbol()}` },
-          { label: __('pdHeld', 'Held'), value: window.MaerminI18n.date(position.closedRow.opened) + ' – ' + window.MaerminI18n.date(position.closedRow.closed) },
-          { label: __('feeTotalPaid', 'Total Fees Paid'),  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
-        ] : [
-          { label: __('retCurrentValue', 'Current Value'),    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
-          { label: __('pdUnrealized', 'Unrealized P&L'),   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
-            color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
-          { label: __('pdAvgCost', 'Avg Cost'),         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
-          { label: __('pdCurrentPrice', 'Current Price'),    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
-          { label: __('pdUnrealisedPct', 'Unrealised return'), value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true),
-            color: metrics.unrealizedPct >= 0 ? theme.success : theme.danger },
-          { label: __('pdCagr', 'CAGR (annualized)'), value: metrics.cagr !== null ? window.MaerminI18n.pct(metrics.cagr, 2, true) : '—',
-            color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
-          { label: __('totalInvested', 'Total Invested'),   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
-          { label: __('feeTotalPaid', 'Total Fees Paid'),  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
-        ]).map((m, i) =>
-          React.createElement('div', {
-            key: i,
-            style: { background: theme.modalBg, padding: '0.875rem 1.25rem' }
-          },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, m.label),
-            React.createElement('div', { style: { color: m.color || theme.text, fontWeight: m.big ? '800' : '700', fontSize: m.big ? '1.1rem' : '0.9rem' } }, m.value)
-          )
-        )
-      ),
+      // Key figures
+      h('section', { className: 'ui-dlg-sec' },
+        h('div', { className: 'ui-tiles' }, figures.map((m) => h(window.MaerminComponents.Stat, { key: m.label, className: 'ui-tile', label: m.label, value: m.value, tone: m.tone || null })))),
 
       // Transaction history
-      React.createElement('div', { style: { padding: '1.25rem 1.5rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } },
-          __('pdTxHistory', 'Transaction History ({n})', { n: posTxs.length })
-        ),
+      h('section', { className: 'ui-dlg-sec' },
+        h('h3', { className: 'ui-dlg-sec__title' }, __('pdTxHistory', 'Transaction History ({n})', { n: posTxs.length })),
         posTxs.length === 0
-          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', textAlign: 'center', padding: '1rem' } }, __('noTransactionsFound', 'No transactions found'))
-          : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px' } },
-              posTxs.map((tx, i) => {
-                const qty = parseFloat(tx.quantity) || 0;
-                const price = parseFloat(tx.price) || 0;
-                const fees  = parseFloat(tx.fees) || 0;
-                const total = qty * price + (tx.type === 'buy' ? fees : -fees);
-                return React.createElement('div', {
-                  key: i,
-                  style: {
-                    display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr',
-                    gap: '0.5rem', padding: '0.6rem 0',
-                    borderBottom: `1px solid ${theme.cardBorder}`,
-                    fontSize: 'var(--text-sm)', alignItems: 'center'
-                  }
-                },
-                  React.createElement('span', {
-                    style: {
-                      padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: '700', textAlign: 'center',
-                      background: window.MaerminUtils.txTypeInfo(tx.type, t).background,
-                      color: window.MaerminUtils.txTypeInfo(tx.type, t).color
-                    }
-                  }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase()),
-                  React.createElement('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.date(tx.date)),
-                  React.createElement('span', { style: { color: theme.text } }, `${window.MaerminI18n.num(qty, 4)} @ ${formatPrice(price)}`),
-                  React.createElement('span', { style: { color: theme.text, fontWeight: '600', textAlign: 'right' } },
-                    `${formatPrice(total)} ${getCurrencySymbol()}`
-                  )
-                );
-              })
-            )
-      ),
+          ? h('p', { className: 'ui-muted' }, __('noTransactionsFound', 'No transactions found'))
+          : h(window.MaerminComponents.Table, { columns: txColumns, rows: posTxs, rowKey: (tx, i) => tx.id || i, caption: __('pdTxHistory', 'Transaction History ({n})', { n: posTxs.length }) })),
 
       // Investment journal (V7): thesis, target, notes, dated reviews
-      React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, t.journalTitle || 'Investment journal'),
-        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' } },
-          React.createElement('div', null,
-            React.createElement('label', { style: jLabel }, t.journalThesis || 'Investment thesis'),
-            React.createElement('textarea', { 'aria-label': t.journalThesis || 'Investment thesis', value: j.thesis, onChange: e => saveJournal({ thesis: e.target.value }), placeholder: t.journalThesisPh || 'Why do you hold this?', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
-          ),
-          React.createElement('div', null,
-            React.createElement('label', { style: jLabel }, t.journalTarget || 'Target / exit'),
-            React.createElement('textarea', { 'aria-label': t.journalTarget || 'Target / exit', value: j.target, onChange: e => saveJournal({ target: e.target.value }), placeholder: t.journalTargetPh || 'Price target, exit plan...', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
-          )
-        ),
-        React.createElement('label', { style: jLabel }, t.journalNotes || 'Notes'),
-        React.createElement('textarea', { 'aria-label': t.journalNotes || 'Notes', value: j.notes, onChange: e => saveJournal({ notes: e.target.value }), placeholder: t.journalNotesPh || 'Free notes...', style: { ...jInput, minHeight: '60px', resize: 'vertical', marginBottom: '0.75rem' } }),
-        React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
-          React.createElement('input', { 'aria-label': t.journalAddReview || 'Add a dated review...', value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
-          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } }, '+')
-        ),
-        (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
-          j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: 'var(--text-sm)', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
-            React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 600, marginRight: '0.4rem' } }, rv.date),
-            React.createElement('span', { style: { color: theme.text } }, rv.text)))
-        )
+      h('section', { className: 'ui-dlg-sec' },
+        h('h3', { className: 'ui-dlg-sec__title' }, t.journalTitle || 'Investment journal'),
+        h('div', { className: 'ui-grid-2' },
+          jField('thesis', t.journalThesis || 'Investment thesis', t.journalThesisPh || 'Why do you hold this?'),
+          jField('target', t.journalTarget || 'Target / exit', t.journalTargetPh || 'Price target, exit plan...')),
+        jField('notes', t.journalNotes || 'Notes', t.journalNotesPh || 'Free notes...', 3),
+        h('div', { className: 'ui-field' },
+          h('label', { className: 'ui-field__label', htmlFor: 'pd-j-review' }, t.journalReviews || 'Reviews'),
+          h('div', { className: 'ui-ca-add' },
+            h('input', { id: 'pd-j-review', value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', className: 'ui-input' }),
+            h(window.MaerminComponents.Button, { onClick: addReview, 'aria-label': t.journalAddReview || 'Add a dated review...' }, '+'))),
+        (j.reviews || []).length > 0 && h('ul', { className: 'ui-pd-reviews' },
+          j.reviews.map((rv, i) => h('li', { key: i },
+            h('span', { className: 'num' }, window.MaerminI18n.date(rv.date)),
+            h('span', null, rv.text))))
       ),
 
       // Corporate actions (stock splits) for this holding

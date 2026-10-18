@@ -2826,3 +2826,76 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-risk > .ui-view ~ .ui-card { margin: 0 var(--space-4) var(--space-4); }
   .ui-pj-controls { flex-wrap: wrap; }
 }
+
+/* ============================================================================
+   R4.6 Remaining panels and dialogs (PLAN Phase 6): the position dialog's
+   sections (figures, history, journal, splits, other corporate actions),
+   bonds, options, real assets, Share & Compare, Privacy and the AI summary.
+   ========================================================================== */
+.ui-dlg-sec { padding: var(--space-5) var(--space-6); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.ui-dlg-sec__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.ui-dlg-sec__title { margin: 0; font-size: var(--type-heading); font-weight: 600; color: var(--text); }
+.ui-dlg-sec .ui-note, .ui-dlg-sec .ui-muted { margin: 0; }
+.ui-ca-add { display: flex; gap: var(--space-2); align-items: center; }
+.ui-ca-add .ui-input { flex: 1; min-width: 0; }
+.ui-ca-preview { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.6fr) minmax(0, 0.6fr) auto; gap: var(--space-2); align-items: center; margin-top: var(--space-2); }
+.ui-ca-preview .ui-input { width: 100%; }
+.ui-ca-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 0.7fr); gap: var(--space-3); }
+.ui-ca-preview.is-skipped .ui-input { opacity: 0.55; }
+.ui-callout .ui-actions { margin-top: var(--space-3); }
+.ui-pd-text { height: auto; min-height: 56px; padding: var(--space-2) var(--space-3); resize: vertical; line-height: 1.5; font-family: inherit; }
+.ui-pd-reviews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-pd-reviews li { display: flex; gap: var(--space-2); padding-left: var(--space-3); border-left: 2px solid var(--border-strong); font-size: var(--type-body); color: var(--text); }
+.ui-pd-reviews li .num { color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+
+/* bonds (Overview and the transaction form) */
+.ui-ov-extra { min-width: 0; }
+.ui-bond-fields { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
+.ui-bond-fields .ui-note { margin: 0; }
+.ui-bond-name { display: flex; flex-direction: column; line-height: 1.25; }
+.ui-bond-name b { color: var(--text); font-weight: 600; }
+.ui-bond-name span { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-bonds .ui-table td { height: auto; padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.ui-bond-price { width: 80px; }
+.ui-bond-edit td { white-space: normal; background: var(--surface-2); }
+.ui-bonds .ui-table tbody tr.ui-bond-edit:hover td { background: var(--surface-2); }
+
+/* options, real assets */
+.ui-options .ui-card__body, .ui-ra .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-options .ui-note { margin: 0; }
+.ui-ra-lead { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.ui-ra-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: var(--type-heading); }
+.ui-ra-side { display: flex; align-items: center; gap: var(--space-2); }
+.ui-ra-side .ui-rows__side b { color: var(--text); font-size: var(--type-body); }
+.ui-ra-form { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-2); }
+.ui-ra-form .ui-actions { margin-top: 0; }
+.ui-ra-tpl { max-width: 360px; }
+
+/* Share & Compare */
+.ui-sh-weights .ui-sublabel { margin-top: 0; }
+.ui-sh-weights .ui-hbar { grid-template-columns: minmax(0, 140px) minmax(60px, 1fr) 56px; }
+.ui-sh-raw { margin: var(--space-3) 0 0; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); font-size: var(--type-caption); white-space: pre-wrap; overflow-x: auto; }
+.ui-sh-link { margin: var(--space-2) 0 0; font-size: var(--type-caption); color: var(--text-dim); overflow-wrap: anywhere; }
+.ui-sh-link code { color: var(--text); }
+.ui-sh-theirs { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
+
+/* Privacy, AI summary */
+.ui-pv { max-width: 52rem; }
+.ui-pv .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-pv .ui-pv-sec:first-child { padding-top: 0; border-top: 0; }
+.ui-pv-sec { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.ui-pv-sec .ui-actions { margin-top: 0; }
+.ui-pv-list { margin: 0; padding-left: var(--space-5); color: var(--text-dim); font-size: var(--type-body); line-height: 1.6; }
+.ui-ai-out .ui-textarea { font-size: var(--type-body); line-height: 1.5; }
+
+/* tax view */
+.ui-tax__note { margin: 0 var(--space-7); }
+
+@media (max-width: 767px) {
+  .ui-dlg-sec { padding: var(--space-4); }
+  .ui-ca-preview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ui-ca-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ui-ca-grid > :first-child { grid-column: 1 / -1; }
+  .ui-tax__note { margin: 0 var(--space-4); }
+  .ui-ra-icon { display: none; }
+}

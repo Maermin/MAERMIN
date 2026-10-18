@@ -203,10 +203,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#8b7cff', good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || '#ef4444';
+    // R4.6: the view on Card, chart-palette bars, the shared table look, inputs and buttons
+    var UIC = window.MaerminComponents;
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
 
     var snapshot = null;
@@ -271,19 +269,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }).catch(function (ex) { setAgg({ error: ex._unsupported ? __('shUnsupportedShort', 'Worker does not support sharing yet.') : ((ex && ex.message) || __('shFailed', 'failed')) }); });
     }
 
-    function weightTable(title, snap, color) {
+    function weightTable(title, snap, series) {
       if (!snap) return null;
-      return e('div', { style: { marginBottom: '0.8rem' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.3rem' } }, title),
-        Object.keys(snap.assetClasses || {}).map(function (cls) {
+      return e('div', { className: 'ui-sh-weights' },
+        e('h4', { className: 'ui-sublabel' }, title),
+        e('ul', { className: 'ui-hbars' }, Object.keys(snap.assetClasses || {}).map(function (cls) {
           var pct = snap.assetClasses[cls];
-          return e('div', { key: cls, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' } },
-            e('span', { style: { color: text, fontSize: 'var(--text-xs)', width: '110px' } }, I18N().category(cls)),
-            e('div', { style: { flex: 1, background: inputBg, borderRadius: '5px', height: '9px', overflow: 'hidden' } },
-              e('div', { style: { width: Math.min(100, pct) + '%', height: '100%', background: color || accent, borderRadius: '5px' } })),
-            e('span', { style: { color: dim, fontSize: 'var(--text-xs)', width: '50px', textAlign: 'right' } }, I18N().pct(pct, 1)));
-        }),
-        snap.metrics ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
+          return e('li', { key: cls, className: 'ui-hbar' },
+            e('span', { className: 'ui-hbar__label' }, I18N().category(cls)),
+            e('span', { className: 'ui-hbar__track', 'aria-hidden': 'true' },
+              e('span', { className: 'ui-hbar__fill', 'data-series': series || 1, style: { width: Math.min(100, pct) + '%' } })),
+            e('span', { className: ['ui-hbar__value', 'num'].join(' ') }, I18N().pct(pct, 1)));
+        })),
+        snap.metrics ? e('p', { className: 'ui-note' },
           (snap.metrics.healthScore != null ? __('shHealth', 'Health {n}/100', { n: snap.metrics.healthScore }) + '  ' : '') +
           (snap.metrics.effectiveN != null ? __('shDiv', 'Diversification ~{n} effective holdings', { n: I18N().num(snap.metrics.effectiveN, { min: 0, max: 1 }) }) : '')) : null);
     }
@@ -291,69 +289,55 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function compareTable(mine, other, otherLabel) {
       var rows = compare(mine, other);
       if (!rows.length) return null;
-      return e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null, [__('trClass', 'Class'), __('shYou', 'You'), otherLabel, __('shDiff', 'Diff')].map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.35rem 0.45rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
-          }))),
-          e('tbody', null, rows.map(function (r) {
-            return e('tr', { key: r.cls, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: 'var(--text-sm)' } }, I18N().category(r.cls)),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: text, fontSize: 'var(--text-xs)' } }, I18N().pct(r.mine, 1)),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, I18N().pct(r.theirs, 1)),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: r.diff >= 0 ? good : bad, fontSize: 'var(--text-xs)', fontWeight: 600 } }, I18N().pct(r.diff, 1, true)));
-          }))));
+      return e(UIC.Table, { layout: 'table', caption: otherLabel, rowKey: function (r) { return r.cls; }, rows: rows, columns: [
+        { key: 'cls', label: __('trClass', 'Class'), render: function (r) { return I18N().category(r.cls); } },
+        { key: 'mine', label: __('shYou', 'You'), align: 'right', render: function (r) { return I18N().pct(r.mine, 1); } },
+        { key: 'theirs', label: otherLabel, align: 'right', render: function (r) { return I18N().pct(r.theirs, 1); } },
+        { key: 'diff', label: __('shDiff', 'Diff'), align: 'right', render: function (r) { return e(UIC.ToneChip, { value: r.diff, tone: Math.abs(r.diff) < 0.05 ? 'neutral' : null, text: I18N().pct(r.diff, 1, true) }); } }
+      ] });
     }
 
-    var cardStyle = { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.2rem', marginBottom: '1rem' };
+    var err = function (msg) { return e('p', { className: ['ui-muted', 'is-error'].join(' '), role: 'status' }, msg); };
 
-    return e('div', { style: { padding: '1.25rem 1.5rem' } },
-      e('h2', { style: { color: text, fontSize: 'var(--text-title-lg)', fontWeight: 800, margin: '0 0 0.3rem' } }, t.navShare || 'Share & Compare'),
-      e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '1rem', lineHeight: 1.5 } },
+    return e('div', { className: 'ui-view', 'data-testid': 'share-view' },
+      e('p', { className: 'ui-view__lead' },
         __('shIntro', 'Share a redacted snapshot of your allocation - percentage weights and scores only. No amounts, no quantities, no symbols ever leave this device. Opt-in per click, links expire after 90 days.')),
 
-      e('div', { style: cardStyle },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' } },
-          e('h3', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, margin: 0 } }, __('shYours', 'Your snapshot (exactly what would be shared)')),
-          e('button', { onClick: function () { setShowRaw(!showRaw); }, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, showRaw ? __('shHidePayload', 'hide payload') : __('shShowPayload', 'show raw payload'))),
+      e(UIC.Card, { title: __('shYours', 'Your snapshot (exactly what would be shared)'), headingLevel: 'h3',
+        action: e(UIC.Button, { size: 'sm', variant: 'quiet', 'aria-pressed': showRaw, onClick: function () { setShowRaw(!showRaw); } }, showRaw ? __('shHidePayload', 'hide payload') : __('shShowPayload', 'show raw payload')) },
         snapshot
           ? e('div', null,
-              weightTable(__('shAssetClasses', 'Asset classes'), snapshot, accent),
-              showRaw ? e('pre', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.7rem', color: dim, fontSize: 'var(--text-2xs)', overflowX: 'auto', whiteSpace: 'pre-wrap' } }, JSON.stringify(snapshot, null, 2)) : null,
-              e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
-                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: 'var(--on-accent)', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? __('shPublishing', 'Publishing...') : __('shPublish', 'Publish snapshot')),
-                state.link ? e('code', { style: { color: good, fontSize: 'var(--text-xs)', wordBreak: 'break-all' } }, state.link) : null,
-                state.mcp ? e('div', { style: { width: '100%', marginTop: '0.3rem' } },
-                  e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('shMcp', 'MCP (AI read-only): ')),
-                  e('code', { style: { color: dim, fontSize: 'var(--text-xs)', wordBreak: 'break-all' } }, state.mcp)) : null,
-                state.error ? e('span', { style: { color: bad, fontSize: 'var(--text-xs)' } }, state.error) : null,
-                !workerBase ? e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('shNeedWorker', 'Add a Worker URL in API Settings to publish.')) : null))
-          : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('shNeedHoldings', 'Add holdings first - the snapshot needs at least one position.')),
-        state.unsupported ? e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
+              weightTable(__('shAssetClasses', 'Asset classes'), snapshot, 1),
+              showRaw ? e('pre', { className: 'ui-sh-raw' }, JSON.stringify(snapshot, null, 2)) : null,
+              e('div', { className: 'ui-actions' },
+                e(UIC.Button, { variant: 'primary', onClick: publish, disabled: !workerBase, loading: state.busy }, state.busy ? __('shPublishing', 'Publishing...') : __('shPublish', 'Publish snapshot')),
+                !workerBase ? e('span', { className: 'ui-note' }, __('shNeedWorker', 'Add a Worker URL in API Settings to publish.')) : null),
+              state.link ? e('p', { className: 'ui-sh-link' }, e('code', null, state.link)) : null,
+              state.mcp ? e('p', { className: 'ui-sh-link' }, e('span', null, __('shMcp', 'MCP (AI read-only): ')), e('code', null, state.mcp)) : null,
+              state.error ? err(state.error) : null)
+          : e('p', { className: 'ui-muted' }, __('shNeedHoldings', 'Add holdings first - the snapshot needs at least one position.')),
+        state.unsupported ? e('p', { className: ['ui-callout', 'ui-callout--warn'].join(' ') },
           __('shUnsupported', 'Your Worker does not support sharing yet. Re-deploy the latest cf-worker/worker.js (action=share).')) : null),
 
-      e('div', { style: cardStyle },
-        e('h3', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, margin: '0 0 0.5rem' } }, __('shOpenShared', 'Open a shared snapshot')),
-        e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          e('input', { type: 'text', value: openInput, placeholder: __('shPastePh', 'Paste a share link or id'), 'aria-label': __('shPastePh', 'Paste a share link or id'), onChange: function (ev) { setOpenInput(ev.target.value); }, style: { flex: 1, minWidth: '220px', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: 'var(--text-sm)' } }),
-          e('button', { onClick: openShared, disabled: !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, __('shOpen', 'Open'))),
-        theirs && theirs.error ? e('div', { style: { color: bad, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, theirs.error) : null,
-        theirs && theirs.snapshot ? e('div', { style: { marginTop: '0.7rem' } },
-          weightTable(__('shSharedAlloc', 'Shared allocation'), theirs.snapshot, '#3b82f6'),
+      e(UIC.Card, { title: __('shOpenShared', 'Open a shared snapshot'), headingLevel: 'h3' },
+        e('div', { className: 'ui-ca-add' },
+          e('input', { type: 'text', value: openInput, placeholder: __('shPastePh', 'Paste a share link or id'), 'aria-label': __('shPastePh', 'Paste a share link or id'), onChange: function (ev) { setOpenInput(ev.target.value); }, className: 'ui-input' }),
+          e(UIC.Button, { onClick: openShared, disabled: !workerBase }, __('shOpen', 'Open'))),
+        theirs && theirs.error ? err(theirs.error) : null,
+        theirs && theirs.snapshot ? e('div', { className: 'ui-sh-theirs' },
+          weightTable(__('shSharedAlloc', 'Shared allocation'), theirs.snapshot, 2),
           snapshot ? compareTable(snapshot, theirs.snapshot, __('shThem', 'Them')) : null) : null),
 
-      e('div', { style: cardStyle },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' } },
-          e('h3', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, margin: 0 } }, __('shBenchmark', 'Anonymous benchmark')),
-          e('button', { onClick: loadAggregate, disabled: !workerBase, style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-xs)', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, __('shCompareAll', 'Compare vs all shared snapshots'))),
-        agg && agg.error ? e('div', { style: { color: bad, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, agg.error) : null,
+      e(UIC.Card, { title: __('shBenchmark', 'Anonymous benchmark'), headingLevel: 'h3',
+        action: e(UIC.Button, { size: 'sm', onClick: loadAggregate, disabled: !workerBase }, __('shCompareAll', 'Compare vs all shared snapshots')) },
+        agg && agg.error ? err(agg.error) : null,
         agg && !agg.error ? (agg.count > 0 && snapshot
-          ? e('div', { style: { marginTop: '0.5rem' } },
+          ? e('div', null,
               compareTable(snapshot, agg.avgAssetClasses, __('shAvgOf', 'Avg of {n}', { n: agg.count })),
-              e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.4rem' } }, __('shAvgNote', 'Average asset-class weights across {n} shared {n:snapshot|snapshots}. Individual snapshots are never exposed.', { n: agg.count })))
-          : e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('shNoAgg', 'No shared snapshots in the aggregate yet.'))) : null),
+              e('p', { className: 'ui-note' }, __('shAvgNote', 'Average asset-class weights across {n} shared {n:snapshot|snapshots}. Individual snapshots are never exposed.', { n: agg.count })))
+          : e('p', { className: 'ui-muted' }, __('shNoAgg', 'No shared snapshots in the aggregate yet.'))) : null),
 
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('shPrivacy', 'Privacy: snapshots are validated against a hard allowlist on this device AND on the Worker before storage - only percentages and scores can travel. Published snapshots carry a random id, no account and no IP, and expire after 90 days. To limit abuse the Worker counts publishes per IP address for one day.')));
   }
 
