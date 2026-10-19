@@ -3366,3 +3366,18 @@ html.mx-still .ui-skel__bar { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .ui-modal-backdrop, .ui-modal { animation: none !important; }
 }
+
+/* ============================================================================
+   R5.3 (PLAN Phase 6): accessibility and phone pass.
+   ========================================================================== */
+/* a date field's calendar button takes focus without :focus-visible: ring on any focus */
+input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 767px) {
+  /* touch targets: 44 px on phones */
+  .ui-table tr.is-clickable > td, .ui-table tr[role="button"] > td { height: 44px; }
+  .ui-heat__cell { height: 44px; }
+  /* investment calendar: 44 px cells in a grid that scrolls sideways, the year column stays */
+  .ui-it { width: auto; min-width: calc(5.4rem + 12 * 47px); }
+  .ui-it__cell, .ui-it__blank { height: 44px; min-width: 44px; }
+  .ui-it .ui-it__yearhead, .ui-it__year { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+}

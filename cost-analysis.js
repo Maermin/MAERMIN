@@ -251,7 +251,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var growth = 0.05;
         var proj = projectCostDrag(costs.knownValue, costs.weightedTer, { years: 20, growthRate: growth });
         var marks = [5, 10, 20].map(function (y) { return proj[y - 1]; });
-        parts.push(e('h4', { className: 'ui-sublabel' }, __('caDrag', 'Cumulative cost drag (projection)')));
+        parts.push(e(window.MaerminComponents.Heading, { key: 'drag', className: 'ui-sublabel' }, __('caDrag', 'Cumulative cost drag (projection)')));
         parts.push(e('div', { className: 'ui-tiles' },
           marks.map(function (m) { return kpi(__('caAfterYears', 'After {n} years', { n: m.year }), amt(m.cumulativeCost)); })));
         parts.push(e('p', { className: 'ui-note' },

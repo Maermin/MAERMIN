@@ -277,7 +277,7 @@
     // ---- trades ----
     var tradeList = function (testid, title, rows, none) {
       return e('div', { 'data-testid': testid, className: 'ui-hr-trades' },
-        e('h4', { className: 'ui-sublabel' }, title),
+        e(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, title),
         !rows.length ? muted(none) : e('ul', { className: 'ui-rows' }, rows.map(function (t) {
           return e('li', { key: t.key + t.date, 'data-key': t.key, 'data-date': t.date, 'data-ret': t.ret, className: 'ui-rows__row' },
             e('div', { className: 'ui-rows__main' },

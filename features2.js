@@ -981,7 +981,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     step === 0 && h('div', { className: 'ui-bi-sources' },
       categories.map(cat =>
         h('div', { key: cat },
-          h('h4', { className: 'ui-sublabel' }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
+          h(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
           h('div', { className: 'ui-bi-tiles' },
             BROKERS.filter(b => b.category === cat).map(b =>
               h('div', Object.assign({
@@ -1069,7 +1069,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
           // Editable column → field mapping.
           !mp.fixedFormat && h('div', { className: 'ui-taxp__box' },
-            h('h4', { className: 'ui-sublabel' }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
+            h(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
             h('div', { className: ['ui-form-grid', 'ui-bi-map'].join(' ') },
               (window.MaerminImportMapping.FIELDS).map(field =>
                 h('label', { key: field, className: ['ui-field', missing(field) ? 'has-error' : ''].join(' ').trim() },
@@ -1097,7 +1097,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
           // ISIN → ticker: one row per ISIN with the proposed listing, editable.
           isinList.length > 0 && h('div', { 'data-testid': 'isin-map', className: 'ui-taxp__box' },
-            h('h4', { className: 'ui-sublabel' }, __('biIsinTicker', 'ISIN → ticker')),
+            h(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, __('biIsinTicker', 'ISIN → ticker')),
             h('p', { className: 'ui-note' },
               isinBusy ? __('biLookingUp', 'Looking up listings…')
                 : __('biIsinHint', 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.')),

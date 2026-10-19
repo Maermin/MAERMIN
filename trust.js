@@ -69,7 +69,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e(UIC.Card, { className: 'ui-pv' },
       privacySections().map(function (sec, i) {
         return e('section', { key: i, className: 'ui-pv-sec' },
-          e('h3', { className: 'ui-dlg-sec__title' }, sec[0]),
+          e(window.MaerminComponents.Heading, { className: 'ui-dlg-sec__title' }, sec[0]),
           e('ul', { className: 'ui-pv-list' },
             sec[1].map(function (line, j) { return e('li', { key: j }, line); })));
       }),

@@ -311,7 +311,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       months.length ? e(UIC.Card, { className: 'ui-card--table', 'data-testid': 'evf-list' },
         e('ul', { className: 'ui-evf' }, months.map(function (m) {
           return [
-            e('li', { key: 'h' + m, className: 'ui-evf__month' }, e('h3', null, monthName(m)), e('span', { className: 'num' }, String(byMonth[m].length))),
+            e('li', { key: 'h' + m, className: 'ui-evf__month' }, e(window.MaerminComponents.Heading, null, monthName(m)), e('span', { className: 'num' }, String(byMonth[m].length))),
             byMonth[m].map(function (ev) {
               return e('li', { key: ev.uid, 'data-testid': 'evf-row', 'data-kind': ev.kind, className: 'ui-evf__row' },
                 e('span', { className: ['ui-evf__date', 'num'].join(' ') }, dayLabel(ev.date)),
