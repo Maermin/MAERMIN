@@ -444,8 +444,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         hasData ? e('p', { className: 'ui-note' },
           (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')) : null);
     } catch (err) {
-      return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } },
-        __('perfViewError', 'Performance view error: {msg}', { msg: err && err.message }));
+      return window.MaerminUtils.errorNote(__('perfViewError', 'Performance view error: {msg}', { msg: err && err.message })); // R5.4
     }
   }
 

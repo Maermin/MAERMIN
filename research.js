@@ -160,16 +160,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (bb) {
       var up = [], dn = [];
       bb.upper.forEach(function (v, i) { if (isNum(v)) { up.push(X(i).toFixed(1) + ',' + Y(v).toFixed(1)); dn.unshift(X(i).toFixed(1) + ',' + Y(bb.lower[i]).toFixed(1)); } });
-      if (up.length) parts.push(e('polygon', { key: 'bb', points: up.concat(dn).join(' '), style: { fill: 'var(--chart-1)' }, opacity: 0.1 }));
-      parts.push(e('path', { key: 'bbm', d: path(bb.mid), style: { stroke: 'var(--text-faint)' }, strokeWidth: 1, strokeDasharray: '4 3', fill: 'none' }));
+      if (up.length) parts.push(e('polygon', { key: 'bb', points: up.concat(dn).join(' '), className: 'ui-svg-c1-fill', opacity: 0.1 }));
+      parts.push(e('path', { key: 'bbm', d: path(bb.mid), className: 'ui-svg-faint-stroke', strokeWidth: 1, strokeDasharray: '4 3', fill: 'none' }));
     }
     lines.forEach(function (l) { parts.push(e('path', { key: l.id, d: path(l.v), style: { stroke: l.c }, strokeWidth: l.w, fill: 'none' })); });
     [hi, (hi + lo) / 2, lo].forEach(function (v, i) {
-      parts.push(e('text', { key: 'y' + i, x: Wd - padR + 6, y: Y(v) + 4, fontSize: 10, style: { fill: 'var(--text-dim)' } }, (W.MaerminI18n ? W.MaerminI18n.num(v, v < 10 ? 2 : 0) : v.toFixed(2))));
+      parts.push(e('text', { key: 'y' + i, x: Wd - padR + 6, y: Y(v) + 4, fontSize: 10, className: 'ui-svg-dim' }, (W.MaerminI18n ? W.MaerminI18n.num(v, v < 10 ? 2 : 0) : v.toFixed(2))));
     });
-    parts.push(e('text', { key: 'x0', x: padL, y: H - 4, fontSize: 10, style: { fill: 'var(--text-dim)' } }, W.MaerminI18n ? W.MaerminI18n.date(pts[0].date) : pts[0].date));
-    parts.push(e('text', { key: 'x1', x: Wd - padR, y: H - 4, fontSize: 10, textAnchor: 'end', style: { fill: 'var(--text-dim)' } }, W.MaerminI18n ? W.MaerminI18n.date(pts[pts.length - 1].date) : pts[pts.length - 1].date));
-    var main = e('svg', { key: 'main', 'data-testid': 'rs-chart', viewBox: '0 0 ' + Wd + ' ' + H, role: 'img', 'aria-label': __('rsChartLabel', 'Price chart'), style: { width: '100%', height: 'auto', display: 'block' } }, parts);
+    parts.push(e('text', { key: 'x0', x: padL, y: H - 4, fontSize: 10, className: 'ui-svg-dim' }, W.MaerminI18n ? W.MaerminI18n.date(pts[0].date) : pts[0].date));
+    parts.push(e('text', { key: 'x1', x: Wd - padR, y: H - 4, fontSize: 10, textAnchor: 'end', className: 'ui-svg-dim' }, W.MaerminI18n ? W.MaerminI18n.date(pts[pts.length - 1].date) : pts[pts.length - 1].date));
+    var main = e('svg', { key: 'main', 'data-testid': 'rs-chart', viewBox: '0 0 ' + Wd + ' ' + H, role: 'img', 'aria-label': __('rsChartLabel', 'Price chart'), className: 'ui-svg-full' }, parts);
     if (!on.macd) return main;
     var m = macd(closes), mh = 90, vals = [];
     m.macd.concat(m.signal).concat(m.hist).forEach(function (x) { if (isNum(x)) vals.push(Math.abs(x)); });
@@ -177,9 +177,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var MY = function (v) { return mh / 2 - v * (mh / 2 - 6) / mx; };
     var mp = function (arr) { var d = '', pen = false; arr.forEach(function (v, i) { if (!isNum(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + MY(v).toFixed(1); pen = true; }); return d; };
     var bars = m.hist.map(function (v, i) { return isNum(v) ? e('rect', { key: 'h' + i, x: X(i) - 0.8, y: Math.min(MY(v), mh / 2), width: 1.6, height: Math.abs(MY(v) - mh / 2), style: { fill: v >= 0 ? 'var(--gain)' : 'var(--loss)' }, opacity: 0.6 }) : null; });
-    var sub = e('svg', { key: 'macd', 'data-testid': 'rs-macd', viewBox: '0 0 ' + Wd + ' ' + mh, role: 'img', 'aria-label': 'MACD', style: { width: '100%', height: 'auto', display: 'block', marginTop: '0.3rem' } },
-      bars, e('path', { d: mp(m.macd), style: { stroke: 'var(--chart-1)' }, strokeWidth: 1.2, fill: 'none' }), e('path', { d: mp(m.signal), style: { stroke: 'var(--chart-3)' }, strokeWidth: 1.2, fill: 'none' }),
-      e('text', { x: padL, y: 12, fontSize: 10, style: { fill: 'var(--text-dim)' } }, __('rsMacdLabel', 'MACD (12, 26, 9)')));
+    var sub = e('svg', { key: 'macd', 'data-testid': 'rs-macd', viewBox: '0 0 ' + Wd + ' ' + mh, role: 'img', 'aria-label': 'MACD', className: ['ui-svg-full', 'ui-rs-macd'].join(' ') },
+      bars, e('path', { d: mp(m.macd), className: 'ui-svg-c1-stroke', strokeWidth: 1.2, fill: 'none' }), e('path', { d: mp(m.signal), className: 'ui-svg-c3-stroke', strokeWidth: 1.2, fill: 'none' }),
+      e('text', { x: padL, y: 12, fontSize: 10, className: 'ui-svg-dim' }, __('rsMacdLabel', 'MACD (12, 26, 9)')));
     return e('div', null, main, sub);
   }
 

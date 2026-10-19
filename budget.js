@@ -377,7 +377,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var cx = (x0 + x1) / 2;
       return 'M' + x0 + ',' + y0 + ' C' + cx + ',' + y0 + ' ' + cx + ',' + y1 + ' ' + x1 + ',' + y1 + ' L' + x1 + ',' + (y1 + h1) + ' C' + cx + ',' + (y1 + h1) + ' ' + cx + ',' + (y0 + h0) + ' ' + x0 + ',' + (y0 + h0) + ' Z';
     };
-    var parts = [e('rect', { key: 'b', x: bx, y: by, width: bw, height: budgetH, rx: 3, style: { fill: 'var(--text-dim)' } })];
+    var parts = [e('rect', { key: 'b', x: bx, y: by, width: bw, height: budgetH, rx: 3, className: 'ui-svg-dim' })];
     var legend = [];
     // Left: ribbons enter the budget stacked, scaled so they fill its height.
     var y = top + (Math.max(colIn, colOut) - colIn) / 2, bin = by, fin = budgetH / (sum(hIn) || 1);
@@ -385,7 +385,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var h = hIn[i], hb = h * fin, c = col(i);
       parts.push(e('rect', { key: 'in' + i, x: lx, y: y, width: 10, height: h, rx: 2, style: { fill: c } }));
       parts.push(e('path', { key: 'pi' + i, d: band(lx + 10, y, h, bx, bin, hb), style: { fill: c }, opacity: 0.32 }));
-      if (!narrow) parts.push(e('text', { key: 'ti' + i, x: lx - 8, y: y + h / 2 + 4, textAnchor: 'end', fontSize: 12, style: { fill: 'var(--text)' } }, name(l.source) + '  ' + money(l.value)));
+      if (!narrow) parts.push(e('text', { key: 'ti' + i, x: lx - 8, y: y + h / 2 + 4, textAnchor: 'end', fontSize: 12, className: 'ui-svg-text' }, name(l.source) + '  ' + money(l.value)));
       legend.push({ c: c, n: name(l.source), v: l.value });
       y += h + GAP; bin += hb;
     });
@@ -395,11 +395,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var h = hOut[i], hb = h * fout, c = col(i + ins.length);
       parts.push(e('rect', { key: 'out' + i, x: rx, y: y, width: 10, height: h, rx: 2, style: { fill: c } }));
       parts.push(e('path', { key: 'po' + i, d: band(bx + bw, bout, hb, rx, y, h), style: { fill: c }, opacity: 0.32 }));
-      if (!narrow) parts.push(e('text', { key: 'to' + i, x: rx + 18, y: y + h / 2 + 4, fontSize: 12, style: { fill: 'var(--text)' } }, name(l.target) + '  ' + money(l.value)));
+      if (!narrow) parts.push(e('text', { key: 'to' + i, x: rx + 18, y: y + h / 2 + 4, fontSize: 12, className: 'ui-svg-text' }, name(l.target) + '  ' + money(l.value)));
       legend.push({ c: c, n: name(l.target), v: l.value });
       y += h + GAP; bout += hb;
     });
-    var svg = e('svg', { key: 'svg', 'data-testid': 'bg-sankey', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': __('bgSankeyLabel', 'Cash flow of the month'), style: { width: '100%', maxWidth: W + 'px', height: 'auto', display: 'block' } }, parts);
+    var svg = e('svg', { key: 'svg', 'data-testid': 'bg-sankey', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': __('bgSankeyLabel', 'Cash flow of the month'), className: 'ui-svg-full', style: { maxWidth: W + 'px' } }, parts);
     if (!narrow) return svg;
     return e('div', null, svg, e('ul', { className: 'ui-bg-legend' }, legend.map(function (x, i) {
       return e('li', { key: i },

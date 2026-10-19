@@ -163,25 +163,25 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     ),
 
     // Visual net worth bar
-    netWorth > 0 && React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, __('nwComposition', 'Wealth Composition')),
-      React.createElement('div', { style: { height: '20px', borderRadius: '10px', overflow: 'hidden', display: 'flex', background: theme.inputBg } },
+    // R5.4: shared Card titles, fields and rows; the bar widths stay inline (computed)
+    netWorth > 0 && React.createElement(window.MaerminComponents.Card, { title: __('nwComposition', 'Wealth Composition') },
+      React.createElement('div', { className: 'ui-nw-bar' },
         [
           { value: portfolioValue, color: 'var(--chart-1)', label: __('portfolio', 'Portfolio') },
           { value: totalAssets,    color: 'var(--chart-2)', label: __('nwCashAssets', 'Cash & Assets') },
         ].filter(s => s.value > 0).map((s, i) =>
           React.createElement('div', { key: i, title: `${s.label}: ${formatPrice(s.value)}`,
-            style: { width: `${s.value / barTotal * 100}%`, background: s.color, transition: 'width 0.4s' } })
+            className: 'ui-nw-bar__seg', style: { width: `${s.value / barTotal * 100}%`, background: s.color } })
         )
       ),
-      React.createElement('div', { style: { display: 'flex', gap: '1rem', marginTop: '0.625rem', flexWrap: 'wrap' } },
+      React.createElement('ul', { className: 'ui-chart__legend' },
         [{ label: __('portfolio', 'Portfolio'), color: 'var(--chart-1)', value: portfolioValue },
          { label: __('nwCashAssets', 'Cash & Assets'), color: 'var(--chart-2)', value: totalAssets },
          { label: __('nwLiabilities', 'Liabilities'), color: 'var(--loss)', value: -totalLiabilities }].map((s, i) =>
-          React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)' } },
-            React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: s.color } }),
-            React.createElement('span', { style: { color: theme.textSecondary } }, s.label),
-            React.createElement('span', { style: { color: s.value >= 0 ? theme.text : 'var(--danger)', fontWeight: '600' } }, `${formatPrice(Math.abs(s.value))} ${getCurrencySymbol()}`)
+          React.createElement('li', { key: i },
+            React.createElement('span', { className: ['ui-cat-dot', 'is-round'].join(' '), 'aria-hidden': 'true', style: { background: s.color } }),
+            s.label,
+            React.createElement('b', { className: s.value >= 0 ? 'num' : ['num', 'tone-loss'].join(' ') }, `${s.value >= 0 ? '' : '−'}${formatPrice(Math.abs(s.value))} ${getCurrencySymbol()}`)
           )
         )
       )
@@ -210,9 +210,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     }),
 
     // Add account form
-    showAdd && React.createElement(Card, { theme, style: { borderColor: 'var(--accent)' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '1rem' } }, __('nwAddTitle', 'Add Account or Liability')),
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
+    showAdd && React.createElement(window.MaerminComponents.Card, { title: __('nwAddTitle', 'Add Account or Liability'), className: ['ui-nw-form', 'is-on'].join(' ') },
+      React.createElement('div', { className: ['ui-iv-form', 'is-grid'].join(' ') },
         React.createElement('div', null,
           React.createElement('label', { className: 'ui-field__label' }, __('nwName', 'Name')),
           inp('name', { placeholder: __('nwNamePh', 'e.g. ING Tagesgeld, Mortgage...') })
@@ -230,9 +229,9 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       ),
 
       // Interest schedule (WI-2) — for cash / checking / time deposits.
-      ['cash','checking','time_deposit'].includes(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
-        React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-sm)', marginBottom: '0.6rem', fontWeight: 600 } }, t.interestSection || 'Interest (optional)'),
-        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
+      ['cash','checking','time_deposit'].includes(form.type) && React.createElement('fieldset', { className: 'ui-nw-sub' },
+        React.createElement('legend', null, t.interestSection || 'Interest (optional)'),
+        React.createElement('div', { className: ['ui-iv-form', 'is-grid'].join(' ') },
           React.createElement('div', null,
             React.createElement('label', { className: 'ui-field__label' }, t.interestRate || 'Rate (% p.a.)'),
             inp('interestRate', { type: 'number', placeholder: '2.5' })
@@ -261,12 +260,12 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       ),
 
       // Recurring liability schedule — only for loan/credit/other_liability types.
-      isLiabilityType(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
-        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: 'var(--text-sm)', cursor: 'pointer', marginBottom: form.recurring ? '0.75rem' : 0 } },
-          React.createElement('input', { type: 'checkbox', checked: form.recurring, onChange: e => setForm(p => ({ ...p, recurring: e.target.checked })), style: { accentColor: theme.accent } }),
+      isLiabilityType(form.type) && React.createElement('div', { className: 'ui-nw-sub' },
+        React.createElement('label', { className: 'ui-rc-kit__check' },
+          React.createElement('input', { type: 'checkbox', checked: form.recurring, onChange: e => setForm(p => ({ ...p, recurring: e.target.checked })), className: 'ui-st-check' }),
           React.createElement('span', null, __('nwRecurring', 'Recurring payment (loan / mortgage instalment)'))
         ),
-        form.recurring && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
+        form.recurring && React.createElement('div', { className: ['ui-iv-form', 'is-grid'].join(' ') },
           React.createElement('div', null,
             React.createElement('label', { className: 'ui-field__label' }, __('nwPaymentCur', 'Payment ({cur})', { cur: getCurrencySymbol() })),
             inp('amount', { type: 'number', placeholder: '1200' })
@@ -287,31 +286,30 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
           )
         )
       ),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+      React.createElement('div', { className: 'ui-actions' },
         React.createElement(UIC.Button, { variant: 'primary', onClick: addAccount }, __('add', 'Add')),
         React.createElement(UIC.Button, { variant: 'quiet', onClick: () => setShowAdd(false) }, __('cancel', 'Cancel'))
       )
     ),
 
     // Account list
-    accounts.length > 0 && React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.875rem' } }, __('nwAccountsTitle', 'Accounts & Liabilities')),
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
+    accounts.length > 0 && React.createElement(window.MaerminComponents.Card, { title: __('nwAccountsTitle', 'Accounts & Liabilities') },
+      React.createElement('div', { className: 'ui-nw-list' },
         accounts.map(acc => {
           const typeInfo = TYPES[acc.type] || TYPES.other_asset;
           const isLiability = LIABILITIES.has(acc.type);
           return React.createElement('div', { key: acc.id, className: 'ui-acct' },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem' } },
-              React.createElement('span', { style: { color: typeInfo.color, fontSize: 'var(--text-base)' } }, typeInfo.icon),
-              React.createElement('div', null,
-                React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, acc.name),
-                React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
+            React.createElement('div', { className: 'ui-acct__main' },
+              React.createElement('span', { className: 'ui-acct__icon', 'aria-hidden': 'true', style: { color: typeInfo.color } }, typeInfo.icon),
+              React.createElement('div', { className: 'ui-rows__main' },
+                React.createElement('b', null, acc.name),
+                React.createElement('span', null,
                   typeInfo.label
                   + (acc.interestRate > 0 ? `  ·  ${acc.interestRate}% ${t.interestPa || 'p.a.'}` : '')
                   + (acc.maturityDate ? `  ·  ${t.interestMatures || 'matures'} ${acc.maturityDate}` : ''))
               )
             ),
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
+            React.createElement('div', { className: 'ui-acct__side' },
               React.createElement('span', { className: 'num ' + (isLiability ? 'tone-loss' : 'tone-gain') },
                 `${isLiability ? '−' : '+'}${formatPrice(acc.value)} ${getCurrencySymbol()}`
               ),
@@ -324,8 +322,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
                   if (window.MaerminTrash) window.MaerminTrash.trashed('account', acc.name, acc);
                 }),
                 'aria-label': (t.nwRemoveAria || 'Remove account {name}').replace('{name}', acc.name),
-                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-base)', padding: '0.25rem' }
-              }, '×')
+                type: 'button', className: ['ui-icon-btn', 'ui-icon-btn--sm'].join(' ')
+              }, React.createElement('span', { 'aria-hidden': 'true' }, '×'))
             )
           );
         })

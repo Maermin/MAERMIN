@@ -56,7 +56,8 @@ function render(el) { return renderToStaticMarkup(el); }
   const dash = render(React.createElement(V.InvestmentAnalysisDashboard, { portfolio, prices, priceHistory: {}, theme: light, t: {} }));
   const badDash = lightOnDark(dash);
   ok('H-8: the dashboard has no white text in the light theme', badDash.length === 0, badDash.slice(0, 3).join(' | '));
-  ok('H-8: card titles use the theme text colour', /color:#0f172a/.test(dash));
+  // R5.4: titles and labels take the theme text colour from CSS (no inline colour at all)
+  ok('H-8: text takes the theme colour from CSS (no inline text colour)', /ui-section-title/.test(dash) && !/style="[^"]*[^-]color:/.test(dash), (dash.match(/style="[^"]*color:[^"]*"/) || [''])[0]);
 
   // Every section, inside the theme the dashboard provides.
   const views = [

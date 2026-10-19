@@ -180,7 +180,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         return e(UIC.Card, { title: t.mcTitle || 'Company size', subtitle: t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)', headingLevel: 'h3', 'data-testid': 'market-cap' },
           agg.total > 0 ? e('ul', { className: 'ui-meters' }, bars) : e('p', { className: 'ui-muted' }, t.mcEmpty || 'No equity positions to size yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('mcError', 'Market cap error: ') + (err && err.message));
+        return window.MaerminUtils.errorNote(__('mcError', 'Market cap error: ') + (err && err.message)); // R5.4
       }
     };
   }

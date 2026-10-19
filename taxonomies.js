@@ -335,21 +335,22 @@
     }, [tax, holdings, props.noSell]);
     var update = function (nt) { setState(put(state, nt)); };
 
-    var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
+    // R5.4: shared buttons, fields and the table look; the tree indent and node colours stay inline
+    var BTN = ['ui-btn', 'ui-btn--secondary', 'ui-btn--sm'].join(' ');
     var btn = function (label, onClick, extra) {
-      return e('button', Object.assign({ type: 'button', onClick: onClick, style: { minHeight: '32px', padding: '0.35rem 0.75rem', background: theme.inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600 } }, extra || {}), label);
+      return e('button', Object.assign({ type: 'button', onClick: onClick, className: BTN }, extra || {}), e('span', { className: 'ui-btn__label' }, label));
     };
     var iconBtn = function (label, aria, onClick, testid) {
       return e('button', { type: 'button', 'aria-label': aria, title: aria, 'data-testid': testid, onClick: onClick,
-        style: { minWidth: '28px', minHeight: '28px', background: 'transparent', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-md)', padding: '0 0.25rem' } }, label);
+        className: ['ui-icon-btn', 'ui-icon-btn--sm'].join(' ') }, e('span', { 'aria-hidden': 'true' }, label));
     };
-    var selectStyle = { padding: '0.4rem 0.55rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', maxWidth: '100%' };
+    var SELECT = ['ui-input', 'ui-input--sm', 'ui-select', 'ui-tx-sel'].join(' ');
     var card = function (testid, title, sub, body, right) {
       return e('section', { 'data-testid': testid, className: ['ui-card', 'ui-card--pad'].join(' ') },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
-          e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
+        e('div', { className: 'ui-tx-head' },
+          e('div', { className: 'ui-tx-head__titles' },
+            e(window.MaerminComponents.Heading, { className: 'ui-card__title' }, title),
+            sub && e('p', { className: 'ui-card__subtitle' }, sub)),
           right || null),
         body);
     };
@@ -390,68 +391,69 @@
         setMsg(__('txImported', 'Imported "{name}".', { name: r.taxonomy.name }));
       });
     };
-    var toolbar = e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-      state.list.length > 0 && e('select', { 'data-testid': 'tx-select', 'aria-label': __('txChoose', 'Taxonomy'), value: tax ? tax.id : '', onChange: function (ev) { setSelId(ev.target.value); }, style: selectStyle },
+    var toolbar = e('div', { className: 'ui-tx-bar' },
+      state.list.length > 0 && e('select', { 'data-testid': 'tx-select', 'aria-label': __('txChoose', 'Taxonomy'), value: tax ? tax.id : '', onChange: function (ev) { setSelId(ev.target.value); }, className: SELECT },
         state.list.map(function (x) { return e('option', { key: x.id, value: x.id }, x.name); })),
-      e('select', { 'data-testid': 'tx-template', 'aria-label': __('txTemplate', 'Template'), value: template, onChange: function (ev) { setTemplate(ev.target.value); }, style: selectStyle },
+      e('select', { 'data-testid': 'tx-template', 'aria-label': __('txTemplate', 'Template'), value: template, onChange: function (ev) { setTemplate(ev.target.value); }, className: SELECT },
         TEMPLATES.map(function (x) { return e('option', { key: x.id, value: x.id }, templateName(x.id)); })),
       btn(__('txCreate', '+ New from template'), create, { 'data-testid': 'tx-create' }),
       btn(__('txImport', 'Import JSON'), function () { if (fileRef.current) fileRef.current.click(); }, { 'data-testid': 'tx-import' }),
-      e('input', { ref: fileRef, type: 'file', accept: 'application/json,.json', 'data-testid': 'tx-file', onChange: doImport, style: { display: 'none' } }),
+      e('input', { ref: fileRef, type: 'file', accept: 'application/json,.json', 'data-testid': 'tx-file', onChange: doImport, hidden: true }),
       tax && btn(__('txExport', 'Export JSON'), doExport, { 'data-testid': 'tx-export' }),
       tax && btn(__('txRename', 'Rename'), function () { var n = prompt1(__('txRenamePrompt', 'New name'), tax.name); if (n) setState(rename(state, tax.id, n)); }),
       tax && btn(__('txDelete', 'Delete'), function () { ask(__('txDeleteTitle', 'Delete the taxonomy "{name}"?', { name: tax.name }), function () { var next = remove(state, tax.id); setState(next); setSelId(next.list[0] ? next.list[0].id : null); }); }, { 'data-testid': 'tx-delete' }));
+    var msgEl = msg ? e('p', { role: 'status', className: 'ui-muted' }, msg) : null;
 
     if (!tax) {
       return e('div', { 'data-testid': 'taxonomies', className: 'ui-stack' },
-        card('tx-intro', __('txTitle', 'Taxonomies'), __('txIntro', 'Your own classification trees on top of asset classes, categories and tags - for example asset classes, GICS sectors, MSCI regions or the Kommer world portfolio. Start from a template or import a JSON file.'), e('div', null, toolbar, msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, msg))));
+        card('tx-intro', __('txTitle', 'Taxonomies'), __('txIntro', 'Your own classification trees on top of asset classes, categories and tags - for example asset classes, GICS sectors, MSCI regions or the Kommer world portfolio. Start from a template or import a JSON file.'), e('div', { className: 'ui-tx-body' }, toolbar, msgEl)));
     }
 
     // ---- tree ----
-    var th = function (label, i, left) { return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.5rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border } }, label); };
-    var tdS = function (x) { return Object.assign({ padding: '0.4rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem' }, x || {}); };
+    var th = function (label, i, left) { return e('th', { key: i, scope: 'col', className: left ? 'is-left' : undefined }, label || e('span', { className: 'sr-only' }, __('uiRowActions', 'Actions'))); };
     var targetInput = function (r) {
       return e('input', { key: r.id + ':' + r.target, type: 'text', inputMode: 'decimal', 'data-testid': 'tx-target-' + r.id, 'aria-label': __('txTargetAria', 'Target for {name} in %', { name: r.name }),
         defaultValue: r.target == null ? '' : I.num(r.target, { min: 0, max: 2 }),
         onBlur: function (ev) { var raw = ev.target.value.trim(); var v = raw === '' ? null : (U && U.parseDecimal ? U.parseDecimal(raw) : parseFloat(raw)); if (raw === '' || isFinite(v)) update(setTarget(tax, r.id, raw === '' ? null : v)); },
         onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-        style: { width: '4.2rem', padding: '0.25rem 0.4rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '6px', color: text, fontSize: 'var(--text-sm)', textAlign: 'right' } });
+        className: ['ui-input', 'ui-input--sm', 'ui-tx-pct'].join(' ') });
     };
     var actionOf = function (r) {
       var p = planned && r.depth === 0 ? planned.rows[r.id] : null;
-      if (!p || !p.action || p.action === 'hold' || !p.deltaValue) return e('span', { style: { color: dim } }, p ? __('txHold', 'hold') : '');
+      if (!p || !p.action || p.action === 'hold' || !p.deltaValue) return e('span', { className: 'is-dim' }, p ? __('txHold', 'hold') : '');
       var buy = p.deltaValue > 0;
-      return e('span', { 'data-action': buy ? 'buy' : 'sell', 'data-v': p.deltaValue, style: { color: buy ? theme.success : theme.danger, fontWeight: 700 } },
-        (buy ? __('txBuy', 'buy {amount}', { amount: money(p.deltaValue) }) : __('txSell', 'sell {amount}', { amount: money(-p.deltaValue) })));
+      return e('b', { 'data-action': buy ? 'buy' : 'sell', 'data-v': p.deltaValue, className: buy ? 'tone-gain' : 'tone-loss' },
+        (buy ? '▲ ' + __('txBuy', 'buy {amount}', { amount: money(p.deltaValue) }) : '▼ ' + __('txSell', 'sell {amount}', { amount: money(-p.deltaValue) })));
     };
     var treeRows = al.rows.map(function (r) {
-      return e('tr', { key: r.id, 'data-node': r.id, 'data-v': r.value, 'data-pct': r.pct },
-        e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: r.depth === 0 ? 700 : 500, paddingLeft: (0.5 + r.depth * 1.1) + 'rem' }) },
-          e('span', { 'aria-hidden': true, style: { display: 'inline-block', width: '0.6rem', height: '0.6rem', borderRadius: '2px', background: r.color, marginRight: '0.45rem' } }), r.name),
-        e('td', { style: tdS({ color: text }) }, money(r.value)),
-        e('td', { style: tdS({ color: text, fontWeight: 600 }) }, I.pct(r.pct, 1)),
-        e('td', { style: tdS() }, r.depth === 0 ? targetInput(r) : ''),
-        e('td', { style: tdS() }, actionOf(r)),
-        e('td', { style: tdS({ textAlign: 'right' }) },
+      return e('tr', { key: r.id, 'data-node': r.id, 'data-v': r.value, 'data-pct': r.pct, className: r.depth === 0 ? 'is-top' : undefined },
+        e('th', { scope: 'row', className: ['is-left', 'ui-tx-node'].join(' '), style: { paddingLeft: (0.5 + r.depth * 1.1) + 'rem' } },
+          e('span', { 'aria-hidden': true, className: 'ui-cat-dot', style: { background: r.color } }), r.name),
+        e('td', { className: 'num' }, money(r.value)),
+        e('td', { className: ['num', 'is-strong'].join(' ') }, I.pct(r.pct, 1)),
+        e('td', null, r.depth === 0 ? targetInput(r) : ''),
+        e('td', null, actionOf(r)),
+        e('td', { className: 'ui-tx-acts' },
           iconBtn('+', __('txAddChild', 'Add a node under {name}', { name: r.name }), function () { var n = prompt1(__('txNodePrompt', 'Name of the new node'), ''); if (n) update(addNode(tax, r.id, n)); }, 'tx-add-' + r.id),
           iconBtn('✎', __('txRenameNode', 'Rename {name}', { name: r.name }), function () { var n = prompt1(__('txRenamePrompt', 'New name'), r.name); if (n) update(renameNode(tax, r.id, n)); }),
           iconBtn('×', __('txRemoveNode', 'Remove {name}', { name: r.name }), function () { ask(__('txRemoveNodeTitle', 'Remove "{name}" and everything below it?', { name: r.name }), function () { update(removeNode(tax, r.id)); }); }, 'tx-remove-' + r.id)));
     });
-    treeRows.push(e('tr', { key: '__un', 'data-node': 'unassigned', 'data-v': al.unassigned.value },
-      e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: dim, fontStyle: 'italic' }) }, __('txUnassigned', 'Not assigned')),
-      e('td', { style: tdS({ color: dim }) }, money(al.unassigned.value)),
-      e('td', { style: tdS({ color: dim }) }, I.pct(al.unassigned.pct, 1)),
-      e('td', { style: tdS() }), e('td', { style: tdS() }), e('td', { style: tdS() })));
+    treeRows.push(e('tr', { key: '__un', 'data-node': 'unassigned', 'data-v': al.unassigned.value, className: 'is-off' },
+      e('th', { scope: 'row', className: ['is-left', 'ui-tx-node', 'is-dim'].join(' ') }, __('txUnassigned', 'Not assigned')),
+      e('td', { className: 'num' }, money(al.unassigned.value)),
+      e('td', { className: 'num' }, I.pct(al.unassigned.pct, 1)),
+      e('td', null), e('td', null), e('td', null)));
     var sumT = planned && planned.sum;
-    var tree = e('div', null,
-      e('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
-        e('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+    var sumOk = sumT != null && Math.abs(sumT - 100) < 0.01;
+    var tree = e('div', { className: 'ui-tx-body' },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { className: ['ui-table', 'ui-table--dense', 'ui-tx-table'].join(' ') },
           e('thead', null, e('tr', null, th(__('txNode', 'Node'), 0, true), th(__('txValue', 'Value'), 1), th(__('txShare', 'Share'), 2), th(__('txTarget', 'Target %'), 3), th(__('txAction', 'To rebalance'), 4), th('', 5))),
           e('tbody', null, treeRows))),
-      e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.6rem' } },
+      e('div', { className: 'ui-tx-bar' },
         btn(__('txAddTop', '+ Top-level node'), function () { var n = prompt1(__('txNodePrompt', 'Name of the new node'), ''); if (n) update(addNode(tax, null, n)); }, { 'data-testid': 'tx-add-top' }),
-        sumT != null && e('span', { 'data-testid': 'tx-target-sum', style: { color: Math.abs(sumT - 100) < 0.01 ? dim : theme.danger, fontSize: 'var(--text-xs)' } },
-          __('txTargetSum', 'Targets add up to {pct}.', { pct: I.pct(sumT, 1) }) + (Math.abs(sumT - 100) < 0.01 ? '' : ' ' + __('txTargetSumHint', 'Set them to 100 % for a full plan.')))));
+        sumT != null && e('span', { 'data-testid': 'tx-target-sum', className: ['ui-note', 'ui-note--flush', sumOk ? '' : 'tone-loss'].join(' ').trim() },
+          (sumOk ? '✓ ' : '! ') + __('txTargetSum', 'Targets add up to {pct}.', { pct: I.pct(sumT, 1) }) + (sumOk ? '' : ' ' + __('txTargetSumHint', 'Set them to 100 % for a full plan.')))));
 
     // ---- assignments ----
     var flat = [];
@@ -461,21 +463,20 @@
     var assignRows = holdings.filter(function (h) { return num(h.value) > 0; }).slice().sort(function (a, b) { return b.value - a.value; }).map(function (h) {
       var k = sym(h.symbol);
       return e('tr', { key: k, 'data-symbol': k },
-        e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: 600, maxWidth: '14rem', overflow: 'hidden', textOverflow: 'ellipsis' }) }, h.symbol,
-          h.name && h.name !== h.symbol ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)', marginLeft: '0.4rem' } }, h.name) : null),
-        e('td', { style: tdS({ color: dim }) }, money(h.value)),
-        e('td', { style: tdS({ textAlign: 'left' }) },
-          e('select', { 'data-testid': 'tx-assign-' + k, 'aria-label': __('txAssignAria', 'Node of {sym}', { sym: h.symbol }), value: tax.assign[k] || '', onChange: function (ev) { update(assign(tax, k, ev.target.value || null)); }, style: selectStyle },
+        e('th', { scope: 'row', className: ['is-left', 'ui-tx-hold'].join(' ') }, h.symbol,
+          h.name && h.name !== h.symbol ? e('span', { className: 'ui-tcell__sub' }, h.name) : null),
+        e('td', { className: ['num', 'is-dim'].join(' ') }, money(h.value)),
+        e('td', { className: 'is-left' },
+          e('select', { 'data-testid': 'tx-assign-' + k, 'aria-label': __('txAssignAria', 'Node of {sym}', { sym: h.symbol }), value: tax.assign[k] || '', onChange: function (ev) { update(assign(tax, k, ev.target.value || null)); }, className: SELECT },
             e('option', { value: '' }, __('txUnassigned', 'Not assigned')),
             flat.map(function (n) { return e('option', { key: n.id, value: n.id }, n.label); }))));
     });
     var assignCard = card('tx-assign', __('txAssignTitle', 'Assign holdings'),
       __('txAssignSub', 'Each holding belongs to one node. "Fill from data" proposes nodes from the asset class, fund type and name, sector and country the app knows - it never changes an assignment you made.'),
-      e('div', null,
-        e('div', { style: { overflowX: 'auto', maxWidth: '100%', maxHeight: '460px', overflowY: 'auto' } },
-          e('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-            e('thead', null, e('tr', null, th(__('txHolding', 'Holding'), 0, true), th(__('txValue', 'Value'), 1), th(__('txNode', 'Node'), 2, true))),
-            e('tbody', null, assignRows)))),
+      e('div', { className: ['ui-table-wrap', 'ui-table--tall'].join(' ') },
+        e('table', { className: ['ui-table', 'ui-table--dense', 'ui-tx-table'].join(' ') },
+          e('thead', null, e('tr', null, th(__('txHolding', 'Holding'), 0, true), th(__('txValue', 'Value'), 1), th(__('txNode', 'Node'), 2, true))),
+          e('tbody', null, assignRows))),
       tax.template ? btn(nSugg ? __('txFill', 'Fill from data ({n})', { n: nSugg }) : __('txFillNone', 'Nothing to fill'), function () {
         var nt = tax; Object.keys(sugg).forEach(function (k) { nt = assign(nt, k, sugg[k]); }); update(nt);
       }, { 'data-testid': 'tx-fill', disabled: !nSugg }) : null);
@@ -483,7 +484,7 @@
     return e('div', { 'data-testid': 'taxonomies', className: 'ui-stack' },
       card('tx-tree', tax.name, (tax.template ? __('txFromTemplate', 'From the template "{name}".', { name: templateName(tax.template) }) + ' ' : '')
         + __('txTreeSub', 'Values at today\'s prices; a node adds up everything below it. Targets on the top level feed the rebalancing plan (tolerance ±5 percentage points).'),
-        e('div', null, e('div', { style: { marginBottom: '0.8rem' } }, toolbar), msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, msg), tree)),
+        e('div', { className: 'ui-tx-body' }, toolbar, msgEl, tree)),
       assignCard);
   }
 

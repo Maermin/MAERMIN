@@ -3407,3 +3407,114 @@ input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus { 
 .ui-view-error .mx-empty-title { color: var(--text); }
 .ui-view-error__msg { color: var(--text-dim); font-size: var(--type-caption); overflow-wrap: anywhere; }
 .ui-tax__body { flex: 1; overflow: auto; }
+
+/* ============================================================================
+   R5.4 part 2 (PLAN Phase 6): the remaining view files onto classes.
+   Computed sizes and data colours stay inline.
+   ========================================================================== */
+/* investment views: DCA, sectors, countries, currencies, liquidity, goals */
+.ui-iv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: var(--space-4); }
+.ui-iv-form { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; }
+.ui-iv-form > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.ui-iv-form.is-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: var(--space-3); }
+.ui-iv-sel { max-width: 240px; width: auto; }
+.ui-iv-num { width: 150px; }
+.ui-iv-inline { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-iv-bar { margin-bottom: var(--space-3); }
+.ui-iv-bar__head { display: flex; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-1); color: var(--text); font-size: var(--type-body); }
+.ui-iv-bar__fill { display: block; height: 100%; border-radius: var(--radius-pill); }
+.ui-iv-k { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-iv-v { color: var(--text); }
+.ui-iv-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
+.ui-iv-kv.is-row { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: flex-end; }
+.ui-iv-head { display: flex; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.ui-iv-liq { display: inline-flex; gap: var(--space-3); align-items: baseline; color: var(--text-dim); font-size: var(--type-caption); }
+.ui-iv-liq b { font-size: var(--type-body); }
+.ui-actions.is-end { justify-content: flex-end; }
+.ui-gp { width: 100%; height: auto; display: block; margin: var(--space-3) 0 var(--space-1); }
+.ui-gp__target { stroke: var(--text-dim); }
+.ui-gp__line { stroke: var(--chart-1); }
+.ui-gp__axis { fill: var(--text-dim); }
+
+/* taxonomies */
+.ui-tx-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.ui-tx-head__titles { min-width: 0; flex: 1 1 240px; }
+.ui-tx-head__titles .ui-card__title { margin: 0; }
+.ui-tx-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-tx-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.ui-tx-sel { width: auto; max-width: 100%; }
+.ui-tx-pct { width: 4.5rem; text-align: right; }
+.ui-tx-table tr.is-top .ui-tx-node { font-weight: 700; }
+.ui-tx-node { white-space: nowrap; }
+.ui-tx-node .ui-cat-dot { width: 10px; height: 10px; margin-right: var(--space-2); vertical-align: middle; }
+.ui-tx-acts { white-space: nowrap; text-align: right; }
+.ui-tx-hold { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+.ui-tx-table tr.is-off th { font-style: italic; }
+
+/* net worth */
+.ui-nw-bar { display: flex; height: 20px; border-radius: var(--radius-pill); overflow: hidden; background: var(--surface-2); }
+.ui-nw-bar__seg { display: block; height: 100%; transition: width var(--dur-2) var(--ease); }
+.ui-nw-form.is-on { border-color: var(--accent); }
+.ui-nw-sub { margin: var(--space-3) 0; padding: var(--space-3); border: 0; border-radius: var(--radius-sm); background: var(--surface-2); display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-nw-sub legend { float: left; padding: 0; margin-bottom: var(--space-2); color: var(--text); font-size: var(--type-body); font-weight: 600; }
+.ui-nw-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-acct__main { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.ui-acct__icon { font-size: var(--type-body); }
+.ui-acct__side { display: flex; align-items: center; gap: var(--space-3); }
+
+/* value chart on the Overview */
+.ui-vc { overflow: hidden; padding: 0; }
+.ui-vc-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); padding: var(--space-5) var(--space-6) var(--space-2); }
+.ui-vc-tags { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-vc-tags .ui-sublabel { margin: 0; }
+.ui-vc-periods { align-self: flex-start; }
+.ui-vc-hero { margin-top: var(--space-1); }
+.ui-vc-hero.is-hover { display: flex; align-items: baseline; gap: var(--space-2); }
+.ui-vc-hero__value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1px; line-height: 1; }
+.ui-vc-hero__int { font-size: clamp(2rem, 4.2vw, 2.9rem); font-weight: 700; letter-spacing: -0.03em; color: var(--text); font-variant-numeric: tabular-nums; }
+.ui-vc-hero.is-hover .ui-vc-hero__int { font-size: 1.85rem; }
+.ui-vc-hero__dec { font-size: clamp(1.2rem, 2.6vw, 1.7rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text-dim); }
+.ui-vc-hero__cur { margin-left: var(--space-2); font-size: var(--type-title); font-weight: 600; color: var(--text-dim); }
+.ui-vc-hero__ret { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.ui-vc-hero__ret > b { font-size: var(--type-body-lg); }
+.ui-vc-plot { position: relative; }
+.ui-vc-svg { display: block; overflow: visible; cursor: crosshair; }
+
+/* rebalancing targets */
+.ui-rb-small { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-rb-num { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ui-rb-band { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; line-height: 1.8; margin: var(--space-2) 0 var(--space-3); }
+.ui-rb-target { margin-bottom: var(--space-4); }
+.ui-rb-range { width: 100%; }
+.ui-rb-own summary { cursor: pointer; min-height: 24px; padding-top: 2px; }
+.ui-rb-nosell-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.ui-rb-nosell__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ui-rb-nosell__name .ui-rb-small { margin-left: var(--space-2); }
+
+/* SVG colours from the tokens */
+.ui-svg-full { width: 100%; height: auto; display: block; }
+.ui-svg-dim { fill: var(--text-dim); }
+.ui-svg-text { fill: var(--text); }
+.ui-svg-c1-fill { fill: var(--chart-1); }
+.ui-svg-c1-stroke { stroke: var(--chart-1); }
+.ui-svg-c3-stroke { stroke: var(--chart-3); }
+.ui-svg-faint-stroke { stroke: var(--text-faint); }
+.ui-rs-macd { margin-top: var(--space-1); }
+
+/* per-holding returns, position chart */
+.ui-hr-pair { display: flex; gap: var(--space-5); flex-wrap: wrap; }
+.ui-hr-pair > * { flex: 1 1 260px; min-width: 0; }
+.ui-pc { padding: var(--space-4) var(--space-6) var(--space-1); border-bottom: 1px solid var(--border); }
+.ui-pc__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-1); }
+.ui-pc__head .ui-sublabel { margin: 0; }
+.ui-pc__avg { color: var(--text); font-size: var(--type-caption); }
+.ui-pc__dash { display: inline-block; width: 16px; border-top: 2px dashed var(--text-dim); vertical-align: middle; margin-right: var(--space-1); }
+.ui-pc__svg { display: block; }
+.ui-pc__axis { display: flex; justify-content: space-between; padding: 2px 0 var(--space-2); color: var(--text-dim); font-size: var(--type-caption); }
+
+@media (max-width: 767px) {
+  .ui-vc-head { padding: var(--space-4) var(--space-4) var(--space-2); }
+  .ui-pc { padding: var(--space-3) var(--space-4) var(--space-1); }
+  .ui-iv-num, .ui-iv-sel { width: 100%; max-width: none; }
+}
+.ui-vc-hero__ret .ui-tone-chip { font-size: var(--type-body-lg); font-weight: 700; padding: var(--space-1) var(--space-2); }

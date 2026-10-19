@@ -452,16 +452,16 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const UIC = window.MaerminComponents;
   const CARD = ['ui-card', 'ui-card--pad', 'ui-rb-card'].join(' ');
   const catLabels = { crypto: I.category('crypto'), stocks: I.category('stocks'), skins: I.category('skins'), commodities: I.category('commodities') };
-  const small = { color: 'var(--text-dim)', fontSize: 'var(--type-caption)' };
+  // R5.4: small print on the .ui-rb-small class (was an inline style object)
 
   // A number field that commits on blur / Enter (typing "2," must not snap back).
-  const NumField = ({ value, onCommit, label, suffix, id }) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
+  const NumField = ({ value, onCommit, label, suffix, id }) => React.createElement('span', { className: 'ui-rb-num' },
     React.createElement('input', {
       key: id + ':' + value, id, type: 'text', inputMode: 'decimal', defaultValue: I.num(value, { min: 0, max: 2 }), 'aria-label': label, className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' '),
       onBlur: (e) => { const v = window.MaerminUtils.parseDecimal(e.target.value); if (isFinite(v) && v >= 0) onCommit(v); else e.target.value = I.num(value, { min: 0, max: 2 }); },
       onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); }
     }),
-    suffix && React.createElement('span', { style: small }, suffix));
+    suffix && React.createElement('span', { className: 'ui-rb-small' }, suffix));
 
   const bandOf = (cat) => prefs.bands[cat] || prefs.defaultBand;
   const setBand = (cat, patch) => {
@@ -526,7 +526,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         React.createElement('h3', { className: 'ui-card__title' }, t.targetAllocation || 'Target Allocation'),
         React.createElement(UIC.Badge, { tone: totalTarget === 100 ? 'gain' : 'loss' }, `${I.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + I.pct(100, 0)}`)
       ),
-      !cashflow && React.createElement('div', { 'data-testid': 'rb-default-band', style: { ...small, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem', lineHeight: 1.8 } },
+      !cashflow && React.createElement('div', { 'data-testid': 'rb-default-band', className: ['ui-rb-small', 'ui-rb-band'].join(' ') },
         __('rbBandDefault', 'Tolerance for every class:'),
         NumField({ id: 'rb-band-rel', value: prefs.defaultBand.rel * 100, label: __('rbBandRelAria', 'Tolerance as a share of the target, in percent'), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(null, { rel: Math.min(v, 100) / 100 }) }),
         __('rbBandAtLeast', 'at least'),
@@ -534,20 +534,20 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       CATS.map(cat => {
         const r = rowOf[cat] || { bandPp: 0 };
         const own = !!prefs.bands[cat];
-        return React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
+        return React.createElement('div', { key: cat, className: 'ui-rb-target' },
+          React.createElement('div', { className: 'ui-iv-bar__head' },
             React.createElement('label', { htmlFor: 'rb-t-' + cat, className: 'ui-rb-cat' }, React.createElement('span', { className: 'ui-swatch', style: { background: catColors[cat] }, 'aria-hidden': 'true' }), catLabels[cat]),
-            React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, I.pct(targets[cat] || 0, 0))
+            React.createElement('b', { className: 'num' }, I.pct(targets[cat] || 0, 0))
           ),
           React.createElement('input', {
             id: 'rb-t-' + cat, type: 'range', min: 0, max: 100, value: targets[cat] || 0,
             onChange: e => setTargets(prev => ({ ...prev, [cat]: parseInt(e.target.value) })),
-            style: { width: '100%', accentColor: catColors[cat] }
+            className: 'ui-rb-range', style: { accentColor: catColors[cat] }
           }),
-          !cashflow && React.createElement('details', { 'data-rb-band': cat, open: own, style: { ...small, marginTop: '0.2rem' } },
-            React.createElement('summary', { style: { cursor: 'pointer', minHeight: '24px', display: 'list-item', paddingTop: '0.2rem' } },
+          !cashflow && React.createElement('details', { 'data-rb-band': cat, open: own, className: ['ui-rb-small', 'ui-rb-own'].join(' ') },
+            React.createElement('summary', null,
               __('rbBandRow', 'Tolerance ±{pp} pp', { pp: I.num(r.bandPp, { min: 0, max: 1 }) }) + (own ? ' · ' + __('rbBandOwn', 'own setting') : '')),
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem', lineHeight: 1.8 } },
+            React.createElement('div', { className: 'ui-rb-band' },
               NumField({ id: 'rb-rel-' + cat, value: bandOf(cat).rel * 100, label: __('rbBandRelFor', 'Tolerance for {name} as a share of the target, in percent', { name: catLabels[cat] }), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(cat, { rel: Math.min(v, 100) / 100 }) }),
               __('rbBandAtLeast', 'at least'),
               NumField({ id: 'rb-abs-' + cat, value: bandOf(cat).abs, label: __('rbBandAbsFor', 'Minimum tolerance for {name} in percentage points', { name: catLabels[cat] }), suffix: __('rbBandAbsSuffix', 'pp'), onCommit: (v) => setBand(cat, { abs: Math.min(v, 100) }) }),
@@ -560,13 +560,13 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     !noTargets && holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', className: CARD },
       React.createElement('summary', { className: 'ui-rb-summary' },
         __('rbNoSellTitle', 'Holdings you never sell ({n})', { n: prefs.noSell.filter(s => holdings.some(h => h.symbol.toUpperCase() === s)).length })),
-      React.createElement('p', { style: { ...small, margin: '0.5rem 0 0.75rem', lineHeight: 1.5 } },
+      React.createElement('p', { className: 'ui-note' },
         __('rbNoSellHint', 'A class can only be sold down with the holdings that are not marked here. What cannot be sold is shown in the plan.')),
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.35rem' } },
+      React.createElement('div', { className: 'ui-rb-nosell-list' },
         holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, className: 'ui-rb-nosell' },
           React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, className: 'ui-rb-check' }),
-          React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name, React.createElement('span', { style: { ...small, marginLeft: '0.4rem' } }, catLabels[h.cat])),
-          React.createElement('span', { style: small }, money(h.value)))))
+          React.createElement('span', { className: 'ui-rb-nosell__name' }, h.name, React.createElement('span', { className: 'ui-rb-small' }, catLabels[h.cat])),
+          React.createElement('span', { className: ['ui-rb-small', 'num'].join(' ') }, money(h.value)))))
     ),
 
     // Results table
