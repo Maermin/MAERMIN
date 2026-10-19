@@ -683,7 +683,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const eur = rangeStat ? rangeStat.gain : trueProfit;
     const up  = rangeStat ? rangeStat.gain >= 0 : isROIup;
     const sign = up ? '+' : '';
-    const deltaCol = up ? GREEN : RED;
     // Mockup hero: lead with the big € portfolio value, return as a chip beside it.
     const valNum = (typeof currentValue === 'number') ? currentValue : 0;
     const full   = `${formatPrice(valNum)}`;
@@ -693,27 +692,23 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const dot    = full.lastIndexOf(decSep || '.');
     const intPart = dot > -1 ? full.slice(0, dot) : full;
     const decPart = dot > -1 ? full.slice(dot) : '';
-    return React.createElement('div', { style: { marginTop: '0.15rem' } },
+    // R5.4: the hero figure and its return on classes (tone + ▲ / ▼)
+    const tone = up ? 'tone-gain' : 'tone-loss';
+    return React.createElement('div', { className: 'ui-vc-hero' },
       // Big portfolio value
-      React.createElement('div', {
-        style: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.05rem', fontFamily: "'Geist', 'Geist', sans-serif", lineHeight: 1 }
-      },
-        React.createElement('span', { 'data-testid': 'hero-int', style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
-        decPart && React.createElement('span', { 'data-testid': 'hero-dec', style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),
-        React.createElement('span', { style: { fontSize: 'var(--text-title)', fontWeight: '600', color: GREY, marginLeft: '0.4rem' } }, getCurrencySymbol())
+      React.createElement('div', { className: 'ui-vc-hero__value' },
+        React.createElement('span', { 'data-testid': 'hero-int', className: 'ui-vc-hero__int' }, intPart),
+        decPart && React.createElement('span', { 'data-testid': 'hero-dec', className: 'ui-vc-hero__dec' }, decPart),
+        React.createElement('span', { className: 'ui-vc-hero__cur' }, getCurrencySymbol())
       ),
       // Return chip + pct + "all time"
-      React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }
-      },
-        React.createElement('span', {
-          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${window.MaerminTokens.alpha(deltaCol, 0x22)}`, color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' }
-        },
-          React.createElement('span', { style: { fontSize: 'var(--text-3xs)' } }, up ? '▲' : '▼'),
+      React.createElement('div', { className: 'ui-vc-hero__ret' },
+        React.createElement('span', { className: ['ui-tone-chip', 'num', tone].join(' ') },
+          React.createElement('span', { 'aria-hidden': 'true' }, (up ? '▲' : '▼') + ' '),
           `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`
         ),
-        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' } }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
-        React.createElement('span', { style: { color: GREY, fontSize: 'var(--text-sm)' } }, rangeStat ? __('chInRange', 'in {range}', { range: periodLabel(period) }) : __('chAllTime', 'all time'))
+        React.createElement('b', { className: ['num', tone].join(' ') }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
+        React.createElement('span', { className: 'ui-muted' }, rangeStat ? __('chInRange', 'in {range}', { range: periodLabel(period) }) : __('chAllTime', 'all time'))
       )
     );
   };
@@ -721,10 +716,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   // ── Hover value display ──────────────────────────────────────────────────
   const hoverDisplay = () => {
     if (!hovered) return null;
-    return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', marginTop:'0.25rem' } },
-      React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: theme.text } },
-        `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
-      React.createElement('span', { style: { fontSize:'var(--text-xs)', color: GREY } }, hovered.date)
+    return React.createElement('div', { className: ['ui-vc-hero', 'is-hover'].join(' ') },
+      React.createElement('span', { className: ['ui-vc-hero__int', 'num'].join(' ') }, `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
+      React.createElement('span', { className: 'ui-muted' }, hovered.date)
     );
   };
 
@@ -776,7 +770,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         React.createElement('g', { key:'ht', transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-150)},${Math.max(computed.toY(hovered.value)-44, PAD.t)})` },
           React.createElement('rect', { width:140, height:46, rx:8, fill:theme.card, stroke:PALETTE.gridStrong, strokeWidth:1, opacity:0.97 }),
           React.createElement('text', { x:10, y:17, fill:GREY, fontSize:10 }, hovered.date),
-          React.createElement('text', { x:10, y:34, fill:lineColor, fontSize:13, fontWeight:700, style:{fontVariantNumeric:'tabular-nums'} },
+          React.createElement('text', { x:10, y:34, fill:lineColor, fontSize:13, fontWeight:700, className: 'num' },
             `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
         )
       );
@@ -784,49 +778,29 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return React.createElement('svg', {
       role: 'img', 'aria-label': __('chAria', 'Portfolio value, {range}: from {a} to {b}', { range: periodLabel(period), a: `${formatPrice(chartData[0].value)} ${getCurrencySymbol()}`, b: `${formatPrice(chartData[chartData.length - 1].value)} ${getCurrencySymbol()}` }),
       ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
-      style: { display:'block', overflow:'visible', cursor:'crosshair' },
+      className: 'ui-vc-svg',
       onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
     }, children);
   };
 
   // ── Full component render ─────────────────────────────────────────────────
-  return React.createElement('div', {
-    style: {
-      background: theme.card, border: `1px solid ${theme.cardBorder}`,
-      borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem'
-    }
-  },
+  return React.createElement('div', { className: ['ui-card', 'ui-vc'].join(' ') },
 
     // ── TOP HEADER: ROI + mode toggle + period selector ────────────────────
-    React.createElement('div', {
-      style: {
-        padding: '1.25rem 1.5rem 0.5rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        flexWrap: 'wrap', gap: '1rem'
-      }
-    },
+    React.createElement('div', { className: 'ui-vc-head' },
       // Left: title + ROI or hover value
       React.createElement('div', null,
         // Source tags row
-        React.createElement('div', {
-          style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem', flexWrap: 'wrap' }
-        },
-          React.createElement('span', { style: { fontSize:'var(--text-2xs)', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
-            __('chTotalValue', 'Total Portfolio Value')
-          ),
-          ...dataSources.map((src, i) =>
-            React.createElement('span', { key:i, style:{
-              fontSize:'var(--text-3xs)', padding:'0.12rem 0.35rem', borderRadius:'3px',
-              background:'rgba(255,255,255,0.06)', color: theme.textSecondary, letterSpacing:'0.04em'
-            }}, src)
-          )
+        React.createElement('div', { className: 'ui-vc-tags' },
+          React.createElement('span', { className: 'ui-sublabel' }, __('chTotalValue', 'Total Portfolio Value')),
+          ...dataSources.map((src, i) => React.createElement('span', { key: i, className: 'ui-badge' }, src))
         ),
         // Hover shows chart value; otherwise show ROI pill
         hovered ? hoverDisplay() : roiPill()
       ),
 
       // Right: period selector
-      React.createElement('div', { className: 'mx-pills', role: 'group', 'aria-label': __('vaPeriod', 'Period'), style: { alignSelf: 'flex-start' } },
+      React.createElement('div', { className: ['mx-pills', 'ui-vc-periods'].join(' '), role: 'group', 'aria-label': __('vaPeriod', 'Period') },
         shownPeriods.map(p => React.createElement('button', window.MaerminUI.pillProps(period === p.id, {
           key: p.id,
           onClick: () => { setPeriod(p.id); setHoveredIdx(null); },
@@ -836,7 +810,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     ),
 
     // ── CHART AREA ─────────────────────────────────────────────────────────
-    React.createElement('div', { style: { position:'relative' } },
+    React.createElement('div', { className: 'ui-vc-plot' },
       // R5.2: a status over the chart while it loads; error and empty on the shared state
       loading && React.createElement('div', { className: 'ui-chart-busy', role: 'status' },
         React.createElement('span', { className: 'ui-spinner', 'aria-hidden': 'true' }),

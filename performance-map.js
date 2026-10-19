@@ -198,7 +198,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           items.length ? e(UIC.HoldingsMap, { items: items, label: t.pmTitle || 'Performance map', className: 'ui-pm__map' })
             : e('p', { className: 'ui-muted' }, t.pmEmpty || 'No priced positions to map yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
+        return window.MaerminUtils.errorNote(__('pmError', 'Performance map error: {msg}', { msg: err && err.message })); // R5.4
       }
     };
 

@@ -246,7 +246,13 @@
       return e('th', { key: i, scope: 'col', className: left ? 'is-sticky' : 'is-right' }, label);
     };
     // cells take only their tone; layout comes from .ui-table--dense
-    var tdS = function (extra) { var o = {}; if (extra && extra.color && extra.color !== text) o.color = extra.color; if (extra && extra.fontWeight) o.fontWeight = extra.fontWeight; return o; };
+    // R5.4: cells get classes (dim, strong, gain / loss tone) instead of inline colours
+    var tdC = function (extra) {
+      var c = (extra && extra.color) || '', out = [];
+      if (c === dim) out.push('is-dim'); else if (/gain|success/.test(c)) out.push('tone-gain'); else if (/loss|danger/.test(c)) out.push('tone-loss');
+      if (extra && extra.fontWeight) out.push('is-strong');
+      return out.join(' ') || undefined;
+    };
     var head = function (label) { return e('th', { scope: 'row', className: 'is-sticky' }, label); };
     var table = function (cols, rows) { return e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') }, e('thead', null, e('tr', null, cols)), e('tbody', null, rows))); };
     var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
@@ -263,15 +269,15 @@
           list.map(function (r) {
             var key = by === 'holding' ? r.key : by + ':' + r.name;
             return e('tr', { key: key, 'data-key': key, 'data-value': r.value, 'data-invested': r.invested },
-              head(e('span', null, nameOf(r), by === 'holding' && !r.open ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)' } }, __('hrClosed', '(closed)')) : null)),
-              e('td', { 'data-k': 'irr', 'data-v': r.irr === null ? '' : r.irr, style: tdS({ color: tone(r.irr || 0), fontWeight: 700 }) }, pct(r.irr) + (r.short && r.irr !== null ? '*' : '')),
-              e('td', { style: tdS({ color: text }) }, money(r.invested)),
-              e('td', { style: tdS({ color: dim }) }, money(r.returned)),
-              e('td', { style: tdS({ color: dim }) }, r.value > 0 ? money(r.value) : '–'));
+              head(e('span', null, nameOf(r), by === 'holding' && !r.open ? e('span', { className: 'ui-tcell__sub' }, __('hrClosed', '(closed)')) : null)),
+              e('td', { 'data-k': 'irr', 'data-v': r.irr === null ? '' : r.irr, className: tdC({ color: tone(r.irr || 0), fontWeight: 700 }) }, pct(r.irr) + (r.short && r.irr !== null ? '*' : '')),
+              e('td', { className: tdC({ color: text }) }, money(r.invested)),
+              e('td', { className: tdC({ color: dim }) }, money(r.returned)),
+              e('td', { className: tdC({ color: dim }) }, r.value > 0 ? money(r.value) : '–'));
           }));
     var irrCard = card('hr-irr', __('hrIrrTitle', 'Return per holding (IRR)'),
       __('hrIrrSub', 'Money-weighted per year: buys, sales and dividends on their dates, and the value today.') + ' ' + (basis === 'gross' ? __('gnGrossTitle', 'Before taxes and fees') : __('gnNetTitle', 'After taxes and fees')) + '.',
-      e('div', null, irrBody, anyShort && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('hrShortNote', '* held less than a year: the return is scaled to a year.'))),
+      e('div', null, irrBody, anyShort && e('p', { className: 'ui-note' }, __('hrShortNote', '* held less than a year: the return is scaled to a year.'))),
       seg(__('hrByAria', 'Group by'), [['holding', __('hrByHolding', 'Holdings')], ['class', __('hrByClass', 'Classes')], ['tag', __('hrByTag', 'Tags')]], by, setBy, 'hr-by-'));
 
     // ---- trades ----
@@ -291,21 +297,21 @@
     var tradesCard = card('hr-trades', __('hrTradesTitle', 'Best and worst sales'),
       __('hrTradesSub', 'Each sale against the cost of the lots it sold (first in, first out, fees included); holding period weighted by quantity.'),
       !tr.all.length ? muted(__('hrNoSales', 'No sales yet.'))
-        : e('div', { style: { display: 'flex', gap: '1.25rem', flexWrap: 'wrap' } }, tradeList('hr-best', __('hrBest', 'Best'), tr.best, __('hrNoGains', 'No sale with a gain.')), tradeList('hr-worst', __('hrWorst', 'Worst'), tr.worst, __('hrNoLosses', 'No sale at a loss.'))));
+        : e('div', { className: 'ui-hr-pair' }, tradeList('hr-best', __('hrBest', 'Best'), tr.best, __('hrNoGains', 'No sale with a gain.')), tradeList('hr-worst', __('hrWorst', 'Worst'), tr.worst, __('hrNoLosses', 'No sale at a loss.'))));
 
     // ---- capital flow ----
     var cfRows = cfBy === 'year'
       ? cf.years.slice().reverse().map(function (r) {
           return e('tr', { key: r.y, 'data-y': r.y }, head(String(r.y)),
-            e('td', { style: tdS({ color: text }) }, money(r.buys)), e('td', { style: tdS({ color: text }) }, money(r.sells)),
-            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ fontWeight: 700 }) }, money(r.net)),
-            e('td', { 'data-k': 'avg', 'data-v': r.avg, style: tdS({ color: dim }) }, money(r.avg)));
+            e('td', { className: tdC({ color: text }) }, money(r.buys)), e('td', { className: tdC({ color: text }) }, money(r.sells)),
+            e('td', { 'data-k': 'net', 'data-v': r.net, className: tdC({ fontWeight: 700 }) }, money(r.net)),
+            e('td', { 'data-k': 'avg', 'data-v': r.avg, className: tdC({ color: dim }) }, money(r.avg)));
         })
       : cf.months.slice().reverse().map(function (r) {
           var d = new Date(parseInt(r.ym.slice(0, 4), 10), parseInt(r.ym.slice(5, 7), 10) - 1, 1);
           return e('tr', { key: r.ym, 'data-ym': r.ym }, head(I.date(d, { month: 'short', year: 'numeric' })),
-            e('td', { style: tdS({ color: r.buys ? text : dim }) }, r.buys ? money(r.buys) : '–'), e('td', { style: tdS({ color: r.sells ? text : dim }) }, r.sells ? money(r.sells) : '–'),
-            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ fontWeight: 700 }) }, money(r.net)));
+            e('td', { className: tdC({ color: r.buys ? text : dim }) }, r.buys ? money(r.buys) : '–'), e('td', { className: tdC({ color: r.sells ? text : dim }) }, r.sells ? money(r.sells) : '–'),
+            e('td', { 'data-k': 'net', 'data-v': r.net, className: tdC({ fontWeight: 700 }) }, money(r.net)));
         });
     var cfCols = [th(cfBy === 'year' ? __('dhYear', 'Year') : __('hrMonth', 'Month'), 0, true), th(__('hrBuys', 'Bought'), 1), th(__('hrSells', 'Sold'), 2), th(__('hrNet', 'Net invested'), 3)]
       .concat(cfBy === 'year' ? [th(__('hrAvgMonth', 'Per month'), 4)] : []);

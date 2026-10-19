@@ -46,10 +46,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var th = props.theme || {};
     var data = prepare(props.series && props.series.closes, { from: props.firstDate, avgCost: props.closed ? null : props.avgCost });
     var money = function (v) { return props.formatPrice(v) + ' ' + props.getCurrencySymbol(); };
-    var box = { padding: '1rem 1.5rem 0.25rem', borderBottom: '1px solid ' + (th.modalBorder || th.cardBorder) };
+    // R5.4: classes on tokens; the line and the average use the theme colours as SVG attributes
     if (!data) {
-      return e('div', { style: box },
-        e('div', { style: { color: th.textSecondary, fontSize: 'var(--text-sm)', paddingBottom: '0.75rem' } }, __('pcNoHistory', 'No daily price history for this position yet.')));
+      return e('div', { className: 'ui-pc' },
+        window.MaerminUtils.emptyNote(__('pcNoHistory', 'No daily price history for this position yet.')));
     }
     var W = 480, H = 150, PAD = 6;
     var span = (data.max - data.min) || data.max * 0.02 || 1;
@@ -61,16 +61,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I = window.MaerminI18n;
     var label = __('pcAria', 'Daily closing price from {from} to {to}: {first} to {last}', { from: I.date(data.pts[0].d), to: I.date(last.d), first: money(data.pts[0].v), last: money(last.v) })
       + (data.avg !== null ? '. ' + __('pcAvgAria', 'Average cost {avg}', { avg: money(data.avg) }) : '');
-    return e('div', { 'data-testid': 'position-chart', style: box },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' } },
-        e('span', { style: { color: th.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('pcTitle', 'Price since the first buy')),
-        data.avg !== null ? e('span', { 'data-testid': 'avg-cost-line', style: { color: th.text, fontSize: 'var(--text-xs)' } },
-          e('span', { 'aria-hidden': true, style: { display: 'inline-block', width: '16px', borderTop: '2px dashed ' + th.textSecondary, verticalAlign: 'middle', marginRight: '0.35rem' } }),
+    return e('div', { 'data-testid': 'position-chart', className: 'ui-pc' },
+      e('div', { className: 'ui-pc__head' },
+        e('span', { className: 'ui-sublabel' }, __('pcTitle', 'Price since the first buy')),
+        data.avg !== null ? e('span', { 'data-testid': 'avg-cost-line', className: 'ui-pc__avg' },
+          e('span', { 'aria-hidden': true, className: 'ui-pc__dash' }),
           __('pcAvg', 'Average cost {avg}', { avg: money(data.avg) })) : null),
-      e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: H, preserveAspectRatio: 'none', role: 'img', 'aria-label': label, style: { display: 'block' } },
+      e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: H, preserveAspectRatio: 'none', role: 'img', 'aria-label': label, className: 'ui-pc__svg' },
         e('path', { d: line, fill: 'none', stroke: th.accent, strokeWidth: 2, vectorEffect: 'non-scaling-stroke', strokeLinejoin: 'round' }),
         data.avg !== null ? e('line', { x1: PAD, x2: W - PAD, y1: y(data.avg), y2: y(data.avg), stroke: th.textSecondary, strokeWidth: 1.5, strokeDasharray: '6 5', vectorEffect: 'non-scaling-stroke' }) : null),
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', color: th.textSecondary, fontSize: 'var(--text-2xs)', padding: '0.2rem 0 0.6rem' } },
+      e('div', { className: 'ui-pc__axis' },
         e('span', null, I.date(data.pts[0].d)), e('span', null, I.date(last.d))));
   }
 
