@@ -29,15 +29,14 @@ class ViewErrorBoundary extends React.Component {
   componentDidUpdate(prev) { if (prev.viewKey !== this.props.viewKey && this.state.error) this.setState({ error: null }); }
   render() {
     if (!this.state.error) return this.props.children;
-    const th = this.props.theme || {};
-    return React.createElement('div', { style: { padding: '2rem' } },
-      React.createElement('div', { style: { maxWidth: 520, margin: '2rem auto', textAlign: 'center', background: th.card || '#141a25', border: `1px solid ${th.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '2rem' } },
-        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', fontWeight: '700' } }, '!'),
-        React.createElement('div', { style: { color: th.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)', marginBottom: '0.5rem' } }, __('errViewTitle', 'This view hit an error')),
-        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-base)', marginBottom: '1.25rem' } }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
-        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-xs)', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
-        React.createElement('button', { onClick: () => this.setState({ error: null }),
-          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-base)' } }, __('retry', 'Retry'))
+    // R5.4: the shared error state (markup only, so it renders even if a shared module broke)
+    return React.createElement('div', { className: 'ui-view' },
+      React.createElement('div', { className: ['mx-empty', 'ui-view-error'].join(' '), 'data-kind': 'error', role: 'alert' },
+        React.createElement('div', { className: 'mx-empty-title' }, '! ' + __('errViewTitle', 'This view hit an error')),
+        React.createElement('div', { className: 'mx-empty-text' }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
+        React.createElement('code', { className: 'ui-view-error__msg' }, String(this.state.error && this.state.error.message || this.state.error)),
+        React.createElement('button', { type: 'button', onClick: () => this.setState({ error: null }), className: ['ui-btn', 'ui-btn--primary', 'ui-btn--md'].join(' ') },
+          React.createElement('span', { className: 'ui-btn__label' }, __('retry', 'Retry')))
       )
     );
   }
@@ -3333,7 +3332,7 @@ function InvestmentTracker() {
         })
       ),
       window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', className: 'ui-tax__note' }),
-      React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
+      React.createElement('div', { className: 'ui-tax__body' },
         tab === 'fifo' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, exchangeRate, fxAt, theme, formatPrice, getCurrencySymbol }) : null,
         tab === 'report' ? renderTaxView() : null,
@@ -3773,201 +3772,6 @@ function InvestmentTracker() {
       default:
         return renderOverview();
     }
-  };
-
-  // ========== DASHBOARD KPI STRIP ==========
-  // V7: surfaces the cross-cutting summary numbers (Net Worth, FIRE, expected
-  // Dividend income, Health Score) right on the dashboard. Each tile drills
-  // into its existing detail view; numbers come from window.MaerminMetrics,
-  // which reuses the existing engines (no duplicate logic).
-
-  const DashboardKpiStrip = ({ portfolio, prices, priceHistory, transactions, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView, language }) => {
-    const M = window.MaerminMetrics;
-    const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
-    const [editFire, setEditFire] = React.useState(false);
-    // Coast-FIRE planning inputs (ephemeral — pure what-if sliders, not persisted).
-    const [retireYears, setRetireYears] = React.useState(20);
-    const [realReturn, setRealReturn]   = React.useState(5);
-
-    const sym = getCurrencySymbol();
-    const nw      = M ? M.computeNetWorth(portfolioValue) : null;
-    const fireM   = (M && nw) ? M.computeFireMetrics(nw.netWorth, fire) : null;
-    const divM    = M ? memoBy('kpiDiv', [portfolio, prices, exchangeRate], () => M.computeExpectedAnnualDividends(portfolio, prices, { exchangeRate })) : null;
-    const healthM = M ? memoBy('kpiHealth', [portfolio, prices, t, priceHistory, transactions], () => M.healthScore(portfolio, prices, t, { priceHistory, transactions })) : null;
-
-    const healthColor = (s) => s >= 70 ? theme.success : s >= 40 ? theme.warning : theme.danger;
-
-    const tile = (opts) => React.createElement('div', {
-      key: opts.key,
-      onClick: opts.onClick,
-      role: opts.onClick ? 'button' : undefined,
-      tabIndex: opts.onClick ? 0 : undefined,
-      'aria-label': opts.onClick && typeof opts.label === 'string' ? opts.label : undefined,
-      onKeyDown: opts.onClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opts.onClick(e); } }) : undefined,
-      style: {
-        background: theme.card, padding: '1.1rem 1.2rem', borderRadius: '16px',
-        border: `1px solid ${theme.cardBorder}`, cursor: opts.onClick ? 'pointer' : 'default',
-        display: 'flex', flexDirection: 'column', gap: '0.4rem',
-        transition: 'border-color 0.16s, transform 0.16s, box-shadow 0.16s',
-        boxShadow: theme.shadow, minHeight: '96px', justifyContent: 'center'
-      },
-      onMouseEnter: opts.onClick ? e => { e.currentTarget.style.borderColor = `${window.MaerminTokens.alpha(theme.accent, 0x66)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
-      onMouseLeave: opts.onClick ? e => { e.currentTarget.style.borderColor = theme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
-    },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, opts.label),
-        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.accent, fontSize: 'var(--text-base)', opacity: 0.7 } }, '→'))
-      ),
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-        opts.ring,
-        React.createElement('div', null,
-          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1.05 } }, opts.value),
-          opts.sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.2rem' } }, opts.sub)
-        )
-      )
-    );
-
-    // Net Worth tile
-    const netWorthTile = tile({
-      key: 'nw',
-      label: t.kpiNetWorth || 'Net Worth',
-      value: nw ? `${formatPrice(nw.netWorth)} ${sym}` : '—',
-      sub: nw ? `${(t.kpiLiquidity || 'Liquidity')} ${window.MaerminI18n.pct(nw.liquidityRatio, 0)}` : null,
-      color: nw && nw.netWorth < 0 ? '#ef4444' : theme.text,
-      onClick: () => setActiveView('net-worth')
-    });
-
-    // FIRE tile (+ inline setup)
-    const fireValue = !fireM ? '—'
-      : !fireM.configured ? (t.kpiSetGoal || 'Set goal')
-      : window.MaerminI18n.pct(Math.min(100, fireM.progress), 0);
-    const fireSub = fireM && fireM.configured
-      ? `${t.kpiFireTarget || 'Target'} ${formatPrice(fireM.fireNumber)} ${sym}`
-      : (t.kpiFireHint || 'Tap to set annual expenses');
-    const fireRing = (fireM && fireM.configured) ? React.createElement('div', {
-      style: {
-        width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-        background: `conic-gradient(${theme.accent} ${Math.min(100, fireM.progress) * 3.6}deg, ${theme.inputBg} 0deg)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center'
-      }
-    }, React.createElement('div', { style: { width: '30px', height: '30px', borderRadius: '50%', background: theme.card } })) : null;
-    const fireTile = tile({
-      key: 'fire',
-      label: t.kpiFire || 'FIRE Progress',
-      value: fireValue,
-      sub: fireSub,
-      color: fireM && fireM.configured ? theme.accent : theme.textSecondary,
-      ring: fireRing,
-      onClick: () => setEditFire(v => !v)
-    });
-
-    // Dividend income tile
-    const divTile = tile({
-      key: 'div',
-      label: t.kpiDividends || 'Dividend Income',
-      value: (divM && divM.available) ? `${formatPrice(divM.totalAnnual)} ${sym}` : '—',
-      sub: (divM && divM.available)
-        ? __('perMonthYield', '{amount}/mo · {yield}', { amount: `${formatPrice(divM.monthly)} ${sym}`, yield: window.MaerminI18n.pct(divM.yield, 1) })
-        : (t.kpiDividendsNone || 'No dividend payers'),
-      color: (divM && divM.available) ? theme.success : theme.textSecondary,
-      onClick: () => setActiveView('dividends')
-    });
-
-    // Health tile
-    const hScore = healthM && !healthM.empty ? healthM.score : null;
-    const healthTile = tile({
-      key: 'health',
-      label: t.kpiHealth || 'Health Score',
-      value: hScore != null ? String(hScore) : '—',
-      sub: hScore != null ? `${t.healthGrade || 'Grade'} ${healthM.grade}` : null,
-      color: hScore != null ? healthColor(hScore) : theme.textSecondary,
-      ring: hScore != null ? React.createElement('div', {
-        style: {
-          width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-          background: `conic-gradient(${healthColor(hScore)} ${hScore * 3.6}deg, ${theme.inputBg} 0deg)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }
-      }, React.createElement('div', { style: { width: '30px', height: '30px', borderRadius: '50%', background: theme.card } })) : null,
-      onClick: () => setActiveView('health')
-    });
-
-    const labelStyle = { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-    const inputStyle = { padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' };
-
-    return React.createElement('div', { style: { marginBottom: '1.5rem' } },
-      React.createElement('div', {
-        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem' }
-      }, netWorthTile, fireTile, divTile, healthTile),
-
-      // Inline FIRE setup — no modal, no new view
-      editFire && React.createElement('div', {
-        style: { marginTop: '0.75rem', background: theme.card, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x44)}`, borderRadius: '12px', padding: '1rem 1.1rem' }
-      },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, t.fireSetupTitle || 'FIRE planning'),
-        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', alignItems: 'end' } },
-          React.createElement('div', null,
-            React.createElement('label', { style: labelStyle }, `${t.fireAnnualExpenses || 'Annual expenses'} (${sym})`),
-            React.createElement('input', {
-              type: 'number', defaultValue: fire.annualExpenses || '', placeholder: '24000',
-              style: inputStyle,
-              onChange: e => setFire(p => ({ ...p, annualExpenses: parseFloat(e.target.value) || 0 }))
-            })
-          ),
-          React.createElement('div', null,
-            React.createElement('label', { style: labelStyle }, `${t.fireWithdrawalRate || 'Withdrawal rate'} (%)`),
-            React.createElement('input', {
-              type: 'number', step: '0.1', defaultValue: fire.withdrawalRate || 4,
-              style: inputStyle,
-              onChange: e => setFire(p => ({ ...p, withdrawalRate: parseFloat(e.target.value) || 4 }))
-            })
-          ),
-          React.createElement('button', {
-            onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
-          }, t.save || 'Save')
-        ),
-        fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.75rem' } },
-          `${t.fireMonthlyPassive || 'Passive income at current net worth'}: ${__('perMonthYield', '{amount}/mo · {yield}', { amount: `${formatPrice(fireM.monthlyPassiveIncome)} ${sym}`, yield: window.MaerminI18n.pct(fireM.coveredExpenseRatio, 0) })} ${t.fireOfExpenses || 'of expenses'}`
-        ),
-
-        // Coast-FIRE — the amount needed today so growth alone reaches FIRE by the
-        // target year. Pure what-if; reuses the FIRE number already computed above.
-        fireM && fireM.configured && window.MaerminFireExtras && React.createElement('div', { style: { marginTop: '0.9rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.85rem' } },
-          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-sm)', marginBottom: '0.6rem' } }, t.coastFireTitle || 'Coast-FIRE'),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '0.7rem' } },
-            React.createElement('div', null,
-              React.createElement('label', { style: labelStyle }, t.coastYears || 'Years to retirement'),
-              React.createElement('input', { type: 'number', min: '1', defaultValue: retireYears, style: inputStyle,
-                onChange: e => setRetireYears(Math.max(0, parseFloat(e.target.value) || 0)) })
-            ),
-            React.createElement('div', null,
-              React.createElement('label', { style: labelStyle }, t.coastReturn || 'Real return (%)'),
-              React.createElement('input', { type: 'number', step: '0.1', defaultValue: realReturn, style: inputStyle,
-                onChange: e => setRealReturn(parseFloat(e.target.value) || 0) })
-            )
-          ),
-          (() => {
-            const coast = window.MaerminFireExtras.coastFire({ fireNumber: fireM.fireNumber, currentNetWorth: nw.netWorth, realReturn, yearsToRetirement: retireYears });
-            const reached = coast.coastReached;
-            return React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: theme.textSecondary } },
-              React.createElement('div', null,
-                `${t.coastNumber || 'Coast number (needed today)'}: `,
-                React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(coast.coastNumber)} ${sym}`),
-                ` · ${window.MaerminI18n.pct(Math.min(999, coast.coastProgress), 0)}`
-              ),
-              React.createElement('div', { style: { marginTop: '0.35rem', color: reached ? (theme.success || 'var(--success)') : theme.textSecondary } },
-                reached
-                  ? (t.coastReachedMsg || 'Coast reached — growth alone gets you to FIRE; new contributions are optional.')
-                  : (t.coastNotYetMsg || 'Keep contributing — you have not hit your coast number yet.')
-              ),
-              React.createElement('div', { style: { marginTop: '0.35rem' } },
-                `${t.coastProjected || 'Projected at retirement'}: ${formatPrice(coast.projectedAtRetirement)} ${sym} (${coast.projectedSurplus >= 0 ? '+' : ''}${formatPrice(coast.projectedSurplus)} ${sym} ${t.coastVsTarget || 'vs. target'})`
-              )
-            );
-          })()
-        )
-      )
-    );
   };
 
   // ========== OVERVIEW VIEW ==========
@@ -4476,13 +4280,13 @@ function InvestmentTracker() {
 
       // CS2 banner
       !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(marketWorker||'').trim() &&
-        React.createElement('div', { style: { background: 'color-mix(in srgb, var(--warning) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 25%, transparent)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-          React.createElement('span', { style: { fontSize: 'var(--text-title)' } }, '!'),
-          React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
-            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
-            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.125rem' } }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
+        // R5.4: the shared warning callout
+        React.createElement('div', { role: 'status', className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix', 'ui-ov-banner'].join(' ') },
+          React.createElement('div', { className: 'ui-dq-fix__text' },
+            React.createElement('strong', null, '! ' + __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
+            React.createElement('span', { className: 'ui-dq-fix__hint' }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
           ),
-          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('addWorkerUrl', 'Add Worker URL →'))
+          React.createElement(UIC.Button, { variant: 'primary', onClick: () => setShowApiSettings(true) }, __('addWorkerUrl', 'Add Worker URL →'))
         ),
 
       // CS2 skins filed as stocks (see renderMisfiledSkins)
@@ -4490,14 +4294,13 @@ function InvestmentTracker() {
       !demoMode && renderCryptoPairs(),
 
       // Recovery-kit nudge for vaults created before recovery codes existed
-      showRecoveryNudge && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--warning) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 25%, transparent)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontSize: 'var(--text-title)', color: currentTheme.warning, fontWeight: '700' } }, '!'),
-        React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, __('rcNudgeTitle', 'Add a recovery code')),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
+      showRecoveryNudge && React.createElement('div', { role: 'status', className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix', 'ui-ov-banner'].join(' ') },
+        React.createElement('div', { className: 'ui-dq-fix__text' },
+          React.createElement('strong', null, '! ' + __('rcNudgeTitle', 'Add a recovery code')),
+          React.createElement('span', { className: 'ui-dq-fix__hint' }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
         ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
-        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('dismiss', 'Dismiss'))
+        React.createElement(UIC.Button, { variant: 'primary', onClick: createRecoveryKit, loading: recoveryBusy }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
+        React.createElement(UIC.Button, { variant: 'quiet', onClick: dismissRecoveryNudge }, __('dismiss', 'Dismiss'))
       ),
 
       // First run (R3.4): one card with the three ways in; Import leads to
@@ -5748,156 +5551,67 @@ function InvestmentTracker() {
   const renderImportModal = () => {
     if (!showImportModal) return null;
     
+    // R5.4: the shared dialog look; the field is named, the file picker is a labelled button
+    const UIC = window.MaerminComponents;
     return React.createElement(window.MaerminUI.Overlay, {
-      style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(4,6,10,0.62)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10000,
-        backdropFilter: 'blur(8px)'
-      },
+      className: 'ui-modal-backdrop',
       onClose: () => setShowImportModal(false)
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-import'),
-        style: {
-          background: currentTheme.modalBg,
-          border: `1px solid ${currentTheme.modalBorder}`,
-          padding: '2rem',
-          borderRadius: '16px',
-          width: '600px',
-          maxWidth: '90vw',
-          maxHeight: '85vh',
-          overflow: 'auto',
-          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
-        }
+        className: 'ui-modal'
       },
-        React.createElement('h2', {
-          id: 'dlg-import',
-          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
-        }, t.importData || 'Import Data'),
-        
-        React.createElement('p', {
-          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: 'var(--text-base)' }
-        }, t.importInstructions || 'Paste your transaction data in JSON or CSV format. Supported formats: JSON array, CSV with headers (type, category, symbol, quantity, price, date, fees)'),
-        
-        // Format examples
-        React.createElement('div', {
-          style: { marginBottom: '1rem' }
-        },
-          React.createElement('details', {
-            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' }
-          },
-            React.createElement('summary', {
-              style: { cursor: 'pointer', marginBottom: '0.5rem' }
-            }, t.showExamples || 'Show format examples'),
-            React.createElement('pre', {
-              style: {
-                background: currentTheme.inputBg,
-                padding: '0.75rem',
-                borderRadius: '6px',
-                overflow: 'auto',
-                fontSize: 'var(--text-2xs)'
-              }
-            }, `JSON:
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-import', className: 'ui-modal__title' }, t.importData || 'Import Data')),
+        React.createElement('div', { className: ['ui-modal__body', 'ui-imp'].join(' ') },
+          React.createElement('p', { className: 'ui-muted' },
+            t.importInstructions || 'Paste your transaction data in JSON or CSV format. Supported formats: JSON array, CSV with headers (type, category, symbol, quantity, price, date, fees)'),
+
+          // Format examples
+          React.createElement('details', { className: 'ui-sync-details' },
+            React.createElement('summary', null, t.showExamples || 'Show format examples'),
+            React.createElement('pre', { className: 'ui-imp__pre' }, `JSON:
 [{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]
 
 CSV:
 type,category,symbol,quantity,price,date,fees
 buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
+          ),
+
+          // Textarea for data
+          React.createElement('textarea', {
+            value: importData,
+            onChange: (e) => setImportData(e.target.value),
+            placeholder: t.pasteDataHere || 'Paste your data here...',
+            'aria-label': t.importData || 'Import Data',
+            className: ['ui-input', 'ui-textarea', 'ui-imp__data'].join(' ')
+          }),
+
+          // File upload
+          React.createElement('div', { className: 'ui-bi-drop' },
+            React.createElement('input', {
+              type: 'file',
+              accept: '.json,.csv',
+              onChange: (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    setImportData(event.target.result);
+                  };
+                  reader.readAsText(file);
+                }
+              },
+              className: 'sr-only',
+              id: 'import-file-input'
+            }),
+            React.createElement('label', { htmlFor: 'import-file-input', className: 'ui-link' }, t.orUploadFile || 'Or click to upload a file (.json, .csv)')
           )
         ),
-        
-        // Textarea for data
-        React.createElement('textarea', {
-          value: importData,
-          onChange: (e) => setImportData(e.target.value),
-          placeholder: t.pasteDataHere || 'Paste your data here...',
-          style: {
-            width: '100%',
-            height: '200px',
-            padding: '1rem',
-            background: currentTheme.inputBg,
-            border: `1px solid ${currentTheme.inputBorder}`,
-            borderRadius: '8px',
-            color: currentTheme.text,
-            fontFamily: 'monospace',
-            fontSize: 'var(--text-base)',
-            resize: 'vertical',
-            marginBottom: '1.5rem'
-          }
-        }),
-        
-        // File upload hint
-        React.createElement('div', {
-          style: {
-            padding: '1rem',
-            border: `2px dashed ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            textAlign: 'center',
-            marginBottom: '1.5rem'
-          }
-        },
-          React.createElement('input', {
-            type: 'file',
-            accept: '.json,.csv',
-            onChange: (e) => {
-              const file = e.target.files[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  setImportData(event.target.result);
-                };
-                reader.readAsText(file);
-              }
-            },
-            style: { display: 'none' },
-            id: 'import-file-input'
-          }),
-          React.createElement('label', {
-            htmlFor: 'import-file-input',
-            style: { color: currentTheme.accent, cursor: 'pointer' }
-          }, t.orUploadFile || 'Or click to upload a file (.json, .csv)')
-        ),
-        
-        // Buttons
-        React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
-          React.createElement('button', {
-            onClick: () => {
-              setImportData('');
-              setShowImportModal(false);
-            },
-            style: {
-              flex: 1,
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.cardBorder}`,
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }
-          }, t.cancel || 'Cancel'),
-          React.createElement('button', {
-            onClick: handleImport,
-            disabled: !importData.trim(),
-            style: {
-              flex: 1,
-              padding: '0.75rem',
-              background: importData.trim() ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-              color: importData.trim() ? '#fff' : currentTheme.textSecondary,
-              border: 'none',
-              borderRadius: '8px',
-              cursor: importData.trim() ? 'pointer' : 'not-allowed',
-              fontWeight: '600'
-            }
-          }, t.import || 'Import')
-        )
+
+        React.createElement('footer', { className: 'ui-modal__foot' },
+          React.createElement(UIC.Button, { onClick: () => { setImportData(''); setShowImportModal(false); } }, t.cancel || 'Cancel'),
+          React.createElement(UIC.Button, { variant: 'primary', onClick: handleImport, disabled: !importData.trim() }, t.import || 'Import'))
       )
     );
   };
@@ -6365,7 +6079,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   // re-rendered - at least every minute with the Worker status check
   // (Phase 3). Each gets one stable component that runs the latest closure.
   const latestViews = useRef({});
-  latestViews.current = { DataManagementView, DividendsCombinedView, TaxCombinedView, DashboardKpiStrip };
+  latestViews.current = { DataManagementView, DividendsCombinedView, TaxCombinedView };
   const StableViews = useMemo(() => {
     const out = {};
     Object.keys(latestViews.current).forEach((name) => {
@@ -6378,13 +6092,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
   return React.createElement('div', {
     className: 'mx-app',
-    'data-theme': currentTheme.name || theme,
-    style: {
-      minHeight: '100vh',
-      background: currentTheme.background,
-      backgroundAttachment: 'fixed',
-      color: currentTheme.text
-    }
+    'data-theme': currentTheme.name || theme
   },
     // Skip link: first Tab stop, jumps past header and sidebar
     React.createElement('a', {
@@ -6396,16 +6104,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       renderRail(),
       React.createElement('div', { className: 'ui-shell__main' },
         renderPageHeader(showSettings && React.createElement('div', { className: 'mx-popover', id: 'mx-settings-panel', role: 'group', 'aria-label': t.settings || 'Settings' },
-            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            // R5.4: popover sections and switches on classes
+            React.createElement('div', { className: 'mx-pop-sec' },
               popLabel(t.theme || 'Theme'),
               React.createElement('div', { className: 'mx-seg' },
                 themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
                   React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
-                  React.createElement('span', { key: 'l', style: { fontSize: 'var(--text-3xs)' } }, lbl)
+                  React.createElement('span', { key: 'l', className: 'mx-seg__lbl' }, lbl)
                 ], { title: lbl }))
               )
             ),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.9rem' } },
+            React.createElement('div', { className: ['mx-pop-sec', 'mx-pop-grid'].join(' ') },
               React.createElement('div', null,
                 popLabel(t.language || 'Language'),
                 React.createElement('div', { className: 'mx-seg' },
@@ -6419,38 +6128,36 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 )
               )
             ),
-            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            React.createElement('div', { className: 'mx-pop-sec' },
               popLabel(t.uiMode || 'View'),
               React.createElement('div', { className: 'mx-seg' },
                 [['simple', t.uiModeSimple || 'Simple'], ['advanced', t.uiModeAdvanced || 'Advanced']].map(([m, lbl]) => segBtn(m, uiMode === m, () => switchUiMode(m), lbl, { 'data-ui-mode': m }))
               )
             ),
-            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            React.createElement('div', { className: 'mx-pop-sec' },
               popLabel(t.privacy || 'Privacy'),
               React.createElement('button', {
                 type: 'button',
                 className: 'mx-menu-item',
                 onClick: () => setPrivacyMode(p => !p),
                 title: __('shortcutP', 'Shortcut: p'),
-                style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+                'aria-pressed': !!privacyMode, 'data-switch': 'privacy'
               },
-                React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 16 }), t.hideAmounts || 'Hide amounts'),
-                React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: privacyMode ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .15s', display: 'flex', justifyContent: privacyMode ? 'flex-end' : 'flex-start' } },
-                  React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
+                React.createElement('span', { className: 'mx-menu-item__main' }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 16 }), t.hideAmounts || 'Hide amounts'),
+                React.createElement('span', { className: ['mx-switch', privacyMode ? 'is-on' : ''].join(' ').trim(), 'aria-hidden': 'true' }, React.createElement('span', { className: 'mx-switch__knob' }))
               )
             ),
             // Motion effects (Aurora FX) — toggling reloads so every surface re-inits.
-            window.MaerminFX && React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            window.MaerminFX && React.createElement('div', { className: 'mx-pop-sec' },
               popLabel(__('motion', 'Motion')),
               React.createElement('button', {
                 type: 'button',
                 className: 'mx-menu-item',
                 onClick: () => window.MaerminFX.setEnabled(!window.MaerminFX.enabled()),
-                style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+                'aria-pressed': window.MaerminFX.enabled(), 'data-switch': 'motion'
               },
-                React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon('sparkle', { size: 16 }), __('motionEffects', 'Animations & effects')),
-                React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: window.MaerminFX.enabled() ? 'var(--accent)' : 'var(--border-strong)', display: 'flex', justifyContent: window.MaerminFX.enabled() ? 'flex-end' : 'flex-start' } },
-                  React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
+                React.createElement('span', { className: 'mx-menu-item__main' }, Icon('sparkle', { size: 16 }), __('motionEffects', 'Animations & effects')),
+                React.createElement('span', { className: ['mx-switch', window.MaerminFX.enabled() ? 'is-on' : ''].join(' ').trim(), 'aria-hidden': 'true' }, React.createElement('span', { className: 'mx-switch__knob' }))
               )
             ),
             // Corporate actions (stock splits) — global list. Per-symbol add/scan
@@ -6464,14 +6171,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 askConfirm({ title: t.caRemoveConfirm || 'Remove this split?', message: __('caRemoveMsg', '{sym} {ratio} on {date}. It can be re-added or re-scanned.', { sym: a.symbol, ratio: a.num + ':' + a.den, date: window.MaerminI18n.date(a.date) }), confirmLabel: t.caRemove || 'Remove', danger: true })
                   .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
               };
-              return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
-                React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
-                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+              return React.createElement('div', { key: 'corp-' + corpActionsRev, className: 'mx-pop-sec' },
+                popLabel(t.caTitle || 'Corporate actions (splits)'),
+                React.createElement('ul', { className: 'mx-pop-list' },
                   all.map(function (a) {
-                    return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
-                      React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
-                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
-                      React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
+                    return React.createElement('li', { key: a.id, className: 'mx-pop-list__row' },
+                      React.createElement('b', null, a.symbol + ' ' + a.num + ':' + a.den),
+                      React.createElement('span', { className: 'num' }, a.date),
+                      React.createElement(window.MaerminComponents.IconButton, { size: 'sm', label: (t.caRemove || 'Remove') + ' ' + a.symbol, onClick: function () { removeOne(a); }, icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })
                     );
                   })
                 )
@@ -6487,14 +6194,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 askConfirm({ title: __('ceRemoveTitle', 'Remove this corporate action?'), message: CA.describeEvent(ev), confirmLabel: t.caRemove || 'Remove', danger: true })
                   .then(function (yes) { if (!yes) return; CA.removeEvent(ev.id); setCorpActionsRev(function (n) { return n + 1; }); });
               };
-              return React.createElement('div', { key: 'ce-' + corpActionsRev, style: { marginBottom: '1rem' } },
-                React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
-                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+              return React.createElement('div', { key: 'ce-' + corpActionsRev, className: 'mx-pop-sec' },
+                popLabel(__('ceTitle', 'Other corporate actions')),
+                React.createElement('ul', { className: 'mx-pop-list' },
                   all.map(function (ev) {
-                    return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
-                      React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
-                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
-                      React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
+                    return React.createElement('li', { key: ev.id, className: 'mx-pop-list__row' },
+                      React.createElement('b', null, CA.describeEvent(ev)),
+                      React.createElement('span', { className: 'num' }, ev.date),
+                      React.createElement(window.MaerminComponents.IconButton, { size: 'sm', label: (t.caRemove || 'Remove') + ' ' + ev.symbol, onClick: function () { removeOne(ev); }, icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })
                     );
                   })
                 )

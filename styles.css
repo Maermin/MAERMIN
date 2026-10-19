@@ -290,7 +290,7 @@ button:disabled { cursor: not-allowed !important; }
 /* ============================================================================
    App shell
    ========================================================================== */
-.mx-app { position: relative; isolation: isolate; }
+.mx-app { position: relative; isolation: isolate; min-height: 100vh; background: var(--bg) fixed; color: var(--text); }
 
 /* Aurora glow + fine grain grid, fixed behind everything. */
 .mx-app::before {
@@ -3381,3 +3381,29 @@ input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus { 
   .ui-it__cell, .ui-it__blank { height: 44px; min-width: 44px; }
   .ui-it .ui-it__yearhead, .ui-it__year { position: sticky; left: 0; z-index: 1; background: var(--surface); }
 }
+
+/* ============================================================================
+   R5.4 part 1 (PLAN Phase 6): renderer.js inline styles onto classes.
+   ========================================================================== */
+/* settings popover */
+.mx-pop-sec { margin-bottom: var(--space-4); }
+.mx-pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.mx-seg__lbl { font-size: var(--type-caption); }
+.mx-menu-item[data-switch] { justify-content: space-between; background: var(--hover); border: 1px solid var(--border); }
+.mx-menu-item__main { display: flex; align-items: center; gap: var(--space-2); }
+.mx-switch { display: inline-flex; width: 34px; height: 20px; padding: 2px; border-radius: var(--radius-pill); background: var(--border-strong); justify-content: flex-start; transition: background var(--dur-1) var(--ease); flex: none; }
+.mx-switch.is-on { background: var(--accent-fill); justify-content: flex-end; }
+.mx-switch__knob { width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-1); }
+.mx-pop-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; max-height: 160px; overflow: auto; }
+.mx-pop-list__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2); align-items: center; padding: var(--space-1) 0; border-bottom: 1px solid var(--border); font-size: var(--type-caption); color: var(--text-dim); }
+.mx-pop-list__row b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* overview banners, import dialog, view error, tax body */
+.ui-ov-banner { margin-bottom: var(--space-5); }
+.ui-imp__pre { margin: var(--space-2) 0 0; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: var(--type-caption); overflow: auto; }
+.ui-imp__data { height: 200px; font-family: var(--mono, ui-monospace, monospace); resize: vertical; padding: var(--space-3); }
+.ui-bi-drop:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ui-view-error { max-width: 560px; margin: var(--space-7) auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.ui-view-error .mx-empty-title { color: var(--text); }
+.ui-view-error__msg { color: var(--text-dim); font-size: var(--type-caption); overflow-wrap: anywhere; }
+.ui-tax__body { flex: 1; overflow: auto; }
