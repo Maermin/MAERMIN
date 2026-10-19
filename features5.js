@@ -396,9 +396,8 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
   }, [priceHistory, portfolio, prices, valuePath]);
 
   if (investedSeries.length < 2 && valueSeries.length < 2) {
-    return React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem', marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, __('cfEmpty', 'Add transactions and refresh prices a few times to see your cashflow chart'))
-    );
+    // R5.2: the shared empty state
+    return window.MaerminUtils.emptyState({ testid: 'cf-empty', text: __('cfEmpty', 'Add transactions and refresh prices a few times to see your cashflow chart') });
   }
 
   // Merge into single timeline for chart

@@ -38,8 +38,8 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
 
   const result = useMemo(() => (A ? A.compute(positions) : null), [positions]);
 
-  if (!A) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, __('attrModuleMissing', 'Attribution module not loaded'));
-  if (!result || !result.rows.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, __('attrNoPositions', 'No positions to analyze'));
+  if (!A) return React.createElement('div', null, window.MaerminUtils.errorNote(__('attrModuleMissing', 'Attribution module not loaded')));
+  if (!result || !result.rows.length) return React.createElement('div', null, window.MaerminUtils.emptyNote(__('attrNoPositions', 'No positions to analyze')));
 
   // Return decomposition: unrealised price gain + dividends received (booked
   // dividend transactions only, converted to EUR) and an illustrative tax
