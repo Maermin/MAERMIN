@@ -1106,7 +1106,7 @@ async function runBuild(browser, label, dir) {
         await page.locator('select', { has: page.locator('option[value="2025"]') }).first().selectOption('2025');
         await page.waitForTimeout(500);
         const panel = page.locator('[data-testid="wht-panel"]');
-        title = await panel.locator('h3').innerText();
+        title = await panel.getByRole('heading').first().innerText(); // R5.3: the level follows the nesting
         us = await panel.locator('tr[data-wht-country="US"]').innerText();
         ch = await panel.locator('tr[data-wht-country="CH"]').innerText();
         unk = await panel.locator('tr[data-wht-country="unknown"]').innerText();

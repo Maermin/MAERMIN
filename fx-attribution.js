@@ -305,7 +305,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           tile(__('fxaLocalPart', 'Asset (local) part'), pct(tot.localReturn), toneOf(tot.localReturn)),
           tile(__('fxaFxPart', 'FX part'), pct(tot.fxReturn), toneOf(tot.fxReturn)),
           tile(__('fxaInteraction', 'Interaction'), pct(tot.interaction), null)),
-        e('h4', { className: 'ui-sublabel' }, __('fxaByCurrency', 'By currency')),
+        e(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, __('fxaByCurrency', 'By currency')),
         e('ul', { className: 'ui-rows' }, result.byCurrency.map(function (c) {
           return e('li', { key: c.currency, className: 'ui-rows__row' },
             e('div', { className: 'ui-rows__main' }, e('b', null, c.currency), e('span', null, __('rtaOfValue', '{pct} of value', { pct: window.MaerminI18n.pct(c.weight * 100, 0) }))),
@@ -314,7 +314,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('span', null, __('fxaFx', 'fx') + ' ', e('b', { className: toneCls(c.fxContribution) }, pct(c.fxContribution)))));
         })),
         topRows.length ? e('div', null,
-          e('h4', { className: 'ui-sublabel' }, __('fxaLargest', 'Largest FX impacts')),
+          e(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, __('fxaLargest', 'Largest FX impacts')),
           e('div', { className: 'ui-table-wrap' },
             e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
               e('thead', null, e('tr', null, [__('position', 'Position'), __('colWeight', 'Weight'), __('fxaEurReturn', 'EUR return'), __('fxaLocalReturn', 'Local return'), __('fxaFxEffect', 'FX effect')].map(function (h, i) {

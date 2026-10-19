@@ -636,7 +636,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     function sectionTitle(label) {
-      return e('h4', { className: 'ui-sublabel' }, label);
+      return e(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, label);
     }
 
     // ---- P5-2.3: holdings files per fund (import / remove) and CSV export ----

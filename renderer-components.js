@@ -573,16 +573,30 @@ function IconButton(props) {
 }
 
 // Card: title / subtitle / one action link; variants plain (no padding), answer, hero.
+// R5.3: the heading level follows the nesting, so a view reads h1 (page) → h2 (card) →
+// h3 (card in a card or in a dialog) without gaps. The old headingLevel prop is
+// accepted and ignored.
+const HeadingLevel = React.createContext(0);
 function Card(props) {
   const variant = /^(plain|answer|hero)$/.test(props.variant) ? props.variant : null;
   const rest = omit(props, ['title', 'subtitle', 'action', 'variant', 'className', 'children', 'as', 'headingLevel']);
+  const ctx = React.useContext(HeadingLevel);
+  const level = Math.min(ctx || 2, 6);
   const head = (props.title || props.action) ? h('header', { className: 'ui-card__head' },
     h('div', { className: 'ui-card__titles' },
-      props.title ? h(props.headingLevel || 'h2', { className: 'ui-card__title' }, props.title) : null,
+      props.title ? h('h' + level, { className: 'ui-card__title' }, props.title) : null,
       props.subtitle ? h('p', { className: 'ui-card__subtitle' }, props.subtitle) : null),
     props.action ? h('div', { className: 'ui-card__action' }, props.action) : null) : null;
+  const body = h('div', { className: 'ui-card__body' }, props.children);
   return h(props.as || 'section', Object.assign(rest, { className: cx('ui-card', variant && 'ui-card--' + variant, props.className) }),
-    head, h('div', { className: 'ui-card__body' }, props.children));
+    head, props.title ? h(HeadingLevel.Provider, { value: level + 1 }, body) : body);
+}
+
+// R5.3: a section heading one level below the card (or dialog) it sits in; h2 at the top of a view.
+function Heading(props) {
+  const ctx = React.useContext(HeadingLevel);
+  const rest = omit(props, ['children']);
+  return h('h' + Math.min(ctx || 2, 6), rest, props.children);
 }
 
 // Stat / KPI: label, value (tone from the figure or given), sub line, split figures.
@@ -714,7 +728,7 @@ function Mask(props) {
   return h('span', Object.assign(rest, { className: cx('ui-mask', 'is-masked', props.className), 'aria-label': __('uiHiddenAmount', 'Amount hidden') }), '••••••');
 }
 
-const Components = { toneOf, Button, IconButton, Card, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
+const Components = { toneOf, Button, IconButton, Card, Heading, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
 
 // ---- R1.3: Table, Modal / Sheet, EmptyState, Skeleton, ChartFrame ---------
 
@@ -852,7 +866,7 @@ function Modal(props) {
       h('header', { className: 'ui-modal__head' },
         h('h2', { id: idRef.current, className: 'ui-modal__title' }, props.title),
         props.onClose ? h(IconButton, { size: 'sm', label: __('uiClose', 'Close'), onClick: props.onClose, icon: h('span', { 'aria-hidden': 'true' }, '×') }) : null),
-      h('div', { className: 'ui-modal__body' }, props.children),
+      h('div', { className: 'ui-modal__body' }, h(HeadingLevel.Provider, { value: 3 }, props.children)),
       props.footer ? h('footer', { className: 'ui-modal__foot' }, props.footer) : null));
 }
 

@@ -272,7 +272,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function weightTable(title, snap, series) {
       if (!snap) return null;
       return e('div', { className: 'ui-sh-weights' },
-        e('h4', { className: 'ui-sublabel' }, title),
+        e(window.MaerminComponents.Heading, { className: 'ui-sublabel' }, title),
         e('ul', { className: 'ui-hbars' }, Object.keys(snap.assetClasses || {}).map(function (cls) {
           var pct = snap.assetClasses[cls];
           return e('li', { key: cls, className: 'ui-hbar' },

@@ -430,7 +430,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function commit(next) { setSt(save(next)); }
     var m = monthSummary(st, month);
     var rec = recurring(st, {});
-    var h3 = function (t) { return e('h3', { className: 'ui-card__title' }, t); };
+    var h3 = function (t) { return e(window.MaerminComponents.Heading, { className: 'ui-card__title' }, t); }; // R5.3: level from the nesting
     var kpi = function (lbl, val, tone, tid) { return e(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': tid }, e(UIC.Stat, { label: lbl, value: val, tone: tone || null })); };
     var signed = function (v) { return (v > 0 && !props.privacy ? '+' : '') + money(v); };
     function shift(n) { var d = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1)); setMonth(d.toISOString().slice(0, 7)); }
