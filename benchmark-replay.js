@@ -195,12 +195,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var tile = function (key, title, value, sub, tone) {
       return e(UIC.Stat, { key: key, 'data-testid': 'br-' + key, className: 'ui-tile', label: title, value: value, sub: sub, tone: tone || null });
     };
-    var noteEl = function (msg, isErr) { return e('p', { className: ['ui-muted', isErr ? 'is-error' : ''].join(' ').trim() }, msg); };
+    // R5.2: the shared empty / error state
+    var noteEl = function (msg, isErr) { return isErr ? window.MaerminUtils.errorNote(msg) : window.MaerminUtils.emptyNote(msg); };
 
     var body;
     if (!att) body = noteEl(__('vaEmpty', 'Add transactions to see where your profit came from.'));
     else if (!fund && !workerBase) body = window.MaerminUtils.workerNote(__('brNeedWorker', 'Add a Worker URL in API Settings to replay your money into an index.'));
-    else if (url && loading) body = noteEl(__('avLoadingBench', 'Loading {name}…', { name: label }));
+    else if (url && loading) body = window.MaerminUtils.loadingNote(__('avLoadingBench', 'Loading {name}…', { name: label }));
     else if (!fund && err) body = noteEl(__('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }), true);
     else if (!res || !res.available) body = noteEl(res && res.from ? __('brTooEarly', 'The {name} history starts on {date} - pick a shorter period.', { name: label, date: I18N.date ? I18N.date(res.from) : res.from })
       : __('brNoData', 'No price history for {name} yet.', { name: label }));

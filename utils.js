@@ -208,6 +208,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return emptyState({ compact: true, kind: 'worker', testid: testid, text: text, action: UI && UI.workerAction ? UI.workerAction() : undefined });
   }
 
+  // R5.2: a loading or failed state inside a card, on the shared EmptyState.
+  function loadingNote(text, testid) {
+    return emptyState({ compact: true, kind: 'loading', testid: testid, text: text });
+  }
+  // retry: an optional function; it adds a Retry button.
+  function errorNote(text, retry, testid) {
+    return emptyState({ compact: true, kind: 'error', testid: testid, text: text,
+      action: typeof retry === 'function' ? { label: __('retry', 'Retry'), onClick: retry } : undefined });
+  }
+  // "Nothing here (yet)" inside a card.
+  function emptyNote(text, testid) {
+    return emptyState({ compact: true, kind: 'empty', testid: testid, text: text });
+  }
+
   function onColor(bg) {
     // A theme colour arrives as var(--…) (R1.1): resolve it for the active theme.
     const T = typeof window !== 'undefined' && window.MaerminTokens;
@@ -399,6 +413,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     ink,
     emptyState,
     workerNote,
+    loadingNote,
+    errorNote,
+    emptyNote,
     safeParse,
     parseDecimal,
     todayISO,

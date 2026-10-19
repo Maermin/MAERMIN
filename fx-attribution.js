@@ -280,7 +280,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function tile(label, value, tone) {
       return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone });
     }
-    var muted = function (msg, isErr) { return e('p', { className: ['ui-muted', isErr ? 'is-error' : ''].join(' ').trim() }, msg); };
+    // R5.2: the shared empty / error state
+    var muted = function (msg, isErr) { return isErr ? window.MaerminUtils.errorNote(msg) : window.MaerminUtils.emptyNote(msg); };
 
     var body;
     if (!rows.length) {
@@ -290,7 +291,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     } else if (!workerBase) {
       body = window.MaerminUtils.workerNote(__('fxaNeedWorker', 'Add a Worker URL in API Settings to load the EUR/USD history for the FX decomposition.'));
     } else if (loading) {
-      body = muted(__('fxaLoading', 'Loading EUR/USD history...'));
+      body = window.MaerminUtils.loadingNote(__('fxaLoading', 'Loading EUR/USD history...'));
     } else if (err) {
       body = muted(__('fxaLoadFailed', 'Could not load FX history: {msg}', { msg: err }), true);
     } else if (!result.available) {

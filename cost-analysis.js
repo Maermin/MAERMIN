@@ -198,14 +198,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function kpi(label, value, tone) {
       return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     }
-    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
+    var muted = function (msg) { return window.MaerminUtils.emptyNote(msg); }; // R5.2: the shared empty state
 
     var body;
     if (!candidates.length) {
-      body = muted(
+      body = window.MaerminUtils.emptyNote(
         __('caNoFunds', 'No ETF or fund positions detected. Ongoing costs (TER) apply to funds; transaction fees above cover everything else.'));
     } else if (state.loading) {
-      body = muted(__('caLoading', 'Loading expense ratios...'));
+      body = window.MaerminUtils.loadingNote(__('caLoading', 'Loading expense ratios...'));
     } else if (!costs || !costs.available) {
       body = muted(
         __('caNoData', 'No expense-ratio data for your fund positions yet. Set a TER manually below once the table appears, or re-deploy the latest Worker for live data.'));

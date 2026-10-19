@@ -5237,15 +5237,11 @@ function InvestmentTracker() {
   // ========== PLACEHOLDER FOR ANALYTICS ==========
   
   const renderAnalyticsPlaceholder = (name) => {
-    return React.createElement('div', {
-      style: { padding: '3rem', textAlign: 'center', color: currentTheme.textSecondary }
-    },
-      React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.75rem', color: 'color-mix(in srgb, var(--warning) 70%, transparent)', fontWeight: '300' } }, '!'),
-      React.createElement('div', { style: { fontWeight: '600', marginBottom: '0.5rem', color: currentTheme.text } }, name),
-      React.createElement('div', { style: { fontSize: 'var(--text-base)' } },
-        t.moduleNotLoaded || 'Module not loaded. Check the browser console for errors.'
-      )
-    );
+    // R5.2: the shared error state, with a reload as the way out
+    return React.createElement('div', { className: 'ui-view' },
+      window.MaerminUtils.emptyState({ kind: 'error', role: 'alert', title: name,
+        text: t.moduleNotLoaded || 'Module not loaded. Check the browser console for errors.',
+        action: { label: __('retry', 'Retry'), onClick: () => window.location.reload() } }));
   };
 
   // ========== PASSWORD CHANGE MODAL ==========

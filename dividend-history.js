@@ -290,7 +290,7 @@
       return e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') }, e('thead', null, e('tr', null, head)), e('tbody', null, body)));
     };
     var basisNote = basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.');
-    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
+    var muted = function (msg) { return window.MaerminUtils.emptyNote(msg); }; // R5.2: the shared empty state
 
     // ---- matrix ----
     var yearsDesc = mx.years.slice().reverse();
@@ -330,7 +330,7 @@
     var btBody;
     if (!holdings.length) btBody = muted(__('dhBtNoHoldings', 'No stock or ETF holdings to test.'));
     else if (!workerUrl) btBody = window.MaerminUtils.workerNote(__('dhBtNeedWorker', 'The past dividends and prices of your holdings are loaded through your Worker - add its URL in API Settings.'));
-    else if (market.state !== 'ready') btBody = muted(__('dhBtLoading', 'Loading past dividends and prices…'));
+    else if (market.state !== 'ready') btBody = window.MaerminUtils.loadingNote(__('dhBtLoading', 'Loading past dividends and prices…'));
     else if (!bt.years.length) btBody = muted(bt.outdated
       ? __('dhBtOutdated', 'Your Worker does not send past dividends yet. Redeploy it with the current version to see the backtest.')
       : __('dhBtNone', 'No past dividends or prices found for your holdings.'));

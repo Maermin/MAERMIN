@@ -101,13 +101,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return h(UIC.Card, { className: 'ui-ec', headingLevel: 'h3', title: __('ecTitle', 'Earnings Calendar'),
         action: window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, th, workerUrl) : null }, body);
     };
-    var note = function (msg, err) { return h('p', { className: err ? ['ui-muted', 'is-error'].join(' ') : 'ui-muted' }, msg); };
+    // R5.2: the shared empty / loading / error states
+    var U = window.MaerminUtils;
 
     if (!workerUrl || workerUrl.length < 5) return card(window.MaerminUtils.workerNote(__('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.')));
-    if (state.unsupported) return card(note(__('ecUnsupported', 'Your Worker does not support earnings yet. Re-deploy the latest cf-worker/worker.js (action=earnings).')));
-    if (state.loading) return card(note(__('loadingEllipsis', 'Loading…')));
-    if (state.error) return card(note(state.error, true));
-    if (!state.rows.length) return card(note(__('ecNone', 'No upcoming earnings found for your holdings.')));
+    if (state.unsupported) return card(U.emptyNote(__('ecUnsupported', 'Your Worker does not support earnings yet. Re-deploy the latest cf-worker/worker.js (action=earnings).')));
+    if (state.loading) return card(U.loadingNote(__('loadingEllipsis', 'Loading…')));
+    if (state.error) return card(U.errorNote(state.error));
+    if (!state.rows.length) return card(U.emptyNote(__('ecNone', 'No upcoming earnings found for your holdings.')));
 
     return card(h('ul', { className: 'ui-rows' }, state.rows.slice(0, 20).map(function (r) {
       return h('li', { key: r.symbol, className: 'ui-rows__row' },

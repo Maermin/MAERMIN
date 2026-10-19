@@ -33,9 +33,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // R4.2: a muted line; an error colour (danger / loss) reads as an error.
+  // R5.2: on the shared empty / error state.
   function note(React, dim, txt) {
     var err = /danger|loss/.test(String(dim || ''));
-    return React.createElement('p', { className: ['ui-muted', err ? 'is-error' : ''].join(' ').trim() }, txt);
+    return err ? window.MaerminUtils.errorNote(txt) : window.MaerminUtils.emptyNote(txt);
   }
 
   // ---- Benchmark overlay (Returns view) -----------------------------------
@@ -104,7 +105,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var body;
     if (!workerBase) body = window.MaerminUtils.workerNote(__('avNeedWorkerBench', 'Add a Worker URL in API Settings to compare against a benchmark.'));
     else if (series.length < 3) body = note(React, dim, __('avNeedHistoryBench', 'Refresh prices a few times to unlock benchmark analytics — they need a short portfolio price history.'));
-    else if (loading) body = note(React, dim, __('avLoadingBench', 'Loading {name}…', { name: preset ? preset.label : __('perfBenchmark', 'Benchmark') }));
+    else if (loading) body = window.MaerminUtils.loadingNote(__('avLoadingBench', 'Loading {name}…', { name: preset ? preset.label : __('perfBenchmark', 'Benchmark') }));
     else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
     else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
@@ -252,7 +253,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var body;
     if (!workerBase) body = window.MaerminUtils.workerNote(__('avNeedWorkerFactor', 'Add a Worker URL in API Settings to estimate factor exposure.'));
     else if (series.length <= FACTOR_MIN_PERIODS) body = note(React, dim, __('avNeedHistoryFactor', 'Refresh prices a few more times to unlock factor analysis — a Fama-French regression needs a longer portfolio price history.'));
-    else if (loading) body = note(React, dim, __('avLoadingFactors', 'Loading factor proxies (VTI · IWM/IWB · IWD/IWF)…'));
+    else if (loading) body = window.MaerminUtils.loadingNote(__('avLoadingFactors', 'Loading factor proxies (VTI · IWM/IWB · IWD/IWF)…'));
     else if (err) body = note(React, bad, __('avFactorFailed', 'Could not load factor proxies: {msg}', { msg: err }));
     else if (!result || !result.available || periods < FACTOR_MIN_PERIODS) body = note(React, dim, __('avNotEnoughFactor', 'Not enough overlapping history to estimate factor exposure yet.'));
     else {

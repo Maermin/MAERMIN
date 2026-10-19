@@ -397,9 +397,7 @@ function SectorAllocationView(props) {
           )
         )
       )
-    ) : React.createElement('div', {
-      style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' }
-    }, __('ivNoSectorData', 'Add positions to analyze sector allocation'))
+    ) : window.MaerminUtils.emptyNote(__('ivNoSectorData', 'Add positions to analyze sector allocation'))
   );
 }
 
@@ -1102,9 +1100,7 @@ function GoalInvestingView(props) {
       );
     }),
     
-    goals.length === 0 && !showAddGoal && React.createElement('div', {
-      style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' }
-    }, __('glEmpty', 'No goals yet. Click "+ Add Goal" to create your first investment goal.'))
+    goals.length === 0 && !showAddGoal && window.MaerminUtils.emptyNote(__('glEmpty', 'No goals yet. Click "+ Add Goal" to create your first investment goal.'))
   );
 }
 

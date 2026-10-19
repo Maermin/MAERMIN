@@ -292,13 +292,17 @@
 
   // One look for "nothing here yet / not available / needs your Worker":
   // a title, one sentence, and optionally one next action. compact: inside a
-  // card (no second frame). kind 'loading' is announced as a status.
+  // card (no second frame). kind 'loading' is announced as a status with a
+  // spinner next to its words (R5.2); kind 'error' is an alert with a "!".
   function EmptyState(props) {
     var e = React.createElement;
     var kind = props.kind || 'empty';
-    return e('div', { className: 'mx-empty' + (props.compact ? ' is-compact' : ''), 'data-testid': props.testid, 'data-kind': kind, role: props.role || (kind === 'loading' ? 'status' : undefined) },
+    return e('div', { className: 'mx-empty' + (props.compact ? ' is-compact' : ''), 'data-testid': props.testid, 'data-kind': kind, role: props.role || (kind === 'loading' ? 'status' : kind === 'error' ? 'alert' : undefined) },
       props.title ? e('div', { className: 'mx-empty-title' }, props.title) : null,
-      props.text ? e('div', { className: 'mx-empty-text' }, props.text) : null,
+      props.text ? e('div', { className: 'mx-empty-text' },
+        kind === 'loading' ? e('span', { className: 'ui-spinner', 'aria-hidden': 'true' }) : null,
+        kind === 'error' ? e('span', { className: 'mx-empty-mark', 'aria-hidden': 'true' }, '!') : null,
+        props.text) : null,
       props.action ? e('button', btnProps('secondary', { onClick: props.action.onClick }), props.action.label) : null,
       // several next steps: [{ label, onClick, variant, props }] (props: test hooks etc.)
       props.actions && props.actions.length ? e('div', { className: 'mx-empty-actions' }, props.actions.filter(Boolean).map(function (a, i) {

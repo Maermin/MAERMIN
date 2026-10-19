@@ -707,10 +707,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var fundCount = result ? result.funds.length : 0;
 
     if (!candidates.length) {
-      body = e('p', { className: 'ui-muted' },
+      body = window.MaerminUtils.emptyNote(
         __('ltNoFunds', 'No ETF or fund positions detected. Look-through resolves funds into their underlying holdings once you hold one.'));
     } else if (state.loading) {
-      body = e('p', { className: 'ui-muted' }, __('ltResolving', 'Resolving fund holdings...'));
+      body = window.MaerminUtils.loadingNote(__('ltResolving', 'Resolving fund holdings...'));
     } else if (!result || !result.available || !fundCount) {
       body = e('div', null, e('p', { className: 'ui-muted' },
         __('ltNoData', 'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.')),

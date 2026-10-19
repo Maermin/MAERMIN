@@ -407,7 +407,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           action: e(UIC.Segmented, { label: __('perfBenchmark', 'Benchmark'), value: benchKey, size: 'sm', onChange: setBenchKey,
             options: benches.map(function (b) { return { value: b.key, label: b.label }; }) }) },
         !workerBase ? window.MaerminUtils.emptyState({ kind: 'worker', text: t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.', action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined })
-          : benchLoading ? e('p', { className: 'ui-muted' }, (t.loading || 'Loading') + ' …')
+          : benchLoading ? window.MaerminUtils.loadingNote((t.loading || 'Loading') + ' …')
           : benchRows.length ? e(UIC.Table, {
               caption: t.perfBenchTitle || 'vs. Benchmark', rows: benchRows, rowKey: function (r) { return r.id; },
               columns: [

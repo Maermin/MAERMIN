@@ -119,7 +119,9 @@
       section('Empty states', [
         cell('empty', h(C.EmptyState, { title: 'No transactions yet', text: 'Add your first buy or import a statement.', action: { label: 'Import statement', onClick: function () {} }, key: 1 })),
         cell('needs Worker', h(C.EmptyState, { kind: 'worker', title: 'Needs your Worker', text: 'News loads through your own Worker.', action: { label: 'Open API Settings', onClick: function () {} }, key: 2 })),
-        cell('loading', h(C.EmptyState, { kind: 'loading', title: 'Loading prices…', key: 3 })),
+        cell('loading', h(C.EmptyState, { kind: 'loading', text: 'Loading prices…', key: 3 })),
+        // R5.2: a failed load, with Retry
+        cell('error', h(C.EmptyState, { kind: 'error', text: 'Could not load the benchmark: network error.', action: { label: 'Retry', onClick: function () {} }, key: 6 })),
         cell('skeleton KPI', h(C.Skeleton, { shape: 'kpi', key: 4 })),
         cell('skeleton text', h(C.Skeleton, { shape: 'text', lines: 3, key: 5 }))
       ]),

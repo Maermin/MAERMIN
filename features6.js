@@ -837,23 +837,16 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
     // ── CHART AREA ─────────────────────────────────────────────────────────
     React.createElement('div', { style: { position:'relative' } },
-      loading && React.createElement('div', {
-        style: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.22)', zIndex:2, borderRadius:'0 0 16px 16px' }
-      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'var(--text-base)' } }, __('loadingDots', '◎ Loading...'))),
+      // R5.2: a status over the chart while it loads; error and empty on the shared state
+      loading && React.createElement('div', { className: 'ui-chart-busy', role: 'status' },
+        React.createElement('span', { className: 'ui-spinner', 'aria-hidden': 'true' }),
+        React.createElement('span', null, __('loadingDots', '◎ Loading...'))),
 
-      error && !loading && React.createElement('div', {
-        style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'var(--text-base)' }
-      }, __('chError', 'Chart error: {msg}', { msg: error })),
+      error && !loading && React.createElement('div', { className: 'ui-chart-state' }, window.MaerminUtils.errorNote(__('chError', 'Chart error: {msg}', { msg: error }))),
 
-      !error && !computed && !loading && React.createElement('div', {
-        style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'var(--text-base)' }
-      },
-        React.createElement('div', { style: { fontSize:'var(--text-2xl)', opacity:0.15, marginBottom:'0.5rem' } }, '↗'),
-        hasWorker ? __('chAuto', 'Chart loads automatically — select a period above')
-          : React.createElement('span', null,
-              __('chAddA', 'Add a') + ' ', React.createElement('strong', null, 'Cloudflare Worker URL'),
-              ' ' + __('chInSettings', 'in Settings to load prices and history (stocks, crypto, CS2).')
-            )
+      !error && !computed && !loading && React.createElement('div', { className: 'ui-chart-state' },
+        hasWorker ? window.MaerminUtils.emptyNote(__('chAuto', 'Chart loads automatically — select a period above'))
+          : window.MaerminUtils.workerNote(__('chAddA', 'Add a') + ' Cloudflare Worker URL ' + __('chInSettings', 'in Settings to load prices and history (stocks, crypto, CS2).'))
       ),
 
       // Only value chart — return tab removed

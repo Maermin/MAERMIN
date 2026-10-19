@@ -3336,3 +3336,33 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-tx-opt { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .ui-tx-opt .ui-tx-size { grid-column: 1 / -1; }
 }
+
+/* ============================================================================
+   R5.2 (PLAN Phase 6): states and motion.
+   ========================================================================== */
+/* empty / loading / error on the shared EmptyState: words first, a mark or a spinner next to them */
+.mx-empty[data-kind="loading"] .mx-empty-text, .mx-empty[data-kind="error"] .mx-empty-text { display: flex; align-items: baseline; gap: var(--space-2); }
+.mx-empty[data-kind="loading"] .ui-spinner { align-self: center; color: var(--accent); }
+.mx-empty-mark { flex: none; color: var(--loss); font-weight: 700; }
+.mx-empty[data-kind="error"] { border-color: color-mix(in srgb, var(--loss) 40%, var(--border)); }
+.mx-empty[data-kind="error"].is-compact { border: 0; }
+.ui-chart-busy { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; gap: var(--space-2); background: color-mix(in srgb, var(--surface) 72%, transparent); color: var(--text-dim); font-size: var(--type-body); }
+.ui-chart-busy .ui-spinner { color: var(--accent); }
+.ui-chart-state { padding: var(--space-5) var(--space-5) var(--space-6); }
+
+/* dialogs: enter with the motion tokens; a bottom sheet on phones (DESIGN-SYSTEM § Dialog) */
+@keyframes ui-fade-in { from { opacity: 0; } }
+@keyframes ui-dialog-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@keyframes ui-sheet-in { from { transform: translateY(100%); } }
+html.mx-anim .ui-modal-backdrop { animation: ui-fade-in var(--dur-2) var(--ease) both; }
+html.mx-anim .ui-modal { animation: ui-dialog-in var(--dur-3) var(--ease) both; }
+html.mx-still .ui-modal-backdrop, html.mx-still .ui-modal { animation: none; }
+html.mx-still .ui-skel__bar { animation: none; }
+@media (max-width: 767px) {
+  .ui-modal-backdrop { align-items: flex-end; padding: 0; }
+  .ui-modal, .ui-modal--sm, .ui-modal--lg, .ui-modal--log, .ui-modal--tx { width: 100%; max-height: 92vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom); }
+  html.mx-anim .ui-modal { animation-name: ui-sheet-in; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-backdrop, .ui-modal { animation: none !important; }
+}

@@ -393,7 +393,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           })))));
 
       if (state.loading) {
-        parts.push(e('p', { key: 'loading', className: 'ui-note' }, __('dqlLoading', 'Loading fundamentals...')));
+        parts.push(e('div', { key: 'loading' }, window.MaerminUtils.loadingNote(__('dqlLoading', 'Loading fundamentals...'))));
       }
       if (state.unsupported) {
         parts.push(e('p', { key: 'unsup', className: ['ui-callout', 'ui-callout--warn'].join(' ') },

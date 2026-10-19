@@ -306,7 +306,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         watched.length ? e(UIC.Chip, { 'data-testid': 'evf-watched', pressed: withWatched, onClick: function () { setWithWatched(!withWatched); } }, __('evfWatched', 'Watchlist')) : null),
       load.state === 'noworker' ? warnNote(__('evfNoWorker', 'Earnings, ex-dates and pay dates come through your Worker (API Settings). Everything else is shown without one.')) : null,
       load.state === 'old' ? warnNote(__('evfOldWorker', 'Your Worker has no earnings route yet. Redeploy it (API Settings) for earnings and ex-dates.')) : null,
-      load.state === 'loading' ? e('p', { 'data-testid': 'evf-loading', className: 'ui-muted' }, __('evfLoading', 'Loading dates for {n} symbols…', { n: syms.length })) : null,
+      load.state === 'loading' ? window.MaerminUtils.loadingNote(__('evfLoading', 'Loading dates for {n} symbols…', { n: syms.length }), 'evf-loading') : null,
       !list.length && load.state !== 'loading' ? e(UIC.EmptyState, { text: __('evfEmpty', 'Nothing in the next 120 days for the selected types.') }) : null,
       months.length ? e(UIC.Card, { className: 'ui-card--table', 'data-testid': 'evf-list' },
         e('ul', { className: 'ui-evf' }, months.map(function (m) {
