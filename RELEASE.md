@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-_Nothing yet._
+> **Worker update:** redeploy your Worker (version 2026.10.15) to get candles for the coming Charts view. Without it the app keeps working as before.
+
+### Worker
+
+- **Candles in the price route.** `?action=yf` now returns open, high, low and volume next to each close (`o`, `h`, `l`, `v`; `null` where Yahoo has none). The close stays in `price`, so nothing in the app changes until the Charts view uses them. `?action=version` reports `ohlcv: true`.
+- **Clear error for history Yahoo does not keep.** An interval / range pair Yahoo refuses (for example 5-minute bars over 3 months) now gets `400 interval/range not supported` with the ranges that work, instead of "Yahoo Finance unavailable". Every pair the app asks for today is allowed.
+- Cached chart answers from older versions are not reused (cache key `yf3`).
+- The owner-hosted shared price Worker needs the same redeploy.
 
 ## [v12.1.0] "Atlas Map" — 23 October 2026
 

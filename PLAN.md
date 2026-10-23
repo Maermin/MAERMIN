@@ -747,7 +747,7 @@ After a context reset: read this table and `git log`, then continue with the fir
 | Package | Status | Branch | PR | Notes |
 |---|---|---|---|---|
 | CH-0 Scope into the repo | in review | `charts/ch-0-scope` | https://github.com/Maermin/MAERMIN/pull/231 | Owner confirmed D1–D4 on 2026-10-23 ("yes", klinecharts@10.1.0). Docs only: Phase 7 section, Decisions (new surfaces), `ROADMAP.md` "Sanctioned new surfaces", D3 vetting and CSP probe. The brief itself was already added by #230. |
-| CH-1 Worker: OHLCV in the price route | not started | | | Stop after merge: the owner redeploys the Worker. |
+| CH-1 Worker: OHLCV in the price route | in review | `charts/ch-1-worker-ohlcv` | | Owner approved the plan 2026-10-23 (400 for refused pairs; cache times unchanged). `yf` `prices[]` gains `o`, `h`, `l`, `v` (null when missing; `price` stays the close; `ts` is the key for intraday). Cache key `yf3`. `YF_ALLOWED_RANGES` (exported): 1m → 1d/5d, 2m–90m → up to 1mo, 60m/1h → up to 2y + ytd, daily and longer any; other pairs → `400 interval/range not supported` with `allowed`, checked before the rate limit. Note for CH-3: Yahoo answers `1d/max` with monthly bars, so long daily charts ask for `1d/10y`. `WORKER_VERSION` / `EXPECTED_WORKER_VERSION` 2026.10.15, `action=version` → `ohlcv: true` (both modes). **Stop after merge: the owner redeploys the Worker (and the shared price Worker).** |
 | CH-2 `chart-engine.js` | not started | | | |
 | CH-3 Charts view | not started | | | Re-check the klinecharts SRI hash and changelog before adding it. |
 | CH-4 Drawings and alert from chart | not started | | | Rectangle, text note, measure need custom overlays. |
