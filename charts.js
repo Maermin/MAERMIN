@@ -102,7 +102,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       scale: SCALES.some(function (s) { return s.id === o.scale; }) ? o.scale : 'linear',
       eur: o.eur === true,
       indicators: indicators,
-      compare: compare
+      compare: compare,
+      // CH-3c: your trades and average cost on the chart (on unless switched off)
+      myTrades: o.myTrades !== false
     };
   }
   function loadPrefs(storage) {
@@ -144,6 +146,52 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
     (watchlist || []).forEach(function (w) { if (w && w.symbol) s[String(w.symbol).toUpperCase()] = true; });
     return Object.keys(s).filter(isMarket).sort();
+  }
+
+  // ---- CH-3c: your trades on the bars, the rating in words ------------------------------------
+  // Each mark on the bar that holds its date: daily → that day's bar (a day
+  // without one → the bar before); intraday → the first bar of that day;
+  // weekly / monthly → the bar the date falls in. Marks long before or after
+  // the loaded bars are left out. y: the mark's price; a dividend sits at the
+  // bar's low.
+  function placeMarks(marks, bars) {
+    var list = bars || [], out = [];
+    if (!list.length) return out;
+    var first = list[0].t, last = list[list.length - 1].t;
+    (marks || []).forEach(function (m) {
+      if (!m || m.t == null) return;
+      if (m.t + 86400 <= first - 7 * 86400 || m.t > last + 35 * 86400) return;
+      var idx = -1;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].t >= m.t && list[i].t < m.t + 86400) { idx = i; break; }
+        if (list[i].t <= m.t) idx = i; else if (idx >= 0) break;
+      }
+      if (idx < 0) return;
+      var b = list[idx];
+      out.push(Object.assign({}, m, { barT: b.t, y: m.kind === 'dividend' ? b.l : m.price }));
+    });
+    return out.filter(function (m) { return m.y != null && isFinite(m.y); });
+  }
+  function tradeCounts(marks) {
+    var c = { buys: 0, sells: 0, dividends: 0 };
+    (marks || []).forEach(function (m) { if (m.kind === 'buy') c.buys++; else if (m.kind === 'sell') c.sells++; else if (m.kind === 'dividend') c.dividends++; });
+    return c;
+  }
+  // chart-engine.js rate() → words for people (the engine returns keys)
+  function ratingRows(r) {
+    if (!r) return null;
+    var LABEL = { strongSell: __('kcRateStrongSell', 'Strong sell'), sell: __('kcRateSell', 'Sell'), neutral: __('kcRateNeutral', 'Neutral'),
+      buy: __('kcRateBuy', 'Buy'), strongBuy: __('kcRateStrongBuy', 'Strong buy') };
+    var NAME = { ichimokuBase: __('kcRateIchimokuBase', 'Ichimoku base line'), stochastic: __('kcIndStoch', 'Stochastic'), macd: 'MACD',
+      rsi14: __('kcRateRsi14', 'RSI 14'), donchian20: __('kcRateDonchian20', 'Donchian 20') };
+    var name = function (k) {
+      if (NAME[k]) return NAME[k];
+      var m = /^(sma|ema)(\d+)$/.exec(k);
+      return m ? m[1].toUpperCase() + ' ' + m[2] : k;
+    };
+    var vote = function (v) { return v > 0 ? LABEL.buy : v < 0 ? LABEL.sell : LABEL.neutral; };
+    return { score: r.score, key: r.label, label: LABEL[r.label] || r.label,
+      rows: (r.votes || []).map(function (v) { return { group: v.group, name: name(v.name), value: v.value, vote: vote(v.vote), sign: v.vote }; }) };
   }
 
   // ---- the library's colours, from the design tokens ---------------------------------------
@@ -205,7 +253,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return fig;
     });
   }
-  var COMPARE = 'MRM_CMP';
+  var COMPARE = 'MRM_CMP', AVG = 'MRM_AVG', TRADE = 'mrmTrade', TRADES_GROUP = 'mrm-trades';
   var registered = false;
   function registerIndicators(K) {
     var CI = indicatorsLib();
@@ -223,6 +271,27 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // compare lines: each update brings its own figures (named by symbol) and a
     // calc over the precomputed values (a new calc makes the library recalculate)
     K.registerIndicator({ name: COMPARE, shortName: '', calcParams: [], series: 'price', precision: 2, figures: [], calc: function () { return []; } });
+    // CH-3c: your average cost (stepped, dashed); values come with each update like compare
+    K.registerIndicator({ name: AVG, shortName: '', calcParams: [], series: 'price', precision: 2, figures: [], calc: function () { return []; } });
+    // CH-3c: a trade marker - buy ▲ under the price, sell ▼ over it, dividend "D" at the low
+    if (K.registerOverlay) K.registerOverlay({ name: TRADE, totalStep: 2, lock: true, // one point (+1 step = finished, so it takes events)
+       needDefaultPointFigure: false, needDefaultXAxisFigure: false, needDefaultYAxisFigure: false,
+      createPointFigures: function (p) {
+        var c = p.coordinates && p.coordinates[0], m = (p.overlay && p.overlay.extendData) || {}, T = W.MaerminTokens;
+        if (!c || !T) return [];
+        var x = c.x, y = c.y;
+        if (m.kind === 'dividend') {
+          var col = T.resolve('var(--income)');
+          return [{ type: 'circle', attrs: { x: x, y: y + 12, r: 14 }, styles: { style: 'fill', color: 'transparent' } },
+            { type: 'circle', attrs: { x: x, y: y + 12, r: 7 }, styles: { style: 'fill', color: col } },
+            { type: 'text', attrs: { x: x, y: y + 12, text: 'D', align: 'center', baseline: 'middle' }, styles: { color: T.resolve('var(--surface)'), size: 9, weight: 700, backgroundColor: 'transparent' } }];
+        }
+        var buy = m.kind === 'buy', colr = T.resolve(buy ? 'var(--gain)' : 'var(--loss)');
+        var pts = buy ? [{ x: x, y: y + 2 }, { x: x - 7, y: y + 15 }, { x: x + 7, y: y + 15 }] : [{ x: x, y: y - 2 }, { x: x - 7, y: y - 15 }, { x: x + 7, y: y - 15 }];
+        // an invisible circle around the marker: easier to hover, and to tap on a phone
+        return [{ type: 'circle', attrs: { x: x, y: buy ? y + 10 : y - 10, r: 14 }, styles: { style: 'fill', color: 'transparent' } },
+          { type: 'polygon', attrs: { coordinates: pts }, styles: { style: 'stroke_fill', color: colr, borderColor: T.resolve('var(--surface)'), borderSize: 1 } }];
+      } });
   }
 
   // ---- the view ------------------------------------------------------------------------------
@@ -247,6 +316,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s8 = useState(0); var visFrom = s8[0], setVisFrom = s8[1];
     var s9 = useState(null); var dlg = s9[0], setDlg = s9[1];
     var s10 = useState(''); var cmpDraft = s10[0], setCmpDraft = s10[1];
+    var s11 = useState(null); var tip = s11[0], setTip = s11[1];
     var plotRef = useRef(null), chartRef = useRef(null);
     var CI = W.MaerminChartIndicators;
     var tf = timeframe(prefs.timeframe);
@@ -385,6 +455,39 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }
       });
     }, [lib, JSON.stringify(wanted), tz, lang, sym && base ? 1 : 0]);
+
+    // CH-3c: your trades in this symbol (from the ledger; nothing leaves the device)
+    var convertEUR = function (amount, c, iso) { var F = W.MaerminFxHistory; return F && F.txToEUR ? F.txToEUR(amount, c, iso, props.exchangeRate, props.fxAt) : null; };
+    var mine = useMemo(function () {
+      return (props.transactions || []).filter(function (t) { return t && String(t.symbol || '').toUpperCase() === sym && (t.type === 'buy' || t.type === 'sell' || t.type === 'dividend'); });
+    }, [props.transactions, sym]);
+    var trades = useMemo(function () {
+      if (!prefs.myTrades || !mine.length || !plain.length || data.state !== 'ok') return null;
+      var opts = { chartCurrency: shownCur || 'EUR', convert: convertEUR, chartSplits: data.p.splits, exchangeRate: props.exchangeRate, fxAt: props.fxAt };
+      var marks = placeMarks(CE.tradeMarks(mine, sym, opts), plain);
+      var steps = CE.avgCostLine(mine, sym, opts);
+      var avg = CE.avgCostSeries(steps, plain, shownCur || 'EUR', convertEUR);
+      return { marks: marks, avg: avg, last: steps.length ? steps[steps.length - 1] : null, counts: tradeCounts(marks) };
+    }, [prefs.myTrades, mine, plain, shownCur, data, props.exchangeRate]);
+    var rating = useMemo(function () { return plain.length ? ratingRows(CE.rate(plain)) : null; }, [plain, lang]);
+    useEffect(function () {
+      var chart = chartRef.current;
+      if (!chart) return;
+      chart.removeOverlay({ groupId: TRADES_GROUP });
+      var hasAvg = chart.getIndicators({ name: AVG }).length > 0;
+      if (!trades) { if (hasAvg) chart.removeIndicator({ name: AVG }); setTip(null); return; }
+      var T = W.MaerminTokens;
+      if (trades.marks.length) chart.createOverlay(trades.marks.map(function (m) {
+        var show = function (ev) { setTip({ m: m, x: ev && ev.x != null ? ev.x : 0, y: ev && ev.y != null ? ev.y : 0 }); };
+        return { name: TRADE, groupId: TRADES_GROUP, lock: true, paneId: 'candle_pane', points: [{ timestamp: m.barT * 1000, value: m.y }], extendData: m,
+          onMouseEnter: show, onClick: show, onMouseLeave: function () { setTip(null); } };
+      }));
+      var values = trades.avg;
+      var spec = { name: AVG, calcParams: [], shortName: '',
+        figures: [{ key: 'avg', title: __('kcAvgCost', 'Average cost') + ': ', type: 'line', styles: function () { return { color: T ? T.resolve('var(--income)') : '', style: 'dashed', dashedValue: [6, 4], size: 1.5 }; } }],
+        calc: function (dataList) { return dataList.map(function (x, i) { return { avg: values[i] == null ? null : values[i] }; }); } };
+      if (hasAvg) chart.overrideIndicator(spec); else chart.createIndicator(Object.assign({ paneId: 'candle_pane' }, spec), true);
+    }, [lib, trades, shown, lang, sym && base ? 1 : 0]);
 
     // compare: the other symbols' bars for the same timeframe
     var cmpKey = (prefs.compare || []).join();
@@ -558,6 +661,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       '1D': __('kcTf1D', '1D'), '1W': __('kcTf1W', '1W'), '1M': __('kcTf1M', '1M') };
     var tfLabel = function (id) { return TF_LABEL[id] || id; };
     var typeLabel = { candles: __('kcTypeCandles', 'Candles'), ohlc: __('kcTypeOhlc', 'Bars'), heikin: __('kcTypeHeikin', 'Heikin Ashi'), line: __('kcTypeLine', 'Line'), area: __('kcTypeArea', 'Area') };
+    var lastAvg = trades && trades.avg.length ? trades.avg[trades.avg.length - 1] : null;
+    var avgTxt = props.privacy ? '••••' : lastAvg == null ? '–' : fmtPrice(lastAvg);
     var fmtPct = function (v) { return v == null ? '–' : (v > 0 ? '+' : '') + I.num(v * 100, 2) + ' %'; };
     // CH-3b: the last value of each indicator (its first figure) and the compared symbols
     var indText = wanted.filter(function (w) { return w.id !== 'vol'; }).map(function (w) {
@@ -569,13 +674,39 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var summary = data.state === 'ok' && shown.length
       ? [__('kcSummary', '{sym}, {tf}, {type}: last {price}, {pct} since {since}', { sym: sym, tf: tfLabel(tf.id), type: typeLabel[typeId], price: fmtPrice(ch.last), pct: pctTxt, since: since })]
         .concat(indText.length ? [__('kcSummaryInd', 'Indicators: {list}', { list: indText.join('; ') })] : [])
-        .concat(cmpText.length ? [__('kcSummaryCmp', 'Compared: {list}', { list: cmpText.join('; ') })] : []).join('. ')
+        .concat(cmpText.length ? [__('kcSummaryCmp', 'Compared: {list}', { list: cmpText.join('; ') })] : [])
+        .concat(trades && !(trades.counts.buys + trades.counts.sells + trades.counts.dividends) ? [__('kcSummaryNoTrades', 'None of your trades fall in this period; average cost {avg}', { avg: avgTxt })] : [])
+        .concat(trades && trades.counts.buys + trades.counts.sells + trades.counts.dividends ? [__('kcSummaryTrades', 'Your trades: {b} {b:buy|buys}, {s} {s:sale|sales}, {d} {d:dividend|dividends}; average cost {avg}',
+          { b: trades.counts.buys, s: trades.counts.sells, d: trades.counts.dividends, avg: avgTxt })] : [])
+        .concat(rating ? [__('kcSummaryRating', 'Technical rating: {label} ({score})', { label: rating.label, score: I.num(rating.score, 2) })] : []).join('. ')
       : '';
     var badge = DFX && DFX.badge ? DFX.badge(React, props.theme, base) : null;
     var plotBusy = lib !== 'ready' || data.state === 'loading';
     var dataMsg = data.state === 'none' ? __('kcNoData', 'No price data for {sym}. Check the symbol (e.g. SAP.DE, AAPL, ^GDAXI).', { sym: sym })
       : data.state === 'error' ? __('kcLoadError', 'The prices could not be loaded. Check your Worker and the connection.') : '';
 
+    var KIND = { buy: __('kcTradeBuy', 'Buy'), sell: __('kcTradeSell', 'Sale'), dividend: __('kcTradeDividend', 'Dividend') };
+    var tradeTipText = function (m) {
+      var hide = !!props.privacy, money = function (v) { return v == null ? '–' : hide ? '••••' : I.money(v, 'EUR'); };
+      var main = m.kind === 'dividend'
+        ? __('kcTipDividend', '{date} · Dividend {amount}', { date: I.date(m.date), amount: money(m.amountEUR) })
+        : __('kcTipTrade', '{date} · {kind} {qty} × {price}', { date: I.date(m.date), kind: KIND[m.kind], qty: hide ? '••' : I.num(m.qty, m.qty === Math.round(m.qty) ? 0 : 4), price: money(m.priceEUR) });
+      return main + (m.splitAdjusted ? ' · ' + __('kcSplitAdjusted', 'split-adjusted') : '');
+    };
+    var ratingCard = rating ? e(UIC.Card, { title: __('kcRating', 'Technical rating'), 'data-testid': 'ch-rating', className: 'ui-ch-rating' },
+      e('div', { className: 'ui-ch-rating__head' },
+        e('b', { 'data-testid': 'ch-rating-label', className: 'tone-' + (rating.score > 0.1 ? 'gain' : rating.score < -0.1 ? 'loss' : 'neutral') }, rating.label),
+        e('span', { className: 'ui-muted' }, __('kcRatingOn', 'on {tf} bars · score {score} (−1 … +1)', { tf: tfLabel(tf.id), score: I.num(rating.score, 2) }))),
+      e('div', { className: 'ui-ch-meter', role: 'img', 'aria-label': rating.label },
+        e('span', { className: 'ui-ch-meter__mark', style: { left: Math.round((rating.score + 1) * 50) + '%' } })),
+      e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense', 'ui-ch-votes'].join(' ') },
+        e('caption', { className: 'sr-only' }, __('kcRatingVotes', 'How the rating is made up')),
+        e('thead', null, e('tr', null, e('th', { scope: 'col' }, __('kcRatingSignal', 'Signal')), e('th', { scope: 'col', className: 'ui-ch-votes__group' }, __('kcRatingGroup', 'Group')), e('th', { scope: 'col', className: 'num' }, __('kcRatingValue', 'Value')), e('th', { scope: 'col' }, __('kcRatingVote', 'Vote')))),
+        e('tbody', null, rating.rows.map(function (r, i) {
+          return e('tr', { key: i }, e('td', null, r.name), e('td', { className: 'ui-ch-votes__group' }, r.group === 'trend' ? __('kcRatingTrend', 'Trend') : __('kcRatingMomentum', 'Momentum')),
+            e('td', { className: 'num' }, r.value == null ? '–' : I.num(r.value, 2)), e('td', { className: 'tone-' + (r.sign > 0 ? 'gain' : r.sign < 0 ? 'loss' : 'neutral') }, r.vote));
+        })))),
+      e('p', { className: 'ui-muted' }, __('kcRatingHow', 'MAERMIN’s own method: moving averages vs. price (trend) and RSI, Stochastic, MACD and Donchian (momentum), averaged. '), __('trustNoAdvice', 'No tax or investment advice — estimates only.'))) : null;
     var toolbar = e('div', { className: 'ui-ch-toolbar', role: 'toolbar', 'aria-label': __('kcToolbar', 'Chart settings') },
       e(UIC.Segmented, { 'data-testid': 'ch-type', size: 'sm', label: __('kcType', 'Chart type'), value: typeId,
         options: TYPES.map(function (t) { return { value: t.id, label: typeLabel[t.id], disabled: !ohlc && t.needsOhlc }; }),
@@ -589,6 +720,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('div', { className: 'ui-chips' },
         cur && cur !== 'EUR' ? e(UIC.Chip, { 'data-testid': 'ch-eur', pressed: !!prefs.eur, onClick: function () { update({ eur: !prefs.eur }); } }, __('kcInEur', 'In EUR')) : null,
         e(UIC.Chip, { 'data-testid': 'ch-volume', pressed: hasVol, onClick: function () { setIndicators(hasVol ? prefs.indicators.filter(function (x) { return x.id !== 'vol'; }) : prefs.indicators.concat([{ id: 'vol', params: [] }])); } }, __('kcVolume', 'Volume')),
+        mine.length ? e(UIC.Chip, { 'data-testid': 'ch-trades', pressed: !!prefs.myTrades, onClick: function () { update({ myTrades: !prefs.myTrades }); } }, __('kcMyTrades', 'My trades')) : null,
         e(UIC.Button, { size: 'sm', 'data-testid': 'ch-ind-open', 'aria-haspopup': 'dialog', onClick: function () { setDlg('all'); } }, __('kcIndicators', 'Indicators'))),
       e('div', { className: 'ui-ch-cmp' },
         e('input', { 'data-testid': 'ch-cmp-input', list: 'ch-symbols', value: cmpDraft, className: ['ui-input', 'ui-ch-cmp__input'].join(' '), autoComplete: 'off',
@@ -629,7 +761,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         dataMsg ? e(UIC.EmptyState, { kind: data.state === 'error' ? 'error' : 'empty', compact: true, testid: 'ch-data-msg', text: dataMsg,
           action: data.state === 'error' ? { label: __('kcRetry', 'Retry'), onClick: function () { setTries(tries + 1); } } : null }) : null,
         lib !== 'error' && plotBusy ? e(UIC.Skeleton, { shape: 'chart', 'data-testid': 'ch-loading' }) : null,
-        lib === 'ready' ? e('div', { ref: plotRef, 'data-testid': 'ch-plot', style: { height: plotHeight + 'px' }, className: ['ui-ch-plot', plotBusy || dataMsg ? 'is-idle' : ''].join(' ').trim() }) : null) : null,
+        lib === 'ready' ? e('div', { className: 'ui-ch-plotwrap' },
+          e('div', { ref: plotRef, 'data-testid': 'ch-plot', style: { height: plotHeight + 'px' }, className: ['ui-ch-plot', plotBusy || dataMsg ? 'is-idle' : ''].join(' ').trim() }),
+          tip ? e('div', { className: 'ui-ch-tip', role: 'status', 'data-testid': 'ch-trade-tip', style: { left: Math.max(0, tip.x + 12) + 'px', top: Math.max(0, tip.y - 8) + 'px' } }, tradeTipText(tip.m)) : null) : null) : null,
+      sym && base && data.state === 'ok' ? ratingCard : null,
       data.state === 'ok' && !ohlc ? e('p', { 'data-testid': 'ch-old-worker', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('kcOldWorker', 'Your Worker is older than 2026.10.15: redeploy it for candles. Line and area work already.')) : null,
       e('p', { className: 'sr-only', 'aria-live': 'polite', 'data-testid': 'ch-live' }, summary));
@@ -638,7 +773,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var api = {
     LIB: LIB, TIMEFRAMES: TIMEFRAMES, timeframe: timeframe, TYPES: TYPES, type: type, availableTypes: availableTypes, usableType: usableType,
     SCALES: SCALES, PREFS_KEY: PREFS_KEY, normalizePrefs: normalizePrefs, loadPrefs: loadPrefs, savePrefs: savePrefs,
-    requestUrl: requestUrl, toKLine: toKLine, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
+    requestUrl: requestUrl, toKLine: toKLine, placeMarks: placeMarks, tradeCounts: tradeCounts, ratingRows: ratingRows, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
     View: View
   };
   if (typeof window !== 'undefined') window.MaerminCharts = api;

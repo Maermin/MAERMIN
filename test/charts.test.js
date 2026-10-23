@@ -33,10 +33,10 @@ function ok(name, cond, info) {
   console.log('\nsettings (maermin_chart_prefs):');
   ok('the key', C.PREFS_KEY === 'maermin_chart_prefs');
   const def = C.normalizePrefs(null);
-  ok('defaults: no symbol, candles, 1D, linear, listing currency, the volume indicator, nothing compared', JSON.stringify(def) === JSON.stringify({ symbol: '', type: 'candles', timeframe: '1D', scale: 'linear', eur: false, indicators: [{ id: 'vol', params: [] }], compare: [] }), def);
+  ok('defaults: no symbol, candles, 1D, linear, listing currency, the volume indicator, nothing compared', JSON.stringify(def) === JSON.stringify({ symbol: '', type: 'candles', timeframe: '1D', scale: 'linear', eur: false, indicators: [{ id: 'vol', params: [] }], compare: [], myTrades: true }), def);
   const good = { symbol: ' sap.de ', type: 'heikin', timeframe: '4h', scale: 'log', eur: true, indicators: [{ id: 'rsi', params: [7] }, { id: 'sma', params: [10, 0, 0] }], compare: [' msft', 'ALV.DE'] };
   ok('valid values kept, symbols trimmed and upper case', JSON.stringify(C.normalizePrefs(good)) === JSON.stringify({ symbol: 'SAP.DE', type: 'heikin', timeframe: '4h', scale: 'log', eur: true,
-    indicators: [{ id: 'rsi', params: [7] }, { id: 'sma', params: [10, 0, 0] }], compare: ['MSFT', 'ALV.DE'] }), C.normalizePrefs(good));
+    indicators: [{ id: 'rsi', params: [7] }, { id: 'sma', params: [10, 0, 0] }], compare: ['MSFT', 'ALV.DE'], myTrades: true }), C.normalizePrefs(good));
   const bad = C.normalizePrefs({ symbol: 'AK-47 | Redline', type: 'pie', timeframe: '2h', scale: 'x', eur: 'yes', volume: 0, extra: 1 });
   ok('CH-3a settings: volume off → no indicators; no flag → the volume indicator', JSON.stringify(C.normalizePrefs({ volume: false }).indicators) === '[]' && C.normalizePrefs({ volume: true }).indicators[0].id === 'vol');
   const cmpBad = C.normalizePrefs({ symbol: 'SAP.DE', compare: ['sap.de', 'MSFT', 'msft', 'AK-47 | Redline', 7, 'AAPL', 'KO', 'PEP'] });
@@ -80,6 +80,30 @@ function ok(name, cond, info) {
   ok('the last-price dot in the accent; it does not pulse with reduced motion', area.candle.area.point.color === '#60f' && area.candle.area.point.animation === true && C.chartStyles(resolve, 'area', alpha, { still: true }).candle.area.point.animation === false);
   ok('the price tooltip stays on at desktop width, follows the crosshair on phones', st.candle.tooltip.showRule === 'always' && C.chartStyles(resolve, 'candles', alpha, { narrow: true }).candle.tooltip.showRule === 'follow_cross');
   ok('no hex or rgb() colour written into charts.js', !/#[0-9a-fA-F]{3,8}\b|\brgba?\(\s*\d/.test(require('fs').readFileSync(require('path').join(__dirname, '../charts.js'), 'utf8')));
+
+  console.log('\nyour trades on the bars (CH-3c):');
+  const S = (iso) => Math.floor(Date.parse(iso) / 1000);
+  const mk = (date, kind) => ({ t: S(date + 'T00:00:00Z'), date, kind, qty: 1, price: 10 });
+  const daily = ['2026-03-02', '2026-03-03', '2026-03-04', '2026-03-06'].map((d, i) => ({ t: S(d + 'T14:30:00Z'), l: 9 + i, c: 10 + i }));
+  const pd = C.placeMarks([mk('2026-03-03', 'buy'), mk('2026-03-05', 'sell'), mk('2026-02-01', 'buy'), mk('2026-05-01', 'buy'), mk('2026-03-06', 'dividend')], daily);
+  ok('daily: on the bar of its date; a day without a bar takes the bar before; long before or after the data: left out',
+    JSON.stringify(pd.map((m) => [m.date, m.barT])) === JSON.stringify([['2026-03-03', daily[1].t], ['2026-03-05', daily[2].t], ['2026-03-06', daily[3].t]]), pd);
+  ok('a dividend sits at the low of its bar', pd[2].y === daily[3].l && pd[0].y === 10, pd);
+  const intra = [0, 1, 2].map((i) => ({ t: S('2026-03-03T14:30:00Z') + i * 300, l: 1, c: 2 })).concat([{ t: S('2026-03-04T14:30:00Z'), l: 1, c: 2 }]);
+  ok('intraday: on the first bar of that day', C.placeMarks([mk('2026-03-03', 'buy'), mk('2026-03-04', 'sell')], intra).map((m) => m.barT).join() === [intra[0].t, intra[3].t].join());
+  const weekly = [{ t: S('2026-03-02T00:00:00Z'), l: 1, c: 2 }, { t: S('2026-03-09T00:00:00Z'), l: 1, c: 2 }];
+  ok('weekly: on the bar of its week', C.placeMarks([mk('2026-03-05', 'buy'), mk('2026-03-11', 'buy')], weekly).map((m) => m.barT).join() === [weekly[0].t, weekly[1].t].join());
+  ok('no bars or no marks: nothing', C.placeMarks([mk('2026-03-03', 'buy')], []).length === 0 && C.placeMarks(null, daily).length === 0);
+  const counts = C.tradeCounts([{ kind: 'buy' }, { kind: 'buy' }, { kind: 'sell' }, { kind: 'dividend' }]);
+  ok('trade counts', counts.buys === 2 && counts.sells === 1 && counts.dividends === 1);
+
+  console.log('\ntechnical rating rows (CH-3c):');
+  const rr = C.ratingRows({ score: 0.3, label: 'buy', votes: [{ group: 'trend', name: 'sma20', value: 1, vote: 1 }, { group: 'momentum', name: 'rsi14', value: 55, vote: 0 }, { group: 'trend', name: 'ichimokuBase', value: 2, vote: -1 }] });
+  ok('names and votes for people, in groups', JSON.stringify(rr.rows.map((r) => [r.group, r.name, r.vote])) === JSON.stringify([['trend', 'SMA 20', 'Buy'], ['momentum', 'RSI 14', 'Neutral'], ['trend', 'Ichimoku base line', 'Sell']]), rr);
+  ok('the label in words, the score kept', rr.label === 'Buy' && rr.score === 0.3);
+  ok('every label key has words', ['strongSell', 'sell', 'neutral', 'buy', 'strongBuy'].map((k) => C.ratingRows({ score: 0, label: k, votes: [] }).label).join() === 'Strong sell,Sell,Neutral,Buy,Strong buy');
+  ok('no rating: null', C.ratingRows(null) === null);
+  ok('My trades is on unless switched off', C.normalizePrefs({}).myTrades === true && C.normalizePrefs({ myTrades: false }).myTrades === false);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

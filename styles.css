@@ -2256,6 +2256,19 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 .ui-ch-ind__params { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ui-ch-ind__param { display: inline-flex; flex-direction: column; gap: 2px; font-size: var(--type-small, 0.85rem); color: var(--text-dim); }
 .ui-ch-ind__param .ui-input { width: 88px; }
+/* CH-3c: trade tooltip over the chart, the technical rating card */
+.ui-ch-plotwrap { position: relative; }
+.ui-ch-tip { position: absolute; z-index: 2; max-width: 280px; padding: var(--space-1) var(--space-2); border-radius: 6px; pointer-events: none;
+  background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text); font-size: var(--type-small, 0.85rem); box-shadow: 0 4px 14px color-mix(in srgb, var(--bg) 60%, transparent); }
+.ui-ch-rating { margin-top: var(--space-4); }
+.ui-ch-rating__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+.ui-ch-rating__head b { font-size: var(--type-title); }
+.ui-ch-meter { position: relative; height: 8px; border-radius: 4px; margin: var(--space-2) 0 var(--space-3);
+  background: var(--surface-2); border: 1px solid var(--border); }
+.ui-ch-meter__mark { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--text); }
+.ui-ch-votes { margin-bottom: var(--space-2); }
+.ui-ch-votes th, .ui-ch-votes td { text-align: left; }
+.ui-ch-votes th.num, .ui-ch-votes td.num { text-align: right; }
 @media (max-width: 767px) {
   .ui-ch-plot { height: 380px; }
   /* the quick picks and the timeframe row scroll inside themselves, never the page */
@@ -2263,6 +2276,8 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-ch-picks > * { flex: 0 0 auto; }
   .ui-ch-toolbar .ui-seg { max-width: 100%; overflow-x: auto; }
   .ui-ch-cmp { width: 100%; } .ui-ch-cmp__input { flex: 1; width: auto; }
+  /* the vote's name already says trend or momentum */
+  .ui-ch-votes .ui-ch-votes__group { display: none; }
 }
 
 /* ============================================================================
