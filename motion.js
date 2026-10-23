@@ -9,14 +9,13 @@
 //   • Value ticks      a number that changes flashes green/red with an arrow
 //                      nudge — you see *what* moved after a price refresh.
 //   • Decode reveal    leaving privacy mode "decrypts" masked amounts.
-//   • Nav glider       one indicator glides between sidebar items.
 //   • Chip glide       selecting 1D/1W/1M-style chips slides a pill across.
 //   • Chart reveal     charts wipe in (line/area) or sweep in (donut).
 //   • Bar growth       progress / weight bars grow from zero.
 //   • Row cascade      table rows cascade in on first render.
 //   • Dialog spring    overlays blur in, dialogs spring up.
 //   • Busy state       refresh/sync buttons show a scanning progress sweep.
-//   • Scroll progress  a thin luminous bar under the header; header condenses.
+//   • Scroll progress  a thin luminous bar at the top of the page.
 //   • Haptics          light taps on touch devices for nav + primary actions.
 // ============================================================================
 (function () {
@@ -111,29 +110,6 @@
     // Only react to value-ish text (keeps clocks / counters in prose quiet).
     if (!/[€$%]|\d[.,]\d/.test(now)) return;
     once(el, b > a ? 'mx-tick-up' : 'mx-tick-down', 1300);
-  }
-
-  // ---- sidebar glider ------------------------------------------------------
-  var glider = null, sidebar = null;
-  function placeGlider() {
-    sidebar = doc.querySelector('.maermin-sidebar');
-    if (!sidebar) return;
-    if (!glider || !glider.isConnected) {
-      glider = doc.createElement('div');
-      glider.className = 'mx-glider';
-      glider.setAttribute('aria-hidden', 'true');
-      sidebar.insertBefore(glider, sidebar.firstChild);
-      sidebar.classList.add('has-glider');
-    }
-    var act = sidebar.querySelector('.mx-nav.is-active');
-    if (!act) { glider.style.opacity = '0'; return; }
-    var sr = sidebar.getBoundingClientRect(), ar = act.getBoundingClientRect();
-    var top = ar.top - sr.top + sidebar.scrollTop, left = ar.left - sr.left;
-    glider.style.opacity = '1';
-    glider.style.transform = 'translate3d(' + left + 'px,' + top + 'px,0)';
-    glider.style.width = ar.width + 'px';
-    glider.style.height = ar.height + 'px';
-    glider.classList.toggle('is-child', act.classList.contains('is-child'));
   }
 
   // ---- chip-group glide (FLIP ghost) ----------------------------------------
@@ -246,47 +222,32 @@
     var on = enabled();
     if (on) doc.documentElement.classList.add('mx-anim');
 
-    // The glider is re-measured only when the sidebar changed (its active item
-    // or its children). It used to be measured - two forced layouts - after
-    // EVERY class change anywhere in the app (card hover, reveals, ticks).
-    var pend = [], sched = false, navDirty = true;
-    function inSidebar(n) {
-      var e = n && (n.nodeType === 1 ? n : n.parentElement);
-      return !!(e && e.closest && e.closest('.maermin-sidebar'));
-    }
+    var pend = [], sched = false;
     function flush() {
       sched = false;
       var l = pend; pend = [];
       if (on) l.forEach(function (n) { if (n.isConnected) enhance(n); });
-      if (navDirty || (glider && !glider.isConnected)) { navDirty = false; placeGlider(); }
     }
     function kick() { if (!sched) { sched = true; requestAnimationFrame(flush); } }
     new MutationObserver(function (muts) {
       for (var i = 0; i < muts.length; i++) {
         var m = muts[i];
         if (m.type === 'characterData') { if (on) onText(m.target, m.oldValue); continue; }
-        if (m.type === 'attributes') {
-          if (m.target.classList && m.target.classList.contains('mx-nav')) { navDirty = true; kick(); }
-          continue;
-        }
-        if (!navDirty && (inSidebar(m.target) || m.target === rootEl)) navDirty = true;
         for (var j = 0; j < m.addedNodes.length; j++) {
           var n = m.addedNodes[j];
           if (n.nodeType === 1) { pend.push(n); if (m.target.classList && m.target.classList.contains('maermin-main')) quiet(1500); }
           else if (n.nodeType === 3 && on && m.removedNodes.length === 1 && m.removedNodes[0].nodeType === 3) onText(n, m.removedNodes[0].nodeValue);
         }
       }
-      if (pend.length || navDirty) kick();
-    }).observe(rootEl, { childList: true, subtree: true, characterData: true, characterDataOldValue: true, attributes: true, attributeFilter: ['class'] });
+      if (pend.length) kick();
+    }).observe(rootEl, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
     // Portals (modals appended to body) — overlays only.
     new MutationObserver(function (muts) {
       if (!on) return;
       muts.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1 && n.id !== 'root') enhance(n); }); });
     }).observe(doc.body, { childList: true });
 
-    win.addEventListener('resize', function () { navDirty = true; kick(); }, { passive: true });
-
-    // Header condense + scroll progress
+    // Scroll progress
     var prog = doc.createElement('div');
     prog.className = 'mx-scrollbar';
     prog.setAttribute('aria-hidden', 'true');
@@ -298,7 +259,6 @@
       var max = se.scrollHeight - se.clientHeight;
       var y = se.scrollTop;
       prog.style.transform = 'scaleX(' + (max > 40 ? Math.min(1, y / max) : 0) + ')';
-      doc.documentElement.classList.toggle('mx-scrolled', y > 8);
     }
     win.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
 
@@ -306,12 +266,12 @@
     doc.addEventListener('click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('button') : null;
       if (!b) return;
-      if (b.closest('.ui-dock,.ui-rail') || b.classList.contains('mx-nav')) haptic(6);
+      if (b.closest('.ui-dock,.ui-rail')) haptic(6);
       if (b.classList.contains('mx-primary')) haptic(10);
       if (!on) return;
       glideChips(b);
       if (BUSY_RE.test(b.textContent || '') && b.textContent.length < 40) once(b, 'mx-busy', 1600);
-      if (b.classList.contains('mx-nav') || b.closest('.ui-dock,.ui-rail') || b.classList.contains('ui-tab')) {
+      if (b.closest('.ui-dock,.ui-rail') || b.classList.contains('ui-tab')) {
         // Instant scroll to top on view change so the new view's entrance is seen.
         var se = doc.scrollingElement || doc.documentElement;
         if (se.scrollTop > 200) se.scrollTo({ top: 0, behavior: 'smooth' });

@@ -309,42 +309,7 @@ button:disabled { cursor: not-allowed !important; }
 }
 html[data-theme="contrast"] .mx-app::before { display: none; }
 
-/* ---- Top bar ------------------------------------------------------------ */
-.mx-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  height: 64px;
-  padding: 0 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: var(--glass);
-  backdrop-filter: saturate(180%) blur(18px);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  border-bottom: 1px solid var(--border);
-}
-
-.mx-brand { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
-.mx-brand-name {
-  font-size: 1.08rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--text);
-}
-.mx-brand-tag {
-  font-size: 0.66rem;
-  font-weight: 600;
-  padding: 0.16rem 0.5rem;
-  border-radius: 999px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-ring);
-  font-family: var(--mono);
-  letter-spacing: 0;
-}
-
+/* ---- Logo --------------------------------------------------------------- */
 .mx-logo {
   display: flex;
   align-items: center;
@@ -353,50 +318,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
   background: var(--accent-grad);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset, 0 8px 24px -6px var(--accent-ring);
 }
-
-.mx-search {
-  flex: 1;
-  max-width: 480px;
-  height: 40px;
-  padding: 0 0.6rem 0 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  background: var(--hover);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 0.86rem;
-}
-.mx-search:hover { border-color: var(--accent-ring); color: var(--text); filter: none !important; }
-.mx-search span { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mx-kbd {
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  padding: 0.14rem 0.42rem;
-  border-radius: 6px;
-  color: var(--text-dim);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.mx-actions { display: flex; gap: 0.45rem; align-items: center; flex-shrink: 0; position: relative; }
-
-.mx-icon-btn {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--hover);
-  color: var(--text);
-  cursor: pointer;
-}
-.mx-icon-btn:hover { border-color: var(--border-strong); filter: none !important; background: var(--surface-2); }
-.mx-icon-btn.is-on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 6px 20px -6px var(--accent-ring); }
 
 /* ---- Settings popover --------------------------------------------------- */
 .mx-popover {
@@ -476,85 +397,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
 .mx-divider { height: 1px; background: var(--border); margin: 0.6rem 0; }
 
 /* ---- Layout ------------------------------------------------------------- */
-.mx-body { display: flex; align-items: flex-start; }
-
-.maermin-sidebar {
-  width: 248px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 64px;
-  height: calc(100vh - 64px);
-  overflow-y: auto;
-  padding: 1rem 0.75rem 1.25rem;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-
-/* Entries keep their height; a long list scrolls instead of squeezing (P2-1). */
-.maermin-sidebar > * { flex-shrink: 0; }
-
-.mx-nav-section {
-  padding: 1rem 0.7rem 0.45rem;
-  font-size: 0.64rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  opacity: 0.75;
-}
-.mx-nav-section:first-child { padding-top: 0.25rem; }
-
-.mx-nav {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.5rem 0.65rem;
-  margin-bottom: 2px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.855rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-.mx-nav:hover { background: var(--hover); color: var(--text); filter: none !important; }
-.mx-nav.is-active {
-  color: var(--text);
-  background: linear-gradient(90deg, var(--accent-soft), transparent 95%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-.mx-nav.is-active svg { color: var(--accent); }
-.mx-nav.is-active::before {
-  content: '';
-  position: absolute;
-  left: -0.75rem;
-  top: 22%;
-  bottom: 22%;
-  width: 3px;
-  border-radius: 0 4px 4px 0;
-  background: var(--accent-grad);
-  box-shadow: 0 0 12px var(--accent);
-}
-.mx-nav .mx-nav-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mx-nav.is-child { padding: 0.42rem 0.65rem 0.42rem 2.35rem; font-size: 0.82rem; }
-.mx-nav.is-child::after {
-  content: '';
-  position: absolute;
-  left: 1.2rem;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--border-strong);
-}
-.mx-nav.is-child.is-active { background: var(--accent-soft); box-shadow: none; }
-.mx-nav.is-child.is-active::before { display: none; }
-.mx-nav.is-child.is-active::after { background: var(--accent); width: 2px; }
-
 .mx-count {
   font-size: 0.64rem;
   font-weight: 600;
@@ -566,34 +408,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
   border: 1px solid var(--border);
 }
 
-.mx-promo {
-  margin-top: auto;
-  padding: 1rem;
-  border-radius: var(--radius);
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(200px 120px at 100% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
-    var(--surface);
-  border: 1px solid var(--border);
-}
-.mx-promo-title { font-size: 0.82rem; font-weight: 650; color: var(--text); margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.4rem; }
-.mx-promo-title svg { color: var(--accent); }
-.mx-promo-text { font-size: 0.74rem; color: var(--text-dim); line-height: 1.45; margin-bottom: 0.75rem; }
-.mx-promo button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.45rem 0.65rem;
-  border-radius: 9px;
-  border: 1px solid var(--border-strong);
-  background: var(--hover);
-  color: var(--text);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
 .maermin-main { flex: 1; min-width: 0; overflow: auto; }
 .maermin-main > * { animation: viewIn 0.35s var(--ease); }
 @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -601,26 +415,10 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
 /* ---- Area nav (P2-1): tabs of a merged page; on phones also the area's views */
 .mx-area-nav { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 1.5rem 0; }
 .mx-area-nav:empty { display: none; }
-.mx-area-entries, .mx-area-tabs { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
-.mx-area-entries::-webkit-scrollbar, .mx-area-tabs::-webkit-scrollbar { display: none; }
-.mx-area-entries { display: none; }
-.mx-area-chip {
-  flex-shrink: 0;
-  padding: 0.42rem 0.95rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--hover);
-  color: var(--text-dim);
-  font-size: 0.82rem;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.mx-area-chip:hover { color: var(--text); filter: none !important; }
-.mx-area-chip.is-active { color: var(--text); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); font-weight: 650; }
-.mx-area-tabs .mx-area-chip { border-radius: 10px; }
+.mx-area-tabs { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
+.mx-area-tabs::-webkit-scrollbar { display: none; }
 
-/* Simple-mode hint at the foot of the sidebar */
+/* Simple-mode hint */
 .mx-mode-hint { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.6rem 0.7rem; margin-bottom: 0.6rem; font-size: 0.74rem; color: var(--text-dim); border: 1px dashed var(--border-strong); border-radius: 10px; }
 .mx-mode-hint button { align-self: flex-start; padding: 0; border: none; background: none; color: var(--accent); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 .mx-mode-hint button:hover { text-decoration: underline; filter: none !important; }
@@ -896,45 +694,6 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
 .shortcut-keys { display: flex; gap: 0.25rem; }
 
 /* ============================================================================
-   Mobile bottom nav (features2.MobileBottomNav)
-   ========================================================================== */
-.mx-bottom-nav {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  z-index: 900;
-  height: 64px;
-  display: none;
-  align-items: stretch;
-  justify-content: space-around;
-  padding: 6px;
-  border-radius: 22px;
-  background: var(--glass);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border: 1px solid var(--border-strong);
-  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.55);
-}
-.mx-bottom-nav button {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border: none;
-  border-radius: 16px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.62rem;
-  font-weight: 550;
-  cursor: pointer;
-}
-.mx-bottom-nav button.is-active { color: var(--text); background: var(--accent-soft); }
-.mx-bottom-nav button.is-active svg { color: var(--accent); }
-
-/* ============================================================================
    PWA standalone + responsive
    ========================================================================== */
 @media (display-mode: standalone) {
@@ -942,40 +701,9 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
                   env(safe-area-inset-bottom) env(safe-area-inset-left); }
 }
 
-@media (max-width: 1024px) {
-  .mx-search span, .mx-search .mx-kbd { display: none; }
-  .mx-search { flex: 0 0 40px; width: 40px; padding: 0; justify-content: center; }
-}
-
-/* Visually hidden, read by screen readers (the per-view h1, UX-027). */
-.mx-sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-/* VIS-012: wide tables become one card per row on a phone; each cell
-   carries its column name in data-label. Inline cell styles need !important. */
-@media (max-width: 600px) {
-  .mx-table-cards { min-width: 0 !important; }
-  .mx-table-cards thead { display: none; }
-  .mx-table-cards, .mx-table-cards tbody, .mx-table-cards tr { display: block; width: 100%; }
-  .mx-table-cards tr { border-top: 1px solid var(--border); padding: 0.65rem 1rem; }
-  .mx-table-cards td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
-    padding: 0.2rem 0 !important; text-align: right !important; border: 0 !important; }
-  .mx-table-cards td > * { min-width: 0; }
-  .mx-table-cards td[data-label]::before { content: attr(data-label); color: var(--text-dim); font-size: 0.75rem; text-align: left; flex-shrink: 0; }
-  .mx-table-cards td.mx-card-lead { justify-content: flex-start; text-align: left !important; font-weight: 600; }
-  .mx-table-cards td.mx-card-actions { justify-content: flex-end; padding-top: 0.4rem !important; }
-  .mx-table-cards td.mx-hide-phone { display: none; }
-}
-
 @media (max-width: 768px) {
-  .maermin-sidebar { display: none; }
-  .mx-bottom-nav { display: flex; }
-  .mx-area-entries { display: flex; }
   .mx-area-nav { padding: 0.75rem 0.85rem 0; }
-  .mx-bottom-nav { left: 8px; right: 8px; padding: 6px 4px; }
-  .mx-bottom-nav button { min-width: 0; padding: 0 2px; }
-  .mx-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .maermin-main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
-  .mx-header { height: 58px; padding: 0 0.85rem; }
-  .mx-brand-tag { display: none; }
   .mx-popover { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
   /* Phase 3: at the bottom a toast covered the fields of an open dialog and
      the content above the dock; on phones it sits under the top bar. */
@@ -1034,23 +762,6 @@ html[data-theme="contrast"] .mx-app::after { display: none; }
   100% { transform: translate3d(2vmax, -2vmax, 0) rotate(4deg) scale(1.1); }
 }
 
-/* The grid used to pan via background-position (~1px/s): a full-viewport
-   repaint on every frame for motion too slow to see. It stays static. */
-
-/* Film grain keeps gradients from banding and adds a premium texture. */
-.mx-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.035;
-  /* Plain alpha (no mix-blend-mode): a full-screen blend layer made the
-     compositor re-blend the whole page every frame something moved. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  will-change: transform;
-}
-
 /* ---- Cursor aura -------------------------------------------------------- */
 .mx-aura {
   position: fixed;
@@ -1068,34 +779,7 @@ html[data-theme="contrast"] .mx-app::after { display: none; }
 }
 html[data-mode="light"] .mx-aura { opacity: 0.45; }
 
-/* ---- Header: glowing hairline + animated brand ------------------------- */
-/* A 1px strip that clips a 3x-wide sheen moved by transform (compositor).
-   It used to animate background-position on .mx-header::after, i.e. a
-   main-thread style + paint on every frame. Same look: one gradient period
-   (= 2 strip widths) passes every 8 s. */
-.mx-hairline {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 1px;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.55;
-}
-.mx-hairline::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 300%;
-  background: linear-gradient(90deg, transparent, var(--accent) 20%, #38bdf8 50%, var(--accent-2) 80%, transparent) 0 0 / 66.6667% 100% repeat-x;
-  will-change: transform;
-  animation: hairline 8s linear infinite;
-}
-@keyframes hairline { to { transform: translateX(-66.6667%); } }
-
+/* ---- Logo glint ---------------------------------------------------------- */
 .mx-logo { position: relative; overflow: hidden; }
 .mx-logo::after {
   content: '';
@@ -1106,66 +790,7 @@ html[data-mode="light"] .mx-aura { opacity: 0.45; }
 }
 @keyframes logoGlint { 0%, 70% { transform: translateX(-70%); } 100% { transform: translateX(70%); } }
 
-.mx-brand-name {
-  background: linear-gradient(90deg, var(--text) 0%, var(--text) 40%, var(--accent) 50%, var(--text) 60%, var(--text) 100%);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* One sheen after load and one per hover. A text-clipped gradient can only
-     be moved via background-position (main thread: restyle + repaint per
-     frame), so it no longer loops forever. */
-  background-position: 100% 0;
-  animation: brandSweep 1.3s ease-in-out 0.8s 1 both;
-}
-.mx-brand:hover .mx-brand-name { animation: brandSweepHover 1.1s ease-in-out 1 both; }
-@keyframes brandSweep { from { background-position: 100% 0; } to { background-position: -50% 0; } }
-@keyframes brandSweepHover { from { background-position: 100% 0; } to { background-position: -50% 0; } }
 @keyframes brandSheen { 0%, 60% { background-position: 100% 0; } 100% { background-position: -50% 0; } }
-
-@keyframes spinAngle { to { --mx-angle: 360deg; } }
-
-.mx-search { position: relative; overflow: hidden; }
-.mx-search::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 16%, transparent) 50%, transparent 70%);
-  transform: translateX(-100%);
-  transition: none;
-}
-.mx-search:hover::after { transform: translateX(100%); transition: transform 0.9s var(--ease); }
-
-/* ---- Sidebar: magnetic hover + active glow ------------------------------ */
-.mx-nav { transition: background 0.2s, color 0.2s, transform 0.25s var(--ease); }
-.mx-nav:hover { transform: translateX(3px); }
-.mx-nav svg { transition: transform 0.35s var(--ease), color 0.2s; }
-.mx-nav:hover svg { transform: scale(1.12) rotate(-4deg); }
-.mx-nav.is-active {
-  background:
-    linear-gradient(90deg, var(--accent-soft), transparent 95%),
-    radial-gradient(120px 40px at 0% 50%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 80%);
-}
-.mx-nav.is-active svg { filter: drop-shadow(0 0 6px var(--accent)); }
-.mx-nav.is-active::before { animation: railPulse 2.6s ease-in-out infinite; }
-@keyframes railPulse { 50% { box-shadow: 0 0 20px var(--accent), 0 0 4px var(--accent); } }
-
-.mx-promo::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(from var(--mx-angle), transparent 0 70%, var(--accent) 85%, #38bdf8 95%, transparent);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  --mx-angle: 200deg;
-  pointer-events: none;
-}
-/* The rotating rim only runs while the card is hovered: a custom-property
-   animation repaints on the main thread, so it shouldn't run forever. */
-.mx-promo:hover::before { animation: spinAngle 6s linear infinite; }
 
 /* ---- Cards: spotlight, animated glow border, lift & tilt --------------- */
 .mx-card {
@@ -1279,11 +904,6 @@ html.mx-motion .mx-reveal.is-in {
   to   { opacity: 1; transform: none; }
 }
 
-/* Mobile dock: active pill glides */
-.mx-bottom-nav button { transition: background 0.3s var(--ease), color 0.2s, transform 0.3s var(--ease); }
-.mx-bottom-nav button.is-active { transform: translateY(-2px); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent) inset, 0 8px 20px -10px var(--accent); }
-.mx-bottom-nav button.is-active svg { filter: drop-shadow(0 0 6px var(--accent)); }
-
 /* Palette + popover: glowing edges */
 .command-palette { position: relative; }
 .command-palette::before {
@@ -1329,12 +949,7 @@ html.mx-motion .mx-reveal.is-in {
 @keyframes letterIn { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: none; } }
 
 /* ---- Reduced motion / motion off --------------------------------------- */
-html.mx-still .mx-app::after, html.mx-still .mx-app::before,
-html.mx-still .mx-hairline::before, html.mx-still .mx-logo::after,
-html.mx-still .mx-brand-name, html.mx-still .mx-primary::after,
-html.mx-still .mx-promo::before,
-html.mx-still .mx-card::after, html.mx-still .command-palette::before,
-html.mx-still .maermin-main > * { animation: none !important; }
+html.mx-still .mx-app::after, html.mx-still .mx-app::before, html.mx-still .mx-logo::after, html.mx-still .mx-primary::after, html.mx-still .mx-card::after, html.mx-still .command-palette::before, html.mx-still .maermin-main > * { animation: none !important; }
 html.mx-still .mx-card { transform: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .mx-aura { display: none; }
@@ -1343,7 +958,6 @@ html.mx-still .mx-card { transform: none !important; }
 @media (hover: none) {
   .mx-aura { display: none; }
   .mx-card { transform: none !important; }
-  .mx-nav:hover { transform: none; }
 }
 
 /* Safety: a transformed ancestor would re-anchor position:fixed overlays
@@ -1393,40 +1007,6 @@ html.mx-still .mx-card { transform: none !important; }
 }
 .mx-mask { animation: maskIn 0.5s var(--ease); }
 @keyframes maskIn { from { opacity: 0.25; } to { opacity: 1; } }
-
-/* ---- Sidebar glider: one indicator that travels ------------------------ */
-.maermin-sidebar.has-glider { position: sticky; }
-.mx-glider {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: 10px;
-  background:
-    linear-gradient(90deg, var(--accent-soft), transparent 95%),
-    radial-gradient(120px 40px at 0% 50%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 80%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-  transition: transform 0.55s var(--spring), width 0.45s var(--spring-soft), height 0.45s var(--spring-soft), opacity 0.2s;
-}
-.mx-glider::before {
-  content: '';
-  position: absolute;
-  left: -0.75rem;
-  top: 22%;
-  bottom: 22%;
-  width: 3px;
-  border-radius: 0 4px 4px 0;
-  background: var(--accent-grad);
-  box-shadow: 0 0 14px var(--accent);
-}
-.mx-glider.is-child { background: var(--accent-soft); box-shadow: none; }
-.mx-glider.is-child::before { left: calc(1.2rem - 0.5px); top: 0; bottom: 0; width: 2px; border-radius: 2px; }
-.maermin-sidebar.has-glider .mx-nav { z-index: 1; }
-.maermin-sidebar.has-glider .mx-nav.is-active,
-.maermin-sidebar.has-glider .mx-nav.is-child.is-active { background: transparent; box-shadow: none; }
-.maermin-sidebar.has-glider .mx-nav.is-active::before { display: none; }
-.maermin-sidebar.has-glider .mx-nav.is-child.is-active::after { background: var(--border-strong); width: 1px; }
 
 /* ---- Chip glide --------------------------------------------------------- */
 .mx-chip-ghost {
@@ -1493,7 +1073,7 @@ html.mx-anim .mx-popover { animation: popoverIn 0.45s var(--spring) both; }
 }
 @keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
-/* ---- Scroll progress + condensed header -------------------------------- */
+/* ---- Scroll progress ---------------------------------------------------- */
 .mx-scrollbar {
   position: fixed;
   top: 0;
@@ -1506,11 +1086,6 @@ html.mx-anim .mx-popover { animation: popoverIn 0.45s var(--spring) both; }
   background: linear-gradient(90deg, var(--accent), #38bdf8);
   box-shadow: 0 0 10px var(--accent);
   pointer-events: none;
-}
-.mx-header { transition: background 0.3s, box-shadow 0.3s; }
-html.mx-scrolled .mx-header {
-  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7);
-  background: color-mix(in srgb, var(--glass) 100%, var(--bg) 25%);
 }
 
 /* ---- Toasts: icon, countdown, spring ----------------------------------- */
@@ -1556,15 +1131,6 @@ html.mx-vt-theme::view-transition-new(root) {
   to   { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 90%) var(--vt-y, 5%)); }
 }
 
-/* ---- Icon micro-motion ------------------------------------------------- */
-.mx-icon-btn svg { transition: transform 0.45s var(--spring); }
-.mx-icon-btn:hover svg { transform: scale(1.12); }
-.mx-icon-btn[aria-label="Settings"]:hover svg { transform: rotate(60deg) scale(1.05); }
-.mx-icon-btn[aria-label="Settings"].is-on svg { transform: rotate(90deg); }
-.mx-bottom-nav button:active svg { transform: scale(0.85); }
-.mx-bottom-nav button svg { transition: transform 0.4s var(--spring); }
-.mx-bottom-nav button.is-active svg { transform: translateY(-1px) scale(1.08); }
-
 /* ---- Buttons: springy press everywhere --------------------------------- */
 html.mx-anim button:not(:disabled):active { transform: scale(0.96); transition-timing-function: var(--spring); }
 
@@ -1572,7 +1138,7 @@ html.mx-anim button:not(:disabled):active { transform: scale(0.96); transition-t
 :focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 0 18px 2px var(--accent-ring) !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mx-glider, .mx-chip-ghost { transition: none; }
+  .mx-chip-ghost { transition: none; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 
@@ -1640,7 +1206,6 @@ button.mx-selected:not(:disabled):hover { filter: none; }
 
 /* KPI figures: one fluid size; the amount and its currency stay on one line. */
 .mx-kpi-value { font-size: var(--text-kpi); font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.mx-nowrap { white-space: nowrap; }
 
 /* ============================================================================
    Lock screen (auth.js) and install toast (pwa.js). They were injected as
@@ -2008,8 +1573,7 @@ html[data-theme="contrast"] .ui-modal { border-width: 2px; }
    R2.1 app shell (PLAN Phase 6, DESIGN-SYSTEM § 4 "Shell components", § 9)
    Desktop: rail 84 px · page header (title, scope, actions, page tabs) · main.
    Phone (< 768 px): the page header is the top bar, a floating dock replaces
-   the rail. The old .mx-header / .maermin-sidebar / .mx-bottom-nav rules stay
-   until R5.4 but nothing renders them any more.
+   the rail.
    ========================================================================== */
 .ui-shell { display: grid; grid-template-columns: 84px minmax(0, 1fr); min-height: 100vh; }
 .ui-shell__main { min-width: 0; display: flex; flex-direction: column; }
@@ -2103,7 +1667,6 @@ html[data-theme="contrast"] .ui-rail__item.is-active, html[data-theme="contrast"
    dialog move onto the tokens.
    ========================================================================== */
 .ui-section-switch { min-width: 0; max-width: 100%; }
-.ui-section-switch--view { margin-bottom: var(--space-6); }
 .ui-section-switch .ui-seg { max-width: 100%; }
 .ui-section-switch__select { margin: 0; min-width: 0; width: 100%; }
 .ui-section-switch__select .ui-select { width: 100%; max-width: 100%; }

@@ -1446,40 +1446,6 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. MOBILE NAV (floating dock, styled by styles.css .mx-bottom-nav)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function MobileBottomNav({ activeView, setActiveView, theme, uiMode, t }) {
-  // Aurora redesign: floating glass dock. All styling lives in styles.css
-  // (.mx-bottom-nav) so it follows the active theme via CSS variables.
-  // P2-1: one button per navigation area (nav-model.js); the views inside an
-  // area are the chip row at the top of the page.
-  const Nav = window.MaerminNav;
-  const Icon = window.MaerminIcon || (() => null);
-  const tt = t || {};
-  const current = Nav ? Nav.areaOf(activeView) : null;
-
-  return React.createElement('nav', { className: 'mx-bottom-nav maermin-bottom-nav', 'aria-label': __('primaryNav', 'Primary') },
-    (Nav ? Nav.AREAS : []).map(area => {
-      const active = current === area.id;
-      const label = (area.shortKey && tt[area.shortKey]) || area.short || Nav.label(area, tt);
-      return React.createElement('button', {
-        key: area.id,
-        type: 'button',
-        className: active ? 'is-active' : '',
-        'aria-current': active ? 'true' : undefined, // cleanup V-7: the area holds the page; the view chip is the "page"
-        'data-area': area.id,
-        title: Nav.label(area, tt),
-        onClick: () => { if (!active) setActiveView(Nav.firstView(area.id, uiMode || 'advanced')); }
-      },
-        Icon(area.icon, { size: 20 }),
-        React.createElement('span', { className: 'mx-bottom-label' }, label)
-      );
-    })
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
@@ -1491,7 +1457,6 @@ if (typeof window !== 'undefined') {
     BrokerImportWizard,
     PositionNotesView,
     DividendCalendarView,
-    MobileBottomNav,
     calcXIRR,
     calcTWR
   };

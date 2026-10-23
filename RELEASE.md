@@ -2,7 +2,27 @@
 
 ## Unreleased
 
-_Nothing yet._
+### Redesign "Atlas Map" (Phase 6, 2026-10-17 to 2026-10-19)
+
+> **Look and layout only** · No data migration (schema stays at v6) · Backup format unchanged · No Worker change · Every calculation, stored key, import path, shortcut and deep link stays as it was
+
+- **A new shell.** A rail on the desktop (Home, Activity, Income, Tax, Insight, Settings) and a dock on the phone (Home, Activity, Add, Income, More). Every page has one header with its title, the portfolio scope, Search, Privacy, Settings and Add Transaction, and its sections as tabs.
+- **One set of components.** Buttons, fields, cards, figures, badges, tabs, tables, dialogs, empty states and skeletons come from one shared library (`renderer-components.js`, shown in the component gallery). Every view uses them. On a phone, tables become one card per row and dialogs open as bottom sheets.
+- **Five themes on one set of tokens.** Light, dark, purple, high contrast and colour-blind safe. Every view passes WCAG AA text contrast in all five. A gain or loss is never shown by colour alone: it comes with a sign, ▲ / ▼, ✓ / ! or words.
+- **Charts** share one frame with a legend in words and "Show as table".
+- **States.** Every card says when it is loading, empty or failed, and failed cards offer Retry. Motion follows `prefers-reduced-motion` and the motion switch.
+- **Accessibility.**
+  - Headings follow the page outline.
+  - Every control has a name.
+  - Every focus stop shows a focus ring.
+  - On phones, touch targets are at least 44 px.
+  - No sideways scroll at 360 px or at 200 % zoom.
+- **Cleanup.**
+  - Inline styles in the views fell from about 3,000 to 79. The ones left are computed: bar widths, data colours, chart geometry.
+  - Hex and `rgb()` literals fell from about 1,030 to 197. Most of those left are stored colours.
+  - The old header, sidebar and bottom-nav CSS and code are removed.
+
+The milestone reports are in `docs/REDESIGN-R1-REPORT.md` … `docs/REDESIGN-R5-REPORT.md`. The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
 
 ## [v12.0.0] "Atlas" — 15 October 2026
 

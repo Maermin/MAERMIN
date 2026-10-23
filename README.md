@@ -7,7 +7,7 @@
 Stocks · ETFs · Bonds · Crypto · CS2 Skins · Real assets · Budget
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/?demo)
-[![Version](https://img.shields.io/badge/Version-11.0.0-3b82f6?style=for-the-badge)](#changelog)
+[![Version](https://img.shields.io/badge/Version-12.0.0-3b82f6?style=for-the-badge)](#changelog)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![No MAERMIN account](https://img.shields.io/badge/MAERMIN%20Account-not%20needed-f59e0b?style=for-the-badge)](#privacy--security)
 [![Data stays on your device](https://img.shields.io/badge/Your%20data-stays%20on%20your%20device-22c55e?style=for-the-badge)](#privacy--security)
@@ -40,20 +40,17 @@ No MAERMIN account  ·  No MAERMIN server  ·  No ads  ·  No remote telemetry  
 
 ## Screenshots
 
-<p align="center"><img src="docs/screenshots/overview.jpg" alt="Overview with the portfolio value chart (demo data)" width="900"></p>
+<p align="center"><img src="docs/screenshots/atlas-map/overview.jpg" alt="Overview: portfolio value chart, what the portfolio is made of, key figures and the next events (demo data)" width="900"></p>
 
-| Monthly returns | Closed positions |
+| **Returns and monthly heatmap** | **Tax at a glance and FIFO** |
 |---|---|
-| <img src="docs/screenshots/returns-heatmap.png" alt="Monthly returns heatmap" width="440"> | <img src="docs/screenshots/closed-positions.png" alt="Closed positions with realized P&L" width="440"> |
-| **Withholding tax by country** | **Phone (German)** |
-| <img src="docs/screenshots/withholding-tax.png" alt="Foreign withholding tax by country" width="440"> | <img src="docs/screenshots/phone-overview-de.jpg" alt="Overview on a phone, German" width="220"> |
+| <img src="docs/screenshots/atlas-map/returns.jpg" alt="Returns: XIRR, TWR, total return, inflation and the monthly returns heatmap" width="440"> | <img src="docs/screenshots/atlas-map/tax.jpg" alt="Tax page: estimated tax, allowance used, loss pots, next deadline and the FIFO cost basis" width="440"> |
+| **Dividend calendar** | **Events and calendar export** |
+| <img src="docs/screenshots/atlas-map/dividends.jpg" alt="Dividends: expected and received dividends and the monthly dividend calendar" width="440"> | <img src="docs/screenshots/atlas-map/events.jpg" alt="Event feed with rate decisions and expected dividends, grouped by month" width="440"> |
+| **Dark theme** | **Phone (German)** |
+| <img src="docs/screenshots/atlas-map/overview-dark.jpg" alt="Overview in the dark theme" width="440"> | <img src="docs/screenshots/atlas-map/phone-overview-de.jpg" alt="Overview on a phone, German, with the dock at the bottom" width="220"> |
 
-| **Research page** | **Events and calendar export** |
-| <img src="docs/screenshots/atlas-p5-5.4/desktop-en-chart.jpg" alt="Research page with chart, Bollinger bands and MACD (made-up data)" width="440"> | <img src="docs/screenshots/atlas-p5-5.5/desktop-en-feed.jpg" alt="Event feed with earnings, ex-dates, savings plans and rate decisions (made-up data)" width="440"> |
-| **Budget and spending** | **Saving goal with glide path** |
-| <img src="docs/screenshots/atlas-p5-5.3/desktop-en-budget.jpg" alt="Budget with cash-flow Sankey (made-up data)" width="440"> | <img src="docs/screenshots/atlas-p5-5.7/desktop-en-goals.jpg" alt="Saving goal linked to a portfolio, with its glide path (made-up data)" width="440"> |
-
-The first pictures show the built-in demo (Demo mode, made-up data, v11.0); the v12 pictures use made-up sample data and mocked market data.
+All pictures show the built-in demo (`?demo`, made-up data) in the Atlas Map design. Five themes are built in: light, dark, purple, high contrast and colour-blind safe.
 
 ---
 
