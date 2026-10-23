@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v12.0 — Portfolio Value Snapshots  (window.MaerminSnapshots)
+// MAERMIN v12.1 — Portfolio Value Snapshots  (window.MaerminSnapshots)
 // ----------------------------------------------------------------------------
 // New in v10. An append-only, on-device time series of the portfolio's TOTAL
 // value. Every time the app computes the live total it records one point per

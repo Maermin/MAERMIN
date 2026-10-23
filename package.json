@@ -1,7 +1,7 @@
 {
   "name": "maermin",
-  "version": "12.0.0",
-  "description": "MAERMIN v12.0 \"Atlas\" - private multi-asset portfolio tracker with tax tools built in",
+  "version": "12.1.0",
+  "description": "MAERMIN v12.1 \"Atlas Map\" - private multi-asset portfolio tracker with tax tools built in",
   "author": "MAERMIN Team",
   "license": "MIT",
   "scripts": {
