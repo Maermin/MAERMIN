@@ -23,59 +23,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function ymd(d) { return String(d || '').slice(0, 10); }
 
-  // ---- indicators (arrays aligned with the input; null where undefined) ------------
-  // Simple moving average over the last n valid closes.
-  function sma(values, n) {
-    var out = [], win = [], sum = 0;
-    for (var i = 0; i < values.length; i++) {
-      var x = values[i];
-      if (!isNum(x)) { out.push(null); continue; }
-      win.push(x); sum += x;
-      if (win.length > n) sum -= win.shift();
-      out.push(win.length === n ? sum / n : null);
-    }
-    return out;
-  }
-  // Exponential moving average, seeded with the SMA of the first n valid closes.
-  function ema(values, n) {
-    var out = [], k = 2 / (n + 1), prev = null, seen = 0, seed = 0;
-    for (var i = 0; i < values.length; i++) {
-      var x = values[i];
-      if (!isNum(x)) { out.push(null); continue; }
-      seen++;
-      if (prev == null) {
-        seed += x;
-        if (seen === n) { prev = seed / n; out.push(prev); } else out.push(null);
-        continue;
-      }
-      prev = x * k + prev * (1 - k);
-      out.push(prev);
-    }
-    return out;
-  }
-  function macd(values, fast, slow, signal) {
-    fast = fast || 12; slow = slow || 26; signal = signal || 9;
-    var f = ema(values, fast), s = ema(values, slow);
-    var line = values.map(function (_, i) { return f[i] != null && s[i] != null ? f[i] - s[i] : null; });
-    var sig = ema(line, signal);
-    return { macd: line, signal: sig, hist: line.map(function (m, i) { return m != null && sig[i] != null ? m - sig[i] : null; }) };
-  }
-  // Bollinger bands: SMA n ± k population standard deviations.
-  function bollinger(values, n, k) {
-    n = n || 20; k = k == null ? 2 : k;
-    var mid = [], upper = [], lower = [], win = [];
-    for (var i = 0; i < values.length; i++) {
-      var x = values[i];
-      if (!isNum(x)) { mid.push(null); upper.push(null); lower.push(null); continue; }
-      win.push(x);
-      if (win.length > n) win.shift();
-      if (win.length < n) { mid.push(null); upper.push(null); lower.push(null); continue; }
-      var m = win.reduce(function (a, b) { return a + b; }, 0) / n;
-      var sd = Math.sqrt(win.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / n);
-      mid.push(m); upper.push(m + k * sd); lower.push(m - k * sd);
-    }
-    return { mid: mid, upper: upper, lower: lower };
-  }
+  // ---- indicators ---------------------------------------------------------------------
+  // CH-2: SMA, EMA, MACD and Bollinger live in chart-engine.js (one implementation for
+  // Research and the Charts view; test/chart-engine-research.test.js proves the numbers
+  // are the same as before the move). Arrays aligned with the input; null where undefined.
+  var CE = W.MaerminChartEngine || req(function () { return require('./chart-engine.js'); });
+  var sma = CE.sma, ema = CE.ema, macd = CE.macd, bollinger = CE.bollinger;
 
   // ---- the user's own data ------------------------------------------------------------
   // opts: { priceEUR, exchangeRate, fxAt }
