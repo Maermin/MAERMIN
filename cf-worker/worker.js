@@ -44,7 +44,7 @@ import { handlePush, runPushCron } from './push.js';
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.14';
+export const WORKER_VERSION = '2026.10.15';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'push', 'research', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
@@ -110,7 +110,7 @@ async function handle(request, env, ctx) {
     if (isPriceOnly(env)) {
       const paused = String(env.PRICE_ONLY_OFF || '') === '1';
       if (request.method === 'GET' && action === 'version') {
-        return res(JSON.stringify({ version: WORKER_VERSION, actions: PRICE_ONLY_ACTIONS, storage: false, priceOnly: true, paused }), 200, request);
+        return res(JSON.stringify({ version: WORKER_VERSION, actions: PRICE_ONLY_ACTIONS, storage: false, priceOnly: true, paused, ohlcv: true }), 200, request);
       }
       if (paused) return res(JSON.stringify({ error: 'shared price service paused' }), 503, request);
       if (!PRICE_ONLY_SET.has(action)) return res(JSON.stringify({ error: 'not available on the shared price service' }), 403, request);
@@ -122,7 +122,7 @@ async function handle(request, env, ctx) {
     // Version handshake: no upstream call, so it is not rate limited.
     if (request.method === 'GET' && action === 'version') {
       // storage: whether sync / share links can work (KV or Durable Object bound)
-      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)), priceOnly: false }), 200, request);
+      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)), priceOnly: false, ohlcv: true }), 200, request);
     }
 
     // ── Yahoo routes take market symbols only ────────────────────────────────
@@ -135,6 +135,18 @@ async function handle(request, env, ctx) {
       const sym = (url.searchParams.get('symbol') || '').trim();
       if (sym && !isMarketSymbol(sym)) {
         return res(JSON.stringify({ error: 'not a market symbol', hint: 'CS2 items are priced through the skin price list (category CS2 Skins)' }), 400, request);
+      }
+    }
+
+    // CH-1: an interval / range pair Yahoo refuses (e.g. 5m over 3mo) gets a
+    // clear 400 here, without an upstream call and without counting against
+    // the limit, instead of Yahoo's 422 surfacing as "unavailable".
+    if (request.method === 'GET' && action === 'yf') {
+      const iv = url.searchParams.get('interval') || '1d';
+      const rg = url.searchParams.get('range') || '1y';
+      const ranges = YF_ALLOWED_RANGES[iv];
+      if (ranges && YF_RANGES.has(rg) && ranges.indexOf(rg) === -1) {
+        return res(JSON.stringify({ error: 'interval/range not supported', interval: iv, range: rg, allowed: ranges }), 400, request);
       }
     }
 
@@ -371,9 +383,10 @@ async function handle(request, env, ctx) {
         return res(JSON.stringify({ error: 'invalid interval or range' }), 400, request);
       }
 
-      // Cache key: symbol+interval+range (yf2: the payload with dividends, P5-2.5)
+      // Cache key: symbol+interval+range (yf3: the payload with OHLCV, CH-1;
+      // yf2 added dividends in P5-2.5)
       const cacheKey = new Request(
-        `https://cache.maermin/yf2/${encodeURIComponent(symbol)}/${interval}/${range}`
+        `https://cache.maermin/yf3/${encodeURIComponent(symbol)}/${interval}/${range}`
       );
       const cache = caches.default;
 
@@ -418,9 +431,17 @@ async function handle(request, env, ctx) {
           return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
         }
 
-        // Normalize response: extract timestamps + close prices
+        // Normalize response: timestamps + close prices, plus open / high /
+        // low / volume (CH-1). `price` stays the close so older clients read
+        // the same numbers; a bar is kept when its close is valid and missing
+        // candle fields are null. Intraday bars share a `date`: `ts` is the key.
         const timestamps = result.timestamp || [];
-        const closes     = result.indicators?.quote?.[0]?.close || [];
+        const quote      = result.indicators?.quote?.[0] || {};
+        const closes     = quote.close || [];
+        const opens      = quote.open || [];
+        const highs      = quote.high || [];
+        const lows       = quote.low || [];
+        const volumes    = quote.volume || [];
         const currency   = result.meta?.currency || 'USD';
         const exchTz     = result.meta?.exchangeTimezoneName || 'UTC';
 
@@ -428,6 +449,10 @@ async function handle(request, env, ctx) {
           ts,
           date: new Date(ts * 1000).toISOString().split('T')[0],
           price: closes[i] ?? null,
+          o: numOrNull(opens[i]),
+          h: numOrNull(highs[i]),
+          l: numOrNull(lows[i]),
+          v: numOrNull(volumes[i]),
         })).filter(p => p.price !== null && !isNaN(p.price));
 
         // Corporate actions: surface Yahoo's split events (added via events=split
@@ -1283,6 +1308,18 @@ export class SyncRoom {
 
 const YF_INTERVALS = new Set(['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']);
 const YF_RANGES = new Set(['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']);
+// CH-1: the ranges Yahoo serves per interval (checked against the live API on
+// 2026-10-23): 1m only the last 8 days, 2m-90m the last 60 days, 60m / 1h the
+// last 730 days; daily and longer any range. `ytd` is refused below 1h because
+// it passes 60 days in March.
+const YF_ALL_RANGES = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'];
+const YF_60D = ['1d', '5d', '1mo'];
+const YF_730D = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', 'ytd'];
+export const YF_ALLOWED_RANGES = {
+  '1m': ['1d', '5d'], '2m': YF_60D, '5m': YF_60D, '15m': YF_60D, '30m': YF_60D, '90m': YF_60D,
+  '60m': YF_730D, '1h': YF_730D,
+  '1d': YF_ALL_RANGES, '5d': YF_ALL_RANGES, '1wk': YF_ALL_RANGES, '1mo': YF_ALL_RANGES, '3mo': YF_ALL_RANGES,
+};
 
 // Server-side allowlist validation for share snapshots (defense in depth -
 // the client redacts before sending, but the server never trusts that).

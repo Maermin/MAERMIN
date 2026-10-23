@@ -25,9 +25,10 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.14", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.15", "actions": ["yf", "yfsearch", …], "storage": true, "ohlcv": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
-app's connection test shows it.
+app's connection test shows it. `ohlcv` (since 2026.10.15) says the `yf` route returns candles (open, high, low, volume);
+an older Worker leaves it out.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
 (`test/worker-version.test.js` enforces it); bump both when the app starts to rely on a Worker change.
 The app checks the version once per Worker URL (and when API Settings opens or closes). An older Worker,
@@ -39,7 +40,23 @@ or one from before this route (it answers `400 Unknown action`), shows "Worker o
 
 ### `GET /?action=yf&symbol=AAPL&interval=1d&range=1y`
 Yahoo Finance historical candles. `interval` ∈ `1m…1mo`, `range` ∈ `1d…max`.
-`200 { symbol, currency, exchangeTz, prices: [{ ts, date, price }], splits: [{ date, numerator, denominator }], dividends: [{ date, amount }] }`.
+`200 { symbol, currency, exchangeTz, prices: [{ ts, date, price, o, h, l, v }], splits: [{ date, numerator, denominator }], dividends: [{ date, amount }] }`.
+`price` is the close. `o`, `h`, `l`, `v` (open, high, low, volume; since 2026.10.15) are `null` where Yahoo has no value; a bar
+without a close is left out. `date` is the UTC day, so intraday bars share it: use `ts` (epoch seconds) as the key.
+**Redeploy the Worker to get candles** (Charts view); older clients ignore the new fields.
+
+Yahoo serves only so much history per interval (checked 2026-10-23). Other pairs get
+`400 { error: "interval/range not supported", interval, range, allowed: [...] }` without an upstream call and
+without counting against the rate limit:
+
+| `interval` | allowed `range` |
+|---|---|
+| `1m` | `1d`, `5d` (8 days) |
+| `2m`, `5m`, `15m`, `30m`, `90m` | `1d`, `5d`, `1mo` (60 days) |
+| `60m`, `1h` | `1d` … `2y`, `ytd` (730 days) |
+| `1d`, `5d`, `1wk`, `1mo`, `3mo` | any |
+
+Note: Yahoo answers `interval=1d&range=max` with monthly bars; ask for `range=10y` for long daily history.
 `dividends` (since 2026.10.5) are the per-share payments in the listing currency, oldest first; the app's dividend backtest (Dividends → History) asks for `interval=1mo&range=10y`.
 
 ### `GET /?action=hicp&geo=DE`

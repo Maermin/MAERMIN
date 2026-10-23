@@ -334,7 +334,7 @@ async function runPushCron(env, now, deps) {
 }
 
 // cf-worker/worker.js
-var WORKER_VERSION = "2026.10.14";
+var WORKER_VERSION = "2026.10.15";
 var WORKER_ACTIONS = [
   "yf",
   "yfsearch",
@@ -422,7 +422,7 @@ async function handle(request, env, ctx) {
   if (isPriceOnly(env)) {
     const paused = String(env.PRICE_ONLY_OFF || "") === "1";
     if (request.method === "GET" && action === "version") {
-      return res(JSON.stringify({ version: WORKER_VERSION, actions: PRICE_ONLY_ACTIONS, storage: false, priceOnly: true, paused }), 200, request);
+      return res(JSON.stringify({ version: WORKER_VERSION, actions: PRICE_ONLY_ACTIONS, storage: false, priceOnly: true, paused, ohlcv: true }), 200, request);
     }
     if (paused) return res(JSON.stringify({ error: "shared price service paused" }), 503, request);
     if (!PRICE_ONLY_SET.has(action)) return res(JSON.stringify({ error: "not available on the shared price service" }), 403, request);
@@ -431,12 +431,20 @@ async function handle(request, env, ctx) {
     }
   }
   if (request.method === "GET" && action === "version") {
-    return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)), priceOnly: false }), 200, request);
+    return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)), priceOnly: false, ohlcv: true }), 200, request);
   }
   if (request.method === "GET" && SYMBOL_ROUTES.has(action)) {
     const sym = (url.searchParams.get("symbol") || "").trim();
     if (sym && !isMarketSymbol(sym)) {
       return res(JSON.stringify({ error: "not a market symbol", hint: "CS2 items are priced through the skin price list (category CS2 Skins)" }), 400, request);
+    }
+  }
+  if (request.method === "GET" && action === "yf") {
+    const iv = url.searchParams.get("interval") || "1d";
+    const rg = url.searchParams.get("range") || "1y";
+    const ranges = YF_ALLOWED_RANGES[iv];
+    if (ranges && YF_RANGES.has(rg) && ranges.indexOf(rg) === -1) {
+      return res(JSON.stringify({ error: "interval/range not supported", interval: iv, range: rg, allowed: ranges }), 400, request);
     }
   }
   if (isRateLimited(request, rateBucket(request, action))) {
@@ -600,7 +608,7 @@ async function handle(request, env, ctx) {
       return res(JSON.stringify({ error: "invalid interval or range" }), 400, request);
     }
     const cacheKey = new Request(
-      `https://cache.maermin/yf2/${encodeURIComponent(symbol)}/${interval}/${range}`
+      `https://cache.maermin/yf3/${encodeURIComponent(symbol)}/${interval}/${range}`
     );
     const cache = caches.default;
     const cacheTtl = ["1d", "5d"].includes(range) ? 300 : 3600;
@@ -633,13 +641,22 @@ async function handle(request, env, ctx) {
         return res(JSON.stringify({ error: "No data from Yahoo Finance", symbol }), 404, request);
       }
       const timestamps = result.timestamp || [];
-      const closes = result.indicators?.quote?.[0]?.close || [];
+      const quote = result.indicators?.quote?.[0] || {};
+      const closes = quote.close || [];
+      const opens = quote.open || [];
+      const highs = quote.high || [];
+      const lows = quote.low || [];
+      const volumes = quote.volume || [];
       const currency = result.meta?.currency || "USD";
       const exchTz = result.meta?.exchangeTimezoneName || "UTC";
       const prices = timestamps.map((ts, i) => ({
         ts,
         date: new Date(ts * 1e3).toISOString().split("T")[0],
-        price: closes[i] ?? null
+        price: closes[i] ?? null,
+        o: numOrNull(opens[i]),
+        h: numOrNull(highs[i]),
+        l: numOrNull(lows[i]),
+        v: numOrNull(volumes[i])
       })).filter((p) => p.price !== null && !isNaN(p.price));
       const splits = Object.values(result.events?.splits || {}).map((s) => ({
         date: s.date != null ? new Date(s.date * 1e3).toISOString().split("T")[0] : null,
@@ -1381,6 +1398,24 @@ var SyncRoom = class {
 };
 var YF_INTERVALS = /* @__PURE__ */ new Set(["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]);
 var YF_RANGES = /* @__PURE__ */ new Set(["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]);
+var YF_ALL_RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"];
+var YF_60D = ["1d", "5d", "1mo"];
+var YF_730D = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "ytd"];
+var YF_ALLOWED_RANGES = {
+  "1m": ["1d", "5d"],
+  "2m": YF_60D,
+  "5m": YF_60D,
+  "15m": YF_60D,
+  "30m": YF_60D,
+  "90m": YF_60D,
+  "60m": YF_730D,
+  "1h": YF_730D,
+  "1d": YF_ALL_RANGES,
+  "5d": YF_ALL_RANGES,
+  "1wk": YF_ALL_RANGES,
+  "1mo": YF_ALL_RANGES,
+  "3mo": YF_ALL_RANGES
+};
 function validateShareSnapshot(s) {
   const pct = (x) => typeof x === "number" && isFinite(x) && x >= 0 && x <= 100 ? Math.round(x * 10) / 10 : null;
   if (!s || typeof s !== "object" || Array.isArray(s)) return { ok: false, error: "not an object" };
@@ -1910,6 +1945,7 @@ export {
   SyncRoom,
   WORKER_ACTIONS,
   WORKER_VERSION,
+  YF_ALLOWED_RANGES,
   allowOrigin,
   authorizeSyncPut,
   brokerRelayAllowed,
