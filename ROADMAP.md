@@ -66,7 +66,11 @@ Risk / Health views (no new tabs), plus a Settings card exposing
 
 ---
 
-## Next — v12 "Atlas" (PLAN.md Phase 5, scope confirmed 2026-10-12)
+## Shipped — v12 "Atlas" (PLAN.md Phase 5, released 2026-10-15) and the "Atlas Map" redesign (Phase 6, 2026-10-23)
+
+The redesign (PLAN.md Phase 6) changed look and layout only: a rail and dock shell, one component library, five themes on one set of tokens, WCAG AA contrast in all of them. See RELEASE.md (Unreleased) and [docs/REDESIGN-R5-REPORT.md](docs/REDESIGN-R5-REPORT.md).
+
+v12 "Atlas":
 
 *Atlas — the whole map of your wealth.* One major release in five milestones, built from the October 2026 competitor review ([docs/COMPETITOR-REVIEW-2026-10.md](docs/COMPETITOR-REVIEW-2026-10.md)). Packages, order and decisions live in [PLAN.md](PLAN.md) → Phase 5; the agent brief is [docs/ATLAS-AGENT-PROMPT.md](docs/ATLAS-AGENT-PROMPT.md).
 
