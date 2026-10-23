@@ -26,13 +26,13 @@ ok('connect-src names no CDN host except the pinned pdf.js folder', (dirs['conne
 ok("worker-src is 'self' blob: only", (dirs['worker-src'] || []).join(' ') === "'self' blob:");
 
 // every pinned CDN library is covered by script-src, and its SRI hash is sha384
-const pinned = ['pdf-import.js', 'tax-report-builder.js'].map((f) => readFileSync(path.join(root, f), 'utf8')).join('\n');
+const pinned = ['pdf-import.js', 'tax-report-builder.js', 'charts.js'].map((f) => readFileSync(path.join(root, f), 'utf8')).join('\n');
 const pdfDir = (pinned.match(/PDFJS_DIR = '([^']+)'/) || [])[1];
 const srcs = (pinned.match(/src: '(https:[^']+)'/g) || []).map((s) => s.slice(6, -1)).concat(pdfDir ? [pdfDir + 'pdf.min.mjs', pdfDir + 'pdf.worker.min.mjs'] : []);
-ok('pinned CDN libraries found', srcs.length === 4 && !!pdfDir, srcs.join(' '));
+ok('pinned CDN libraries found', srcs.length === 5 && !!pdfDir, srcs.join(' '));
 ok('every pinned library is allowed by script-src', srcs.every((u) => (dirs['script-src'] || []).some((d) => d.endsWith('/') && u.startsWith(d))));
 ok('the pdf.js folder is the one connect-src allows', !!pdfDir && (dirs['connect-src'] || []).indexOf(pdfDir) !== -1);
-ok('every pinned library has a sha384 SRI hash', (pinned.match(/integrity: 'sha384-[A-Za-z0-9+/=]{64}'/g) || []).length === 4);
+ok('every pinned library has a sha384 SRI hash', (pinned.match(/integrity: 'sha384-[A-Za-z0-9+/=]{64}'/g) || []).length === 5);
 
 // build.mjs builds the same policy
 const build = readFileSync(path.join(root, 'build.mjs'), 'utf8');

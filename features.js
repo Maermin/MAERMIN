@@ -47,7 +47,7 @@ function Sparkline({ values, width = 80, height = 32, color }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. WATCHLIST
 // ─────────────────────────────────────────────────────────────────────────────
-function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
+function WatchlistView({ prices, priceHistory, theme, t, addToast, onCharts }) {
   const [items, setItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_watchlist') || '[]'); } catch { return []; }
   });
@@ -149,10 +149,15 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
               { key: 'spark', label: __('wlSpark', 'Spark'), align: 'right', priority: 3, render: (r) => r.sparkVals.length > 1
                 ? React.createElement(Sparkline, { values: r.sparkVals, width: 72, height: 28 })
                 : React.createElement('span', { className: 'ui-muted' }, __('noData', 'No data')) },
-              { key: 'rm', label: React.createElement('span', { className: 'sr-only' }, __('wlRemove', 'Remove')), align: 'right', phone: 'sub', render: (r) => React.createElement(UIC.IconButton, {
+              { key: 'rm', label: React.createElement('span', { className: 'sr-only' }, __('wlRemove', 'Remove')), align: 'right', phone: 'sub', render: (r) => React.createElement('span', { className: 'ui-wl-actions' },
+                // CH-3a: a stock symbol opens in Charts (Yahoo symbols only: no crypto ids or skins)
+                onCharts && r.item.category === 'stocks' ? React.createElement(UIC.Button, {
+                  size: 'sm', variant: 'quiet', 'data-testid': 'wl-charts', onClick: () => onCharts(r.item.displaySymbol || r.item.symbol),
+                  'aria-label': __('wlChartsAria', 'Open {sym} in Charts', { sym: r.item.displaySymbol || r.item.symbol || '' }) }, __('wlCharts', 'Chart')) : null,
+                React.createElement(UIC.IconButton, {
                 size: 'sm', className: 'ui-wl-remove', onClick: () => removeItem(r.id),
                 label: __('wlRemoveAria', 'Remove {sym} from the watchlist', { sym: r.item.displaySymbol || r.item.symbol || '' }),
-                icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') }) }
+                icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })) }
             ]
           }))
   );

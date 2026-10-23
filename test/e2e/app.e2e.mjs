@@ -68,7 +68,9 @@ function serve(dir) {
 // ---- external requests ------------------------------------------------------
 const LOCAL = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': join(root, 'node_modules/react/umd/react.production.min.js'),
-  'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': join(root, 'node_modules/react-dom/umd/react-dom.production.min.js')
+  'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': join(root, 'node_modules/react-dom/umd/react-dom.production.min.js'),
+  // CH-3a: the chart library, a pinned devDependency (same bytes as unpkg, so SRI verifies)
+  'https://unpkg.com/klinecharts@10.1.0/dist/umd/klinecharts.min.js': join(root, 'node_modules/klinecharts/dist/umd/klinecharts.min.js')
 };
 const JSPDF_DIR = process.env.JSPDF_DIR || '';
 const JSPDF = {
@@ -1547,6 +1549,77 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // CH-3a: the Charts view in the demo. The chart library first fails to load
+  // (error card, Retry), then loads from node_modules (SRI-checked); candles of
+  // a demo stock; every chart type, some timeframes (4h resampled), log scale,
+  // EUR; a Worker answer without candles shows the update note and line only;
+  // no sideways scroll at 390 px; no page error and no CSP violation.
+  {
+    const KLINE = 'https://unpkg.com/klinecharts@10.1.0/dist/umd/klinecharts.min.js';
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await page.addInitScript(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI)); });
+    let failLib = true;
+    await page.route(KLINE, (route) => (failLib ? route.abort() : route.fallback()));
+    const r = { libError: 0, live: [], eur: '', old: 0, oldTypes: '', narrow: 0, csp: null, shortcut: false };
+    let err = '';
+    const live = () => page.locator('[data-testid="ch-live"]').textContent();
+    const pick = async (tid, label) => { await page.locator('[data-testid="' + tid + '"] [role="radio"]', { hasText: label }).first().click(); await page.waitForTimeout(300); };
+    const settle = async (re) => { await page.waitForFunction((src) => new RegExp(src).test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), re.source, { timeout: 15000 }); return live(); };
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      // the g k shortcut opens the view
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      r.shortcut = true;
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^AAPL$/ }).click();
+      await page.locator('[data-testid="ch-lib-error"]').waitFor({ timeout: 15000 });
+      r.libError = await page.locator('[data-testid="ch-lib-error"]').count();
+      failLib = false;
+      await page.locator('[data-testid="ch-lib-error"] button').click();
+      await page.locator('[data-testid="ch-plot"] canvas').first().waitFor({ timeout: 15000 });
+      r.live.push(await settle(/^AAPL, 1D, Candles: last [\d.,]+ USD/));
+      for (const t of ['Bars', 'Heikin Ashi', 'Line', 'Area', 'Candles']) { await pick('ch-type', t); r.live.push(await settle(new RegExp(', ' + t + ':'))); }
+      for (const f of ['4h', '5m', '1W', '1D']) { await pick('ch-tf', f); r.live.push(await settle(new RegExp('^AAPL, ' + f + ','))); }
+      await pick('ch-scale', 'Log');
+      await page.locator('[data-testid="ch-eur"]').click();
+      r.eur = await settle(/ EUR, /);
+      // a Worker without candles (older than 2026.10.15): closes only
+      await page.evaluate(() => {
+        const real = window.fetch;
+        window.fetch = async (...a) => {
+          const res = await real(...a);
+          const u = String(a[0] && a[0].url ? a[0].url : a[0]);
+          if (!/action=yf/.test(u) || !/bars=1/.test(u)) return res;
+          const j = await res.clone().json();
+          j.prices = (j.prices || []).map((p) => ({ ts: p.ts, date: p.date, price: p.price }));
+          return new Response(JSON.stringify(j), { status: res.status, headers: { 'Content-Type': 'application/json' } });
+        };
+      });
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^ALV\.DE$/ }).click();
+      await page.locator('[data-testid="ch-old-worker"]').waitFor({ timeout: 15000 });
+      r.old = await page.locator('[data-testid="ch-old-worker"]').count();
+      r.oldTypes = (await page.locator('[data-testid="ch-type"] [role="radio"]:not([disabled])').allTextContents()).join(',');
+      r.live.push(await settle(/^ALV\.DE, 1D, Line:/));
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(500);
+      r.narrow = await page.evaluate(() => document.documentElement.scrollWidth);
+      r.csp = await page.evaluate(() => window.__csp);
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r).slice(0, 300); }
+    ok('CH-3a: g k opens Charts; a failed library load shows an error card, Retry loads it', r.shortcut && r.libError === 1 && r.live.length > 0, err || JSON.stringify(r));
+    ok('CH-3a: demo candles, all five chart types, 4h / 5m / 1W / 1D and EUR', !err && r.live.length === 11 && / EUR, /.test(r.eur), err || JSON.stringify(r.live));
+    ok('CH-3a: a Worker answer without candles: the update note, line and area only', r.old === 1 && r.oldTypes === 'Line,Area', err || JSON.stringify(r));
+    ok('CH-3a: no sideways scroll at 390 px', r.narrow > 0 && r.narrow <= 390, err || String(r.narrow));
+    ok('CH-3a: no CSP violation from the chart library', Array.isArray(r.csp) && r.csp.length === 0, err || JSON.stringify(r.csp));
+    ok('no page errors in Charts', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
@@ -2409,6 +2482,20 @@ async function runBuild(browser, label, dir) {
       }
       workerState.ip = null;
       ok('P5-5.4: the research page shows key figures, analysts (10, mean target +20 %), EPS and the profile; MACD switches on', !err && /AAPL Sample Corp/.test(text) && /10 analysts/.test(text) && /\+20\.0 %/.test(text) && /beat/.test(text) && /Synthetic company/.test(text) && macd, err || text.replace(/\n/g, ' | ').slice(0, 400));
+      // CH-3a: "Open in Charts" takes the symbol to Charts; the real Worker asks
+      // for daily bars; this synthetic upstream sends closes only, so the
+      // chart is a line with the update note.
+      let chartLive = '', chartReq = '', chartErr = '';
+      workerState.ip = '203.0.113.56';
+      try {
+        await page.locator('[data-testid="rs-charts"]').click();
+        await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+        await page.waitForFunction(() => /^AAPL, /.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 15000 });
+        chartLive = await page.locator('[data-testid="ch-live"]').textContent();
+        chartReq = workerState.requests.filter((q) => /action=yf/.test(q) && /bars=1/.test(q)).join(', ');
+      } catch (e) { chartErr = e.message.split('\n')[0] + ' | ' + workerState.requests.slice(-5).join(', '); }
+      workerState.ip = null;
+      ok('CH-3a: Research → Open in Charts loads AAPL daily bars through the Worker (closes only → line + note)', !chartErr && /interval=1d&range=10y/.test(chartReq) && /^AAPL, 1D, Line:/.test(chartLive) && (await page.locator('[data-testid="ch-old-worker"]').count()) === 1, chartErr || chartLive + ' | ' + chartReq);
     }
     // P5-5.5: the event feed lists AAPL's earnings and ex-date (Worker earnings
     // route); the type chips filter; the ICS file has the events but no amounts.

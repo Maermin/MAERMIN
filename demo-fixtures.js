@@ -147,6 +147,72 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { symbol: sym, currency: txs[0].currency || 'EUR', sample: true, prices: prices, splits: [], dividends: dividends };
   }
 
+  // ---- CH-3a: candles for the Charts view (requests marked bars=1) ------------
+  // Made up from the demo's own daily closes (drifting back 7 % a year before
+  // the demo starts), so the chart ends on the price the portfolio shows. Open,
+  // high, low and volume come from a seeded hash; intraday bars walk from the
+  // previous close to the day's close inside the session. Deterministic.
+  var BAR_DAYS = { '1d': 1, '5d': 7, '1mo': 31, '3mo': 92, '6mo': 183, '1y': 366, '2y': 731, '5y': 1827, '10y': 3653, max: 3653 };
+  var BAR_MIN = { '1m': 1, '2m': 2, '5m': 5, '15m': 15, '30m': 30, '60m': 60, '90m': 90, '1h': 60 };
+  function unit(seed) { return (hash(seed) % 100000) / 100000; } // 0 … 1
+  function yfBars(sym, interval, range, todayIso) {
+    var t = dayNo(todayIso || todayISO());
+    var hs = demoSeries(t)['stocks|' + sym];
+    if (!hs || !hs.d.length) return null;
+    var closeAt = function (n) {
+      if (n < hs.d[0]) return hs.p[0] * Math.exp(-0.07 * (hs.d[0] - n) / 365) * (1 + 0.012 * Math.sin(n / 5.3 + hash(sym) % 7));
+      var lo = 0, hi = hs.d.length - 1;
+      while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (hs.d[mid] <= n) lo = mid; else hi = mid - 1; }
+      return hs.p[lo];
+    };
+    var usd = hs.cur === 'USD';
+    var tz = usd ? 'America/New_York' : 'Europe/Berlin';
+    var open0 = usd ? 870 : 480, sessionMin = usd ? 390 : 510; // minutes after 00:00 UTC; session length
+    var vol0 = 20000 + hash(sym) % 80000;
+    var days = [];
+    for (var n = t - (BAR_DAYS[range] || 366); n <= t; n++) if (!weekend(n)) days.push(n);
+    var prev = closeAt(days[0] - 1);
+    var daily = days.map(function (n) {
+      var c = closeAt(n), o = prev * (1 + (unit(sym + ':o:' + n) - 0.5) * 0.01);
+      var h = Math.max(o, c) * (1 + unit(sym + ':h:' + n) * 0.012), l = Math.min(o, c) * (1 - unit(sym + ':l:' + n) * 0.012);
+      prev = c;
+      return { n: n, o: o, h: h, l: l, c: c, v: Math.round(vol0 * (0.5 + unit(sym + ':v:' + n))) };
+    });
+    var bar = function (ts, b) { return { ts: ts, date: new Date(ts * 1000).toISOString().slice(0, 10), price: r(b.c, 4), o: r(b.o, 4), h: r(b.h, 4), l: r(b.l, 4), v: b.v }; };
+    var prices = [];
+    var step = BAR_MIN[interval];
+    if (step) {
+      daily.forEach(function (d) {
+        var k = Math.floor(sessionMin / step), p0 = d.o, path = [p0];
+        for (var i = 1; i <= k; i++) {
+          // a bridge from the open to the close with seeded wiggles
+          var lin = d.o + (d.c - d.o) * i / k;
+          path.push(i === k ? d.c : lin * (1 + (unit(sym + ':' + d.n + ':' + i) - 0.5) * 0.004 * Math.sin(Math.PI * i / k)));
+        }
+        for (var j = 0; j < k; j++) {
+          var o = path[j], c = path[j + 1];
+          var w = 0.0015 * unit(sym + ':w:' + d.n + ':' + j);
+          prices.push(bar(d.n * 86400 + (open0 + j * step) * 60, { o: o, c: c, h: Math.max(o, c) * (1 + w), l: Math.min(o, c) * (1 - w), v: Math.max(1, Math.round(d.v / k * (0.4 + unit(sym + ':iv:' + d.n + ':' + j) * 1.2))) }));
+        }
+      });
+    } else if (interval === '1wk' || interval === '1mo') {
+      var key = function (n) {
+        if (interval === '1mo') return iso(n).slice(0, 7);
+        var wd = (new Date(n * DAY).getUTCDay() + 6) % 7; return String(n - wd);
+      };
+      var groups = [];
+      daily.forEach(function (d) {
+        var g = groups[groups.length - 1];
+        if (!g || g.k !== key(d.n)) groups.push({ k: key(d.n), n: d.n, o: d.o, h: d.h, l: d.l, c: d.c, v: d.v });
+        else { g.h = Math.max(g.h, d.h); g.l = Math.min(g.l, d.l); g.c = d.c; g.v += d.v; }
+      });
+      groups.forEach(function (g) { prices.push(bar(g.n * 86400 + open0 * 60, g)); });
+    } else {
+      daily.forEach(function (d) { prices.push(bar(d.n * 86400 + (open0 + sessionMin) * 60, d)); });
+    }
+    return { symbol: sym, currency: hs.cur || 'EUR', exchangeTz: tz, sample: true, prices: prices, splits: [], dividends: [] };
+  }
+
   // ---- P5-2.9: consumer prices (HICP shape of the Worker), made up ----------
   // 2015 = 100, about 2.5 % a year with a bump in 2022, published up to last month.
   function hicp(geo, todayIso) {
@@ -234,6 +300,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function respond(url, todayIso) {
     if (!isDemoUrl(url)) return { status: 404, type: 'json', body: { error: 'not-demo-url' } };
     var q = query(url);
+    if (q.action === 'yf' && q.bars === '1' && q.symbol) {
+      var bars = yfBars(q.symbol.toUpperCase(), q.interval, q.range, todayIso);
+      if (bars) return { status: 200, type: 'json', body: bars };
+    }
     if (q.action === 'yf' && q.interval === '1mo' && q.symbol) {
       var mo = yfMonthly(q.symbol.toUpperCase(), todayIso);
       if (mo) return { status: 200, type: 'json', body: mo };
@@ -271,7 +341,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       __('dfxBadge', 'Sample data'));
   }
 
-  var api = { BASE: BASE, isDemoUrl: isDemoUrl, fxHistory: fxHistory, yfSeries: yfSeries, screener: screener, news: news, earnings: earnings, respond: respond, installFetch: installFetch, badge: badge };
+  var api = { BASE: BASE, isDemoUrl: isDemoUrl, fxHistory: fxHistory, yfSeries: yfSeries, yfBars: yfBars, screener: screener, news: news, earnings: earnings, respond: respond, installFetch: installFetch, badge: badge };
   if (typeof window !== 'undefined') { window.MaerminDemoFixtures = api; installFetch(window); }
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

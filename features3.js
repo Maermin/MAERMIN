@@ -153,7 +153,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
   );
 }
 
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries, buildPath, onResearch }) {
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries, buildPath, onResearch, onCharts }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -274,8 +274,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       // cleanup V-5: the name first ("Bitcoin"), the symbol after it, as in the positions table
       position.name && position.name !== position.sym ? position.name : position.sym,
       position.name && position.name !== position.sym && React.createElement('span', { className: 'ui-pos-dialog__sym' }, position.sym)),
-    // P5-5.4: the Research page for this symbol
-    footer: onResearch ? React.createElement(UIC.Button, { onClick: onResearch, 'data-testid': 'pd-research' }, __('pdResearch', 'Research')) : null
+    // P5-5.4: the Research page for this symbol; CH-3a: the Charts view
+    footer: onResearch || onCharts ? React.createElement(React.Fragment, null,
+      onCharts ? React.createElement(UIC.Button, { onClick: onCharts, 'data-testid': 'pd-charts' }, __('pdCharts', 'Open in Charts')) : null,
+      onResearch ? React.createElement(UIC.Button, { onClick: onResearch, 'data-testid': 'pd-research' }, __('pdResearch', 'Research')) : null) : null
   },
       React.createElement('div', { className: 'ui-pos-dialog__meta' },
         React.createElement(UIC.Badge, null, window.MaerminI18n.category(position.cat)),

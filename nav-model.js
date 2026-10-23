@@ -62,6 +62,8 @@
         v('analytics', 'navRiskCorrelation', 'Risk & Correlation', true)
       ] },
       v('research', 'navResearch', 'Research', true),
+      // Phase 7 (D1/D2, 2026-10-23): the second sanctioned new surface
+      v('charts', 'navCharts', 'Charts', true),
       v('investment-analysis', 'navStrategy', 'Strategy', true),
       v('fees', 'navFees', 'Fee Analyzer', true),
       v('discovery', 'navDiscovery', 'Discovery', true),
