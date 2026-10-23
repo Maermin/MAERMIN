@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v12.1 — Portfolio Management Features
+// MAERMIN v12.2 — Portfolio Management Features
 // 1. Multi-Portfolio Manager   — mehrere Depots / Portfolios
 // 2. Savings Plan Tracker      — Sparplan-Tracking mit Statistiken
 // 3. Dividend Forecast         — 12-Monats-Prognose basierend auf Vergangenheit
