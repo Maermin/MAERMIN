@@ -225,6 +225,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       xAxis: { axisLine: { color: border }, tickLine: { color: border }, tickText: txt({ color: dim }) },
       yAxis: { axisLine: { color: border }, tickLine: { color: border }, tickText: txt({ color: dim }) },
       separator: { color: border },
+      // CH-4: drawings in the accent; selected points stand out
+      overlay: {
+        line: { color: accent, size: 1.5 },
+        point: { color: accent, borderColor: alpha(accent, 0.35), activeColor: accent, activeBorderColor: alpha(accent, 0.5) },
+        rect: { color: alpha(accent, 0.12), borderColor: accent },
+        polygon: { color: alpha(accent, 0.12), borderColor: accent },
+        text: txt({ color: text })
+      },
       crosshair: {
         horizontal: { line: { color: dim }, text: txt({ color: surface, backgroundColor: dim, borderColor: dim }) },
         vertical: { line: { color: dim }, text: txt({ color: surface, backgroundColor: dim, borderColor: dim }) }
@@ -273,6 +281,38 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     K.registerIndicator({ name: COMPARE, shortName: '', calcParams: [], series: 'price', precision: 2, figures: [], calc: function () { return []; } });
     // CH-3c: your average cost (stepped, dashed); values come with each update like compare
     K.registerIndicator({ name: AVG, shortName: '', calcParams: [], series: 'price', precision: 2, figures: [], calc: function () { return []; } });
+    // CH-4: drawing tools the library does not have
+    if (K.registerOverlay) {
+      var accentOf = function () { var T = W.MaerminTokens; return T ? T.resolve('var(--accent)') : ''; };
+      var fillOf = function (a) { var T = W.MaerminTokens; return T ? T.alpha(T.resolve('var(--accent)'), a) : ''; };
+      var rectOf = function (a, b) { return [{ x: a.x, y: a.y }, { x: b.x, y: a.y }, { x: b.x, y: b.y }, { x: a.x, y: b.y }]; };
+      K.registerOverlay({ name: 'mrmRect', totalStep: 3, needDefaultPointFigure: true, needDefaultXAxisFigure: true, needDefaultYAxisFigure: true,
+        createPointFigures: function (p) {
+          var c = p.coordinates || [];
+          if (c.length < 2) return [];
+          return [{ type: 'polygon', attrs: { coordinates: rectOf(c[0], c[1]) }, styles: { style: 'stroke_fill', color: fillOf(0.12), borderColor: accentOf(), borderSize: 1 } }];
+        } });
+      K.registerOverlay({ name: 'mrmText', totalStep: 2, needDefaultPointFigure: true, needDefaultXAxisFigure: false, needDefaultYAxisFigure: true,
+        createPointFigures: function (p) {
+          var c = p.coordinates && p.coordinates[0], T = W.MaerminTokens;
+          if (!c || !T) return [];
+          var txt = (p.overlay.extendData && p.overlay.extendData.text) || '…';
+          return [{ type: 'text', attrs: { x: c.x + 6, y: c.y, text: txt, align: 'left', baseline: 'middle' },
+            styles: { color: T.resolve('var(--text)'), size: 12, backgroundColor: T.resolve('var(--surface-2)'), borderColor: T.resolve('var(--border-strong)'), borderSize: 1, borderRadius: 4, paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3 } }];
+        } });
+      K.registerOverlay({ name: 'mrmMeasure', totalStep: 3, needDefaultPointFigure: true, needDefaultXAxisFigure: true, needDefaultYAxisFigure: true,
+        createPointFigures: function (p) {
+          var c = p.coordinates || [], T = W.MaerminTokens, D = W.MaerminChartDrawings, I = W.MaerminI18n;
+          if (c.length < 2 || !T || !D) return [];
+          var m = D.measure(p.overlay.points[0], p.overlay.points[1]);
+          var up = m && m.diff >= 0, col = T.resolve(up ? 'var(--gain)' : 'var(--loss)');
+          var label = !m ? '' : (up ? '+' : '') + I.num(m.diff, 2) + (m.pct != null ? ' (' + (up ? '+' : '') + I.num(m.pct * 100, 2) + ' %)' : '') +
+            (m.bars != null ? ' · ' + __('kcMeasureBars', '{n} bars', { n: Math.abs(m.bars) }) : '');
+          return [{ type: 'polygon', attrs: { coordinates: rectOf(c[0], c[1]) }, styles: { style: 'stroke_fill', color: T.alpha(col, 0.12), borderColor: col, borderSize: 1 } },
+            { type: 'text', attrs: { x: c[1].x, y: c[1].y, text: label, align: 'center', baseline: up ? 'bottom' : 'top' },
+              styles: { color: T.resolve('var(--on-accent)'), size: 12, backgroundColor: col, borderRadius: 4, paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3 } }];
+        } });
+    }
     // CH-3c: a trade marker - buy ▲ under the price, sell ▼ over it, dividend "D" at the low
     if (K.registerOverlay) K.registerOverlay({ name: TRADE, totalStep: 2, lock: true, // one point (+1 step = finished, so it takes events)
        needDefaultPointFigure: false, needDefaultXAxisFigure: false, needDefaultYAxisFigure: false,
@@ -317,6 +357,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s9 = useState(null); var dlg = s9[0], setDlg = s9[1];
     var s10 = useState(''); var cmpDraft = s10[0], setCmpDraft = s10[1];
     var s11 = useState(null); var tip = s11[0], setTip = s11[1];
+    // CH-4: drawings - the active tool, the selected drawing, the note dialog, the alert note
+    var s12 = useState(null); var tool = s12[0], setTool = s12[1];
+    var s13 = useState(null); var selected = s13[0], setSelected = s13[1];
+    var s14 = useState(null); var noteDlg = s14[0], setNoteDlg = s14[1];
+    var s15 = useState(null); var alertMsg = s15[0], setAlertMsg = s15[1];
+    var s16 = useState(false); var clearArm = s16[0], setClearArm = s16[1];
+    var s17 = useState(0); var drawCount = s17[0], setDrawCount = s17[1];
+    var drawHistory = useRef([]), drawLast = useRef([]);
+    var DR = W.MaerminChartDrawings;
     var plotRef = useRef(null), chartRef = useRef(null);
     var CI = W.MaerminChartIndicators;
     var tf = timeframe(prefs.timeframe);
@@ -488,6 +537,102 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         calc: function (dataList) { return dataList.map(function (x, i) { return { avg: values[i] == null ? null : values[i] }; }); } };
       if (hasAvg) chart.overrideIndicator(spec); else chart.createIndicator(Object.assign({ paneId: 'candle_pane' }, spec), true);
     }, [lib, trades, shown, lang, sym && base ? 1 : 0]);
+
+    // CH-4: drawings - kept per symbol (any timeframe), saved after every change
+    // stored in the listing currency; with EUR on, each point converts at the rate of its own day
+    var rateAt = function (t) { var r = convertEUR(1, cur, new Date(t).toISOString().slice(0, 10)); r = r && typeof r === 'object' ? r.value : r; return r > 0 ? r : 1; };
+    var mapPoints = function (d, f) { return Object.assign({}, d, { points: d.points.map(function (p) { return { t: p.t, v: f(p.v, p.t) }; }) }); };
+    var drawCurrent = function () {
+      var chart = chartRef.current;
+      if (!chart || !DR) return [];
+      var list = chart.getOverlays({ groupId: DR.GROUP }).map(DR.fromOverlay).filter(Boolean);
+      return eurOn ? list.map(function (d) { return mapPoints(d, function (v, t) { return v / rateAt(t); }); }) : list;
+    };
+    var drawSave = function (list, noHistory) {
+      if (!DR) return;
+      if (!noHistory) { drawHistory.current.push(drawLast.current); if (drawHistory.current.length > 30) drawHistory.current.shift(); }
+      drawLast.current = list;
+      DR.save(store, DR.setSymbol(DR.load(store), sym, list));
+      setDrawCount(list.length);
+    };
+    var persist = function () { drawSave(drawCurrent()); };
+    var handlers = function () {
+      return {
+        onPressedMoveEnd: function () { persist(); },
+        onSelected: function (ev) { var o = ev && ev.overlay; if (o) setSelected({ id: o.id, name: o.name }); },
+        onDeselected: function () { setSelected(null); },
+        onDoubleClick: function (ev) { var o = ev && ev.overlay; if (o && o.name === 'mrmText') setNoteDlg({ id: o.id, text: (o.extendData && o.extendData.text) || '' }); }
+      };
+    };
+    var drawShow = function (list) {
+      var chart = chartRef.current;
+      if (!chart || !DR) return;
+      chart.removeOverlay({ groupId: DR.GROUP });
+      var shownList = eurOn ? list.map(function (d) { return mapPoints(d, function (v, t) { return v * rateAt(t); }); }) : list;
+      if (shownList.length) chart.createOverlay(shownList.map(function (d) { return Object.assign(DR.toCreate(d), handlers()); }));
+      setSelected(null);
+    };
+    // the symbol's drawings, once its bars are on the chart
+    useEffect(function () {
+      if (!chartRef.current || !DR || !shown.length) return;
+      var list = DR.forSymbol(DR.load(store), sym);
+      drawHistory.current = []; drawLast.current = list;
+      drawShow(list);
+      setDrawCount(list.length);
+    }, [lib, sym, shown, sym && base ? 1 : 0]);
+    var startTool = function (t) {
+      var chart = chartRef.current;
+      if (!chart || !DR) return;
+      setTool(t.id); setAlertMsg(null);
+      chart.createOverlay(Object.assign({ name: t.overlay, groupId: DR.GROUP, id: 'd' + Date.now().toString(36),
+        extendData: t.id === 'text' ? { text: '' } : null,
+        onDrawEnd: function (ev) {
+          setTool(null);
+          persist();
+          var o = ev && ev.overlay;
+          if (o && o.name === 'mrmText') setNoteDlg({ id: o.id, text: '' });
+        } }, handlers()));
+    };
+    var removeSelected = function () {
+      var chart = chartRef.current;
+      if (!chart || !selected) return;
+      chart.removeOverlay({ id: selected.id });
+      setSelected(null);
+      persist();
+    };
+    var undo = function () {
+      if (!drawHistory.current.length) return;
+      var prev = drawHistory.current.pop();
+      drawShow(prev);
+      drawSave(prev, true);
+    };
+    var clearAll = function () {
+      if (!clearArm) { setClearArm(true); setTimeout(function () { setClearArm(false); }, 4000); return; }
+      setClearArm(false);
+      drawShow([]);
+      drawSave([]);
+    };
+    var saveNote = function (text) {
+      var chart = chartRef.current;
+      if (chart && noteDlg) chart.overrideOverlay({ id: noteDlg.id, extendData: { text: String(text || '').slice(0, 200) } });
+      setNoteDlg(null);
+      persist();
+    };
+    // "Create alert at this price": a normal price rule in Alerts & Rules (rules-engine.js)
+    var createAlert = function () {
+      var chart = chartRef.current, Rr = W.MaerminRules;
+      if (!chart || !selected || !Rr || !DR || data.state !== 'ok') return;
+      var o = chart.getOverlays({ id: selected.id })[0];
+      var price = o && o.points && o.points[0] ? o.points[0].value : null;
+      var lastListing = data.bars.length ? data.bars[data.bars.length - 1].c : null;
+      var today = new Date().toISOString().slice(0, 10);
+      var rate = eurOn ? convertEUR(1, cur, today) : null;
+      rate = rate && typeof rate === 'object' ? rate.value : rate;
+      var rule = DR.alertRule(sym, price, lastListing, { toListing: eurOn && rate ? function (v) { return v / rate; } : null });
+      if (!rule) return;
+      Rr.save(Rr.addRule(Rr.load(), rule));
+      setAlertMsg({ text: __('kcAlertCreated', 'Alert created: {sym} {op} {price} {cur}', { sym: sym, op: rule.op === 'gte' ? '≥' : '≤', price: I.num(rule.threshold, precision(rule.threshold)), cur: cur }) });
+    };
 
     // compare: the other symbols' bars for the same timeframe
     var cmpKey = (prefs.compare || []).join();
@@ -707,6 +852,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('td', { className: 'num' }, r.value == null ? '–' : I.num(r.value, 2)), e('td', { className: 'tone-' + (r.sign > 0 ? 'gain' : r.sign < 0 ? 'loss' : 'neutral') }, r.vote));
         })))),
       e('p', { className: 'ui-muted' }, __('kcRatingHow', 'MAERMIN’s own method: moving averages vs. price (trend) and RSI, Stochastic, MACD and Donchian (momentum), averaged. '), __('trustNoAdvice', 'No tax or investment advice — estimates only.'))) : null;
+    var TOOL_LABEL = { trend: __('kcDrawTrend', 'Trend line'), ray: __('kcDrawRay', 'Ray'), hline: __('kcDrawHline', 'Horizontal line'), vline: __('kcDrawVline', 'Vertical line'),
+      channel: __('kcDrawChannel', 'Parallel channel'), fib: __('kcDrawFib', 'Fibonacci'), rect: __('kcDrawRect', 'Rectangle'), text: __('kcDrawText', 'Text note'), measure: __('kcDrawMeasure', 'Measure') };
+    var drawRow = DR ? e('div', { className: 'ui-ch-draw', role: 'toolbar', 'aria-label': __('kcDraw', 'Draw'), 'data-testid': 'ch-draw',
+        onKeyDown: function (ev) { if ((ev.key === 'Delete' || ev.key === 'Backspace') && selected) { ev.preventDefault(); removeSelected(); } } },
+      e('span', { className: 'ui-ch-draw__label' }, __('kcDraw', 'Draw')),
+      DR.TOOLS.map(function (t) {
+        return e(UIC.Chip, { key: t.id, 'data-testid': 'ch-draw-' + t.id, pressed: tool === t.id, onClick: function () { startTool(t); } }, TOOL_LABEL[t.id]);
+      }),
+      selected && selected.name === 'horizontalStraightLine' ? e(UIC.Button, { size: 'sm', variant: 'primary', 'data-testid': 'ch-alert', onClick: createAlert }, __('kcAlertHere', 'Create alert at this price')) : null,
+      selected ? e(UIC.Button, { size: 'sm', 'data-testid': 'ch-draw-delete', onClick: removeSelected }, __('kcDrawDelete', 'Delete')) : null,
+      e(UIC.Button, { size: 'sm', variant: 'quiet', 'data-testid': 'ch-draw-undo', disabled: !drawHistory.current.length, onClick: undo }, __('kcDrawUndo', 'Undo')),
+      drawCount ? e(UIC.Button, { size: 'sm', variant: 'quiet', 'data-testid': 'ch-draw-clear', onClick: clearAll }, clearArm ? __('kcDrawClearConfirm', 'Click again to delete all') : __('kcDrawClear', 'Clear all')) : null) : null;
+    var alertNote = alertMsg ? e('p', { className: ['ui-callout'].join(' '), role: 'status', 'data-testid': 'ch-alert-msg' }, alertMsg.text, ' ',
+      props.onOpenRules ? e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: props.onOpenRules }, __('kcOpenRules', 'Open Alerts & Rules')) : null) : null;
+    var noteDialog = e(UIC.Modal, { open: !!noteDlg, onClose: function () { saveNote(noteDlg ? noteDlg.text : ''); }, title: __('kcNoteTitle', 'Text note'), 'data-testid': 'ch-note-dialog',
+        footer: e(UIC.Button, { variant: 'primary', 'data-testid': 'ch-note-save', onClick: function () { var el = document.querySelector('[data-testid="ch-note-input"]'); saveNote(el ? el.value : ''); } }, __('kcNoteSave', 'Save')) },
+      noteDlg ? e(UIC.Input, { label: __('kcNoteLabel', 'Note'), defaultValue: noteDlg.text, maxLength: 200, 'data-testid': 'ch-note-input', autoFocus: true,
+        onKeyDown: function (ev) { if (ev.key === 'Enter') saveNote(ev.target.value); } }) : null);
     var toolbar = e('div', { className: 'ui-ch-toolbar', role: 'toolbar', 'aria-label': __('kcToolbar', 'Chart settings') },
       e(UIC.Segmented, { 'data-testid': 'ch-type', size: 'sm', label: __('kcType', 'Chart type'), value: typeId,
         options: TYPES.map(function (t) { return { value: t.id, label: typeLabel[t.id], disabled: !ohlc && t.needsOhlc }; }),
@@ -752,7 +915,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       base && !sym ? e(UIC.EmptyState, { title: __('kcTitle', 'Charts'), text: __('kcPick', 'Pick a symbol: one you hold, one on your watchlist, or search for any other.') }) : null,
       sym && base ? toolbar : null,
       sym && base ? active : null,
-      dialog,
+      sym && base && data.state === 'ok' ? drawRow : null,
+      alertNote,
+      dialog, noteDialog,
       sym && base ? e(UIC.ChartFrame, { 'data-testid': 'ch-chart-card', title: title, summary: summary || undefined, source: __('trustNoAdvice', 'No tax or investment advice — estimates only.'),
           legend: cmpCalc ? [{ series: '1', label: sym }].concat(cmpCalc.syms.map(function (c, i) { return { series: String(i + 2), label: c, value: fmtPct(cmpCalc.pct[i]) }; })) : null },
         lib === 'error' ? e(UIC.EmptyState, { kind: 'error', compact: true, testid: 'ch-lib-error', title: __('kcLibErrorTitle', 'The chart could not start'),

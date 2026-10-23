@@ -49,6 +49,7 @@
     'maermin_rebalance_targets',
     'maermin_rebalance_prefs',   // Rebalancing view: mode, tolerance bands, never-sell holdings (P4-4)
     'maermin_chart_prefs',       // Charts view: last symbol, type, timeframe, scale, EUR, volume (CH-3a)
+    'maermin_chart_drawings',    // Charts view: your drawings per symbol (CH-4)
     'maermin_rules',
     'maermin_custom_categories',
     'maermin_div_autobook',
