@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v12.0 – Extended Features
+// MAERMIN v12.1 – Extended Features
 // Implements: Sparklines, price-quality badge, Watchlist
 // ============================================================================
 (function () {

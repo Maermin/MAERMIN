@@ -7,7 +7,7 @@
 Stocks · ETFs · Bonds · Crypto · CS2 Skins · Real assets · Budget
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/?demo)
-[![Version](https://img.shields.io/badge/Version-12.0.0-3b82f6?style=for-the-badge)](#changelog)
+[![Version](https://img.shields.io/badge/Version-12.1.0-3b82f6?style=for-the-badge)](#changelog)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![No MAERMIN account](https://img.shields.io/badge/MAERMIN%20Account-not%20needed-f59e0b?style=for-the-badge)](#privacy--security)
 [![Data stays on your device](https://img.shields.io/badge/Your%20data-stays%20on%20your%20device-22c55e?style=for-the-badge)](#privacy--security)
@@ -295,7 +295,8 @@ See [RELEASE.md](RELEASE.md) for full release notes.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **v12.0 "Atlas"** | Oct 2026 | Value-change attribution · Benchmark replay · Full ETF look-through · Bonds · 13 PDF banks, FinTS, wallets, more exchanges · Loss carry-forward · Sell simulator · Vorabpauschale forecast · Austria, Switzerland, US limits · Push reminders · Local MCP server · Budget · Research · Events · Serverless sync · Saving goals |
+| **v12.1 "Atlas Map"** | Oct 2026 | Redesign, look and layout only · Rail and dock shell · One component library · Five themes at WCAG AA contrast · Loading, empty and error states · Phone tables as cards, dialogs as sheets |
+| v12.0 "Atlas" | Oct 2026 | Value-change attribution · Benchmark replay · Full ETF look-through · Bonds · 13 PDF banks, FinTS, wallets, more exchanges · Loss carry-forward · Sell simulator · Vorabpauschale forecast · Austria, Switzerland, US limits · Push reminders · Local MCP server · Budget · Research · Events · Serverless sync · Saving goals |
 | v11.0 | Oct 2026 | One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Full German UI · Simple/Advanced mode · Trash & undo · Steam import · Returns heatmap · Closed positions · Withholding tax by country · PP & Parqet import |
 | v10.0 | June 2026 | New dark-fintech UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout · Portfolio Intelligence |
 | v9.0 | March 2026 | Real historical chart · Symbol Picker · P&L calculation fix · Yahoo Finance primary |

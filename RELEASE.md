@@ -2,9 +2,13 @@
 
 ## Unreleased
 
-### Redesign "Atlas Map" (Phase 6, 2026-10-17 to 2026-10-19)
+_Nothing yet._
 
-> **Look and layout only** · No data migration (schema stays at v6) · Backup format unchanged · No Worker change · Every calculation, stored key, import path, shortcut and deep link stays as it was
+## [v12.1.0] "Atlas Map" — 23 October 2026
+
+> **Redesign release** · Look and layout only · No data migration (schema stays at v6) · Backup format unchanged (v12.0 backups restore) · No Worker change · Every calculation, stored key, import path, shortcut and deep link stays as it was
+
+### Highlights
 
 - **A new shell.** A rail on the desktop (Home, Activity, Income, Tax, Insight, Settings) and a dock on the phone (Home, Activity, Add, Income, More). Every page has one header with its title, the portfolio scope, Search, Privacy, Settings and Add Transaction, and its sections as tabs.
 - **One set of components.** Buttons, fields, cards, figures, badges, tabs, tables, dialogs, empty states and skeletons come from one shared library (`renderer-components.js`, shown in the component gallery). Every view uses them. On a phone, tables become one card per row and dialogs open as bottom sheets.
@@ -21,6 +25,21 @@
   - Inline styles in the views fell from about 3,000 to 79. The ones left are computed: bar widths, data colours, chart geometry.
   - Hex and `rgb()` literals fell from about 1,030 to 197. Most of those left are stored colours.
   - The old header, sidebar and bottom-nav CSS and code are removed.
+
+### Upgrading from v12.0
+
+- **Nothing to migrate** and no Worker to re-deploy.
+- The offline cache is renamed (`maermin-v12.1`). The first start after the update loads the app once from the network.
+- A saved Customize layout, theme, language and Simple / Advanced mode carry over.
+
+### Phase 6 "Atlas Map" (2026-10-17 to 2026-10-23)
+
+- **R0 Audit and direction:** all 32 views in five themes, three design directions, the owner picked C "Atlas Map"; the contract is `docs/DESIGN-SYSTEM.md`.
+- **R1 Foundations (#198–#200):** tokens with a bridge for the old theme objects, the shared components and a component gallery.
+- **R2 Shell (#203–#205):** rail, page header with tabs, dock and More sheet, command palette, lock screen and demo banner.
+- **R3 Core views (#206–#211):** Overview, Portfolios and Net Worth, Transactions, Import / Export, Dividends, Tax & FIFO.
+- **R4 Analysis (#212–#219):** Returns, Health and risk, Research, Strategy, Fees, market views, planning and cash, then the remaining panels and dialogs.
+- **R5 Polish (#220–#227):** Settings and dialogs, loading / empty / error states and motion, the accessibility and phone pass, cleanup and this release.
 
 The milestone reports are in `docs/REDESIGN-R1-REPORT.md` … `docs/REDESIGN-R5-REPORT.md`. The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
 
