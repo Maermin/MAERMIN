@@ -15,7 +15,7 @@ only), in `docs/screenshots/redesign-r5.1/` … `redesign-r5.4b/`; the README pi
 | R5.3 Accessibility and phone pass | https://github.com/Maermin/MAERMIN/pull/224 | merged |
 | R5.4 part 1 · renderer.js | https://github.com/Maermin/MAERMIN/pull/225 | merged |
 | R5.4 part 2 · Remaining view files | https://github.com/Maermin/MAERMIN/pull/226 | merged |
-| R5.4 part 3 · Cleanup and release | PR_R54C | in review |
+| R5.4 part 3 · Cleanup and release | https://github.com/Maermin/MAERMIN/pull/227 | in review |
 
 R5.1 and R5.4 were split into three PRs each so that each diff stays reviewable. The plan listed each as one package.
 
@@ -58,7 +58,7 @@ R5.1 and R5.4 were split into three PRs each so that each diff stays reviewable.
 - R2: shell and navigation, #203–#205.
 - R3: core views, #206–#211.
 - R4: analysis views, panels and dialogs, #212–#219.
-- R5: polish and release, #220–#226 and this one.
+- R5: polish and release, #220–#227.
 
 Reports: `docs/REDESIGN-R1-REPORT.md` … `docs/REDESIGN-R5-REPORT.md`.
 
