@@ -40,6 +40,19 @@ const mo = CE.parseBars(DFX.respond(url('action=yf&symbol=SAP.DE&interval=1mo&ra
 ok('weekly and monthly bars group the days', wk.bars.length > 500 && wk.bars.length < 530 && mo.bars.length >= 120 && mo.bars.length <= 122, [wk.bars.length, mo.bars.length]);
 ok('the last weekly close is today\'s close', Math.abs(wk.bars[wk.bars.length - 1].c - lastClose) < 1e-9);
 
+console.log('\nCH-5: benchmark and index symbols get candles too:');
+['^GSPC', '^NDX', 'URTH', 'VT', 'EUNL.DE', 'SXR8.DE'].forEach((s) => {
+  const r = DFX.respond(url('action=yf&symbol=' + encodeURIComponent(s) + '&interval=1d&range=1y&bars=1'), today);
+  const b = r.status === 200 ? CE.parseBars(r.body) : null;
+  ok(s + ': candles in ' + (s.endsWith('.DE') ? 'EUR' : 'USD') + ', valid', !!b && b.ohlc && b.currency === (s.endsWith('.DE') ? 'EUR' : 'USD')
+    && b.bars.length > 250 && b.bars.every((x) => x.l <= Math.min(x.o, x.c) && x.h >= Math.max(x.o, x.c) && x.l > 0), [r.status, b && b.bars.length]);
+});
+const gspcLine = DFX.respond(url('action=yf&symbol=%5EGSPC&interval=1d&range=1y'), today).body.prices;
+const gspcBars = CE.parseBars(DFX.respond(url('action=yf&symbol=%5EGSPC&interval=1d&range=1y&bars=1'), today).body).bars;
+ok('index candles close where the benchmark line does', Math.abs(gspcBars[gspcBars.length - 1].c - gspcLine[gspcLine.length - 1].price) < 0.01, [gspcBars[gspcBars.length - 1].c, gspcLine[gspcLine.length - 1].price]);
+const gm5 = CE.parseBars(DFX.respond(url('action=yf&symbol=%5EGSPC&interval=5m&range=1mo&bars=1'), today).body);
+ok('intraday index bars in New York hours', gm5.exchangeTz === 'America/New_York' && gm5.bars.length > 1000, [gm5.exchangeTz, gm5.bars.length]);
+
 console.log('\nother requests are unchanged:');
 ok('without bars=1 a demo holding is still a local 404', DFX.respond(url('action=yf&symbol=SAP.DE&interval=1d&range=1y'), today).status === 404);
 ok('monthly history for the dividend backtest unchanged (no candles)', DFX.respond(url('action=yf&symbol=KO&interval=1mo&range=10y'), today).body.prices[0].o === undefined);
