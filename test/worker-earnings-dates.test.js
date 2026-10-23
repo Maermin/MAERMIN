@@ -38,7 +38,9 @@ function ok(name, cond, detail) { cond ? (passed++, console.log('  ✓ ' + name)
   ok('one upstream call with the calendarEvents module', upstream.length === 1 && /modules=calendarEvents/.test(decodeURIComponent(upstream[0])), upstream);
   const b = await call('action=earnings&symbol=BRK-B');
   ok('no dividend dates: null; a date range is an estimate', b.body.exDividendDate === null && b.body.dividendDate === null && b.body.isEstimate === true && b.body.earningsDateEnd === '2026-11-05', b.body);
-  ok('the version moved on', W.WORKER_VERSION === '2026.10.14');
+  // at least the release that added the dividend dates (2026.10.14); later bumps keep it green
+  const atLeast = (v, min) => { const x = v.split('.').map(Number), y = min.split('.').map(Number); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return true; };
+  ok('the version moved on', atLeast(W.WORKER_VERSION, '2026.10.14'), W.WORKER_VERSION);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failed) process.exit(1);
