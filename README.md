@@ -7,7 +7,7 @@
 Stocks · ETFs · Bonds · Crypto · CS2 Skins · Real assets · Budget
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/?demo)
-[![Version](https://img.shields.io/badge/Version-12.1.0-3b82f6?style=for-the-badge)](#changelog)
+[![Version](https://img.shields.io/badge/Version-12.2.0-3b82f6?style=for-the-badge)](#changelog)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![No MAERMIN account](https://img.shields.io/badge/MAERMIN%20Account-not%20needed-f59e0b?style=for-the-badge)](#privacy--security)
 [![Data stays on your device](https://img.shields.io/badge/Your%20data-stays%20on%20your%20device-22c55e?style=for-the-badge)](#privacy--security)
@@ -110,6 +110,7 @@ Sources (read 2026-10-03): [Parqet pricing](https://parqet.com/pricing) · [Parq
 | **Steam inventory import** | Data → Steam inventory: the CS2 items of a public inventory (SteamID64, profile URL or custom URL name, through your Worker — or paste the inventory JSON) become buys in an editable preview, prices pre-filled with today's Steam Market price · a re-import only offers items not imported before (asset ids) · never books sales |
 | **Trash & Undo** | Deleted transactions, portfolios, savings plans, net-worth accounts, goals, rules and real assets go to a trash for 30 days · every delete toast offers **Undo** · Settings → Trash restores or deletes for good · encrypted, synced and in the full backup; a restore never creates a duplicate |
 | **Research** | One page per security: key figures, analyst ratings and price targets, EPS surprises, company profile, a price chart with SMA/EMA/MACD/Bollinger, and your own position and journal next to it |
+| **Charts** | A full chart workspace (Insight → Charts): candles, bars, Heikin Ashi, line or area from 1 minute to 1 month; linear, log or percent scale; prices in EUR; 12 indicators and up to 3 compared symbols; your own buys, sales, dividends and average cost on the chart; a technical rating with every vote shown; 9 drawing tools saved per symbol, and price alerts straight from a line. Keyboard and screen-reader friendly. Prices come through your own Worker; your trades and drawings never leave the device |
 
 ### Tax
 | Country | What is built in (estimates, not tax advice) |
@@ -295,7 +296,8 @@ See [RELEASE.md](RELEASE.md) for full release notes.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **v12.1 "Atlas Map"** | Oct 2026 | Redesign, look and layout only · Rail and dock shell · One component library · Five themes at WCAG AA contrast · Loading, empty and error states · Phone tables as cards, dialogs as sheets |
+| **v12.2 "Atlas Charts"** | Oct 2026 | Charts workspace · Candles from your own Worker · 12 indicators and compare · Your trades and average cost on the chart · Technical rating · Drawings and alerts from the chart |
+| v12.1 "Atlas Map" | Oct 2026 | Redesign, look and layout only · Rail and dock shell · One component library · Five themes at WCAG AA contrast · Loading, empty and error states · Phone tables as cards, dialogs as sheets |
 | v12.0 "Atlas" | Oct 2026 | Value-change attribution · Benchmark replay · Full ETF look-through · Bonds · 13 PDF banks, FinTS, wallets, more exchanges · Loss carry-forward · Sell simulator · Vorabpauschale forecast · Austria, Switzerland, US limits · Push reminders · Local MCP server · Budget · Research · Events · Serverless sync · Saving goals |
 | v11.0 | Oct 2026 | One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Full German UI · Simple/Advanced mode · Trash & undo · Steam import · Returns heatmap · Closed positions · Withholding tax by country · PP & Parqet import |
 | v10.0 | June 2026 | New dark-fintech UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout · Portfolio Intelligence |

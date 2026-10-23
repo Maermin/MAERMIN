@@ -1,8 +1,40 @@
 # Release Notes
 
-## Unreleased
+## [v12.2.0] "Atlas Charts" — 24 October 2026
 
-> **Worker update:** redeploy your Worker (version 2026.10.15) to get candles for the coming Charts view. Without it the app keeps working as before.
+> **Feature release** · No data migration (schema stays at v6) · Backup format unchanged except two added keys (`maermin_chart_prefs`, `maermin_chart_drawings`); v12.1 backups restore · **Redeploy `cf-worker/worker.js`** (Worker 2026.10.15) for candles: without it Charts shows line and area and says so, and everything else works as before
+
+### Highlights
+
+- **Charts** (Insight → Charts, advanced mode, `g k`; also from Research, a position and the Watchlist).
+  - **Chart types and scales:** candles, bars, Heikin Ashi, line or area; timeframes 1m, 5m, 15m, 1h, 4h, 1D, 1W, 1M; linear, log or percent scale; prices in the listing currency or in EUR at each day's rate.
+  - **Indicators and compare:** SMA, EMA, Bollinger Bands, VWAP, Ichimoku, Donchian, RSI, MACD, Stochastic, ATR, OBV and volume, each with its own settings; up to three symbols compared in percent.
+  - **Your own trades:** buys ▲, sales ▼ and dividends on the bars, and your average cost as a dashed line. All from your ledger, nothing sent anywhere; privacy mode hides the amounts.
+  - **Technical rating:** MAERMIN's own method from moving averages and oscillators, with every vote and its value shown. No investment advice.
+  - **Drawing tools:** trend line, ray, horizontal and vertical line, parallel channel, Fibonacci, rectangle, text note and measure, with Undo. Drawings are saved per symbol, encrypted, in backups and sync.
+  - **Alerts:** "Create alert at this price" on a horizontal line adds a normal rule to Alerts & Rules.
+  - **Keyboard and screen readers:** the chart is one Tab stop (arrows move, + / − zoom, Home / End); a text summary for screen readers; numbers and dates inside the chart in your language; pinch and drag on phones.
+- **Privacy:** only the symbol, interval and range go to your own Worker. Quantities, trades, costs and drawings never leave the device unencrypted. The one third-party script is the pinned chart library (KLineChart 10.1.0 from unpkg, with a Subresource Integrity hash, loaded only when Charts opens).
+- **Demo mode** shows every part of Charts with made-up candles, including indices for compare.
+
+### Upgrading from v12.1
+
+- **Redeploy the Worker** (2026.10.15) for candles, and the owner-hosted shared price Worker too. `?action=version` then reports `ohlcv: true`.
+- **Two new keys**, both encrypted at rest and in the backup: `maermin_chart_prefs` (the chart's settings) and `maermin_chart_drawings` (drawings, also in sync). Nothing to migrate.
+- **Offline cache:** renamed (`maermin-v12.2`). The first start after the update loads the app once from the network, and the chart library is cached the first time Charts opens.
+- **Content Security Policy:** `script-src` gains exactly `https://unpkg.com/klinecharts@10.1.0/dist/umd/`. Nothing else is loosened.
+
+### Phase 7 "Atlas Charts" (2026-10-23 to 2026-10-24)
+
+- **CH-0 Scope (#231):** the brief, the owner's decisions and the library vetting.
+- **CH-1 Worker (#232):** OHLCV in the price route.
+- **CH-2 Maths (#233):** `chart-engine.js`, shared with Research.
+- **CH-3 View (#234–#236):** the view, indicators and compare, your trades and the rating.
+- **CH-4 Drawings (#237):** drawings and alerts.
+- **CH-5 Polish (#238):** keyboard, the tap hint, German formats, demo candles.
+- **CH-6:** this release.
+
+The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
 
 ### Worker
 
