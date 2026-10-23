@@ -1620,6 +1620,59 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // CH-3b: indicators and compare in the demo. RSI, MACD and SMA from the
+  // dialog (SMA period changed), Stochastic as the third oscillator pane, so a
+  // fourth (ATR) is blocked with a note; the summary reads the values; MSFT
+  // compared switches to the percent scale and shows in the legend; removing
+  // it clears the legend; no page error, no CSP violation.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await page.addInitScript(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI)); });
+    const r = { atrBlocked: null, limit: 0, active: '', live: '', scale: '', legend: '', after: -1, csp: null };
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^AAPL$/ }).click();
+      await page.locator('[data-testid="ch-plot"] canvas').first().waitFor({ timeout: 15000 });
+      await page.locator('[data-testid="ch-ind-open"]').click();
+      await page.locator('[data-testid="ch-ind-dialog"]').waitFor({ timeout: 5000 });
+      for (const id of ['rsi', 'macd', 'sma', 'stoch']) { await page.locator('[data-testid="ch-ind-' + id + '"] button').first().click(); await page.waitForTimeout(250); }
+      const sma = page.locator('[data-testid="ch-par-sma-0"]');
+      await sma.fill('10'); await sma.press('Enter');
+      await page.waitForTimeout(300);
+      r.atrBlocked = await page.locator('[data-testid="ch-ind-atr"] button').first().isDisabled();
+      r.limit = await page.locator('[data-testid="ch-pane-limit"]').count();
+      await page.getByRole('button', { name: 'Done', exact: true }).click();
+      await page.waitForTimeout(600);
+      r.active = (await page.locator('[data-testid^="ch-active-"]').allTextContents()).join('|');
+      await page.waitForFunction(() => /Indicators: RSI 14: [\d.,]+/.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 10000 });
+      r.live = await page.locator('[data-testid="ch-live"]').textContent();
+      await page.locator('[data-testid="ch-cmp-input"]').fill('MSFT');
+      await page.locator('[data-testid="ch-cmp-add"]').click();
+      await page.waitForFunction(() => /Compared: MSFT [+-][\d.,]+ %/.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 15000 });
+      r.scale = (await page.locator('[data-testid="ch-scale"] [role="radio"][aria-checked="true"]').textContent()) || '';
+      r.legend = (await page.locator('[data-testid="ch-chart-card"] .ui-chart__legend').innerText()).replace(/\s+/g, ' ');
+      await page.locator('[data-testid="ch-cmp-rm-MSFT"]').click();
+      await page.waitForTimeout(800);
+      r.after = await page.locator('[data-testid="ch-chart-card"] .ui-chart__legend').count();
+      r.csp = await page.evaluate(() => window.__csp);
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r).slice(0, 300); }
+    ok('CH-3b: RSI, MACD, SMA (period 10) and Stochastic from the dialog; a fourth oscillator pane is blocked with a note', !err && r.atrBlocked === true && r.limit === 1 && r.active === 'Volume|RSI 14|MACD 12, 26, 9|SMA 10 · 50 · 200|Stoch 14, 3, 3', err || JSON.stringify(r));
+    ok('CH-3b: the screen-reader summary reads the indicator values', /RSI 14: [\d.,]+; MACD 12, 26, 9: -?[\d.,]+; SMA 10 · 50 · 200: [\d.,]+; Stoch 14, 3, 3: [\d.,]+/.test(r.live), err || r.live);
+    ok('CH-3b: compare MSFT → percent scale, the legend names it with its change; removing it clears the legend', r.scale === '%' && /AAPL/.test(r.legend) && /MSFT\s*[+-][\d.,]+ %/.test(r.legend) && r.after === 0, err || JSON.stringify(r));
+    ok('CH-3b: no CSP violation with indicators and compare', Array.isArray(r.csp) && r.csp.length === 0, err || JSON.stringify(r.csp));
+    ok('no page errors in Charts (indicators, compare)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
