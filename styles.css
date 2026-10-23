@@ -2270,6 +2270,13 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 /* CH-4: the drawing tools */
 .ui-ch-draw { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); }
 .ui-ch-draw__label { font-size: var(--type-small, 0.85rem); color: var(--text-dim); margin-right: var(--space-1); }
+/* CH-5: what to do while a tool is active; the chart's keys while it has focus */
+.ui-ch-keys, .ui-ch-hint { position: absolute; left: var(--space-2); bottom: 30px; z-index: 2; margin: 0; pointer-events: none; max-width: calc(100% - 96px);
+  padding: 2px var(--space-2); border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); font-size: var(--type-small, 0.85rem); }
+.ui-ch-keys { display: none; }
+.ui-ch-hint { color: var(--text); border-color: var(--accent); }
+.ui-ch-plot:focus-visible ~ .ui-ch-keys { display: block; }
+.ui-ch-hint ~ .ui-ch-keys { display: none !important; }
 .ui-ch-votes th, .ui-ch-votes td { text-align: left; }
 .ui-ch-votes th.num, .ui-ch-votes td.num { text-align: right; }
 @media (max-width: 767px) {

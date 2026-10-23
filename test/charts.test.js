@@ -105,6 +105,19 @@ function ok(name, cond, info) {
   ok('no rating: null', C.ratingRows(null) === null);
   ok('My trades is on unless switched off', C.normalizePrefs({}).myTrades === true && C.normalizePrefs({ myTrades: false }).myTrades === false);
 
+  console.log('CH-5: numbers and dates inside the chart:');
+  ok('German numbers: 1.234,56; negatives, suffixes and short ones kept', C.localNum('1234.56', 'de') === '1.234,56' && C.localNum('-1234567.5', 'de') === '-1.234.567,5'
+    && C.localNum('1.234K', 'de') === '1,234K' && C.localNum('12.30', 'de') === '12,30' && C.localNum('999', 'de') === '999', [C.localNum('1234.56', 'de'), C.localNum('1.234K', 'de')]);
+  ok('English numbers: 1,234.56', C.localNum('1234.56', 'en') === '1,234.56' && C.localNum('-0.0042', 'en') === '-0.0042');
+  ok('not a number: unchanged', C.localNum('--', 'de') === '--' && C.localNum('', 'de') === '');
+  const parts = { YYYY: '2026', MM: '10', DD: '05', HH: '15', mm: '30', ss: '07' };
+  const months = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sept.', 'Okt.', 'Nov.', 'Dez.'];
+  ok('German dates: day, day + month, month name, with time', C.localDate(parts, 'YYYY-MM-DD', 'de', months) === '05.10.2026' && C.localDate(parts, 'MM-DD', 'de', months) === '05.10.'
+    && C.localDate(parts, 'YYYY-MM', 'de', months) === 'Okt. 2026' && C.localDate(parts, 'YYYY-MM-DD HH:mm', 'de', months) === '05.10.2026 15:30' && C.localDate(parts, 'MM-DD HH:mm', 'de', months) === '05.10. 15:30');
+  ok('English dates as I.date writes them (10/05/2026)', C.localDate(parts, 'YYYY-MM-DD', 'en', []) === '10/05/2026' && C.localDate(parts, 'MM-DD', 'en', []) === '10/05');
+  ok('years and times unchanged; unknown templates filled', C.localDate(parts, 'YYYY', 'de') === '2026' && C.localDate(parts, 'HH:mm', 'de') === '15:30'
+    && C.localDate(parts, 'HH:mm:ss', 'en') === '15:30:07' && C.localDate(parts, 'DD/MM', 'de') === '05/10');
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

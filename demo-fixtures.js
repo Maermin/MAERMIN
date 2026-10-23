@@ -155,11 +155,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var BAR_DAYS = { '1d': 1, '5d': 7, '1mo': 31, '3mo': 92, '6mo': 183, '1y': 366, '2y': 731, '5y': 1827, '10y': 3653, max: 3653 };
   var BAR_MIN = { '1m': 1, '2m': 2, '5m': 5, '15m': 15, '30m': 30, '60m': 60, '90m': 90, '1h': 60 };
   function unit(seed) { return (hash(seed) % 100000) / 100000; } // 0 … 1
+  // CH-5: the benchmark and index symbols (^GSPC, URTH, EUNL.DE …) get candles
+  // around the same closes the benchmark views use, so compare works in demo mode.
   function yfBars(sym, interval, range, todayIso) {
     var t = dayNo(todayIso || todayISO());
     var hs = demoSeries(t)['stocks|' + sym];
-    if (!hs || !hs.d.length) return null;
-    var closeAt = function (n) {
+    var bench = !(hs && hs.d.length) && (BENCH[sym] || BENCH_EUR[sym]) ? (BENCH_EUR[sym] ? 'EUR' : 'USD') : null;
+    if (!bench && (!hs || !hs.d.length)) return null;
+    if (bench) hs = { cur: bench };
+    var closeAt = bench ? function (n) { return bench === 'EUR' ? eurLevel(sym, n, t) : benchLevel(sym, n, t); } : function (n) {
       if (n < hs.d[0]) return hs.p[0] * Math.exp(-0.07 * (hs.d[0] - n) / 365) * (1 + 0.012 * Math.sin(n / 5.3 + hash(sym) % 7));
       var lo = 0, hi = hs.d.length - 1;
       while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (hs.d[mid] <= n) lo = mid; else hi = mid - 1; }

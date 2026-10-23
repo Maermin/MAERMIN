@@ -148,6 +148,35 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return Object.keys(s).filter(isMarket).sort();
   }
 
+  // ---- CH-5: numbers and dates inside the chart in the app's language ------------------------
+  // The library writes "1234.56" and "2026-10-23"; these turn its strings into
+  // "1.234,56" / "1,234.56" and "23.10.2026" / "10/23/2026", as I.num and I.date do.
+  function localNum(s, lang) {
+    var m = /^([+-]?)(\d+)(?:\.(\d+))?(.*)$/.exec(String(s));
+    if (!m) return String(s);
+    var de = lang === 'de', sep = de ? '.' : ',', dec = de ? ',' : '.';
+    return m[1] + m[2].replace(/\B(?=(\d{3})+$)/g, sep) + (m[3] != null ? dec + m[3] : '') + m[4];
+  }
+  // parts: { YYYY, MM, DD, HH, mm, ss } in the exchange's zone; months: short names
+  var DATE_PARTS = ['YYYY', 'MM', 'DD', 'HH', 'mm', 'ss']; // the library's template tokens
+  function localDate(p, template, lang, months) {
+    var de = lang === 'de', mon = (months || [])[parseInt(p.MM, 10) - 1] || p.MM;
+    var day = de ? p.DD + '.' + p.MM + '.' + p.YYYY : p.MM + '/' + p.DD + '/' + p.YYYY;
+    var dayMonth = de ? p.DD + '.' + p.MM + '.' : p.MM + '/' + p.DD;
+    var time = p.HH + ':' + p.mm;
+    switch (template) {
+      case 'YYYY': return p.YYYY;
+      case 'YYYY-MM': return mon + ' ' + p.YYYY;
+      case 'YYYY-MM-DD': return day;
+      case 'MM-DD': return dayMonth;
+      case 'MM-DD HH:mm': return dayMonth + ' ' + time;
+      case 'YYYY-MM-DD HH:mm': return day + ' ' + time;
+      case 'HH:mm': return time;
+      case 'HH:mm:ss': return time + ':' + p.ss;
+      default: return template.replace(/YYYY|MM|DD|HH|mm|ss/g, function (k) { return p[k]; });
+    }
+  }
+
   // ---- CH-3c: your trades on the bars, the rating in words ------------------------------------
   // Each mark on the bar that holds its date: daily → that day's bar (a day
   // without one → the bar before); intraday → the first bar of that day;
@@ -364,7 +393,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s15 = useState(null); var alertMsg = s15[0], setAlertMsg = s15[1];
     var s16 = useState(false); var clearArm = s16[0], setClearArm = s16[1];
     var s17 = useState(0); var drawCount = s17[0], setDrawCount = s17[1];
-    var drawHistory = useRef([]), drawLast = useRef([]);
+    var drawHistory = useRef([]), drawLast = useRef([]), pending = useRef(null);
     var DR = W.MaerminChartDrawings;
     var plotRef = useRef(null), chartRef = useRef(null);
     var CI = W.MaerminChartIndicators;
@@ -442,8 +471,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (lib !== 'ready' || !plotRef.current || chartRef.current) return;
       var K = W.klinecharts;
       registerIndicators(K);
-      chartRef.current = K.init(plotRef.current);
+      // its own shortcuts listen on the whole page (Shift+arrows, Shift+= / −): off; the plot has its own keys (CH-5)
+      chartRef.current = K.init(plotRef.current, { hotkey: { enabled: false } });
       var el = plotRef.current, ro = null;
+      // its container has tabindex="1", which would put the chart first in the page's Tab order;
+      // -1 keeps it focusable by a click (keys then reach the plot's handler), the plot itself is the Tab stop
+      Array.prototype.forEach.call(el.querySelectorAll('[tabindex]'), function (n) { n.setAttribute('tabindex', '-1'); });
       if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(function () { if (chartRef.current) chartRef.current.resize(); }); ro.observe(el); }
       return function () { if (ro) ro.disconnect(); req(function () { K.dispose(el); }); chartRef.current = null; };
     }, [lib, sym && base ? 1 : 0]);
@@ -460,15 +493,25 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         week: __('kcUnitWeek', 'W'), month: __('kcUnitMonth', 'M'), year: __('kcUnitYear', 'Y')
       });
       chart.setLocale('maermin');
+      // CH-5: numbers and dates as the rest of the app writes them (axis, tooltip, crosshair, last price)
+      var months = I && I.monthNames ? I.monthNames('short') : [];
+      chart.setThousandsSeparator({ format: function (v) { return localNum(v, lang); } });
+      chart.setDecimalFold({ format: function (v) { return String(v); } }); // no "0.0{5}1" shorthand
+      chart.setFormatter({ formatDate: function (q) {
+        var f = (K.utils.formatDate(q.dateTimeFormat, q.timestamp, DATE_PARTS.join('|')) || '').split('|');
+        return localDate({ YYYY: f[0], MM: f[1], DD: f[2], HH: f[3], mm: f[4], ss: f[5] }, q.template, lang, months);
+      } });
     }, [lib, lang, sym && base ? 1 : 0]);
 
+    var reducedMotion = function () {
+      return !!req(function () { return W.matchMedia('(prefers-reduced-motion: reduce)').matches; }) || !!req(function () { return document.documentElement.classList.contains('mx-still'); });
+    };
     // colours and type (follow the theme)
     useEffect(function () {
       var chart = chartRef.current, T = W.MaerminTokens;
       if (!chart || !T) return;
       var family = req(function () { return getComputedStyle(document.body).fontFamily; });
-      var still = !!req(function () { return W.matchMedia('(prefers-reduced-motion: reduce)').matches; }) || !!req(function () { return document.documentElement.classList.contains('mx-still'); });
-      chart.setStyles(chartStyles(T.resolve, typeId, T.alpha, { family: family, still: still, narrow: narrow }));
+      chart.setStyles(chartStyles(T.resolve, typeId, T.alpha, { family: family, still: reducedMotion(), narrow: narrow }));
     }, [lib, typeId, themeKey, narrow, sym && base ? 1 : 0]);
 
     // scale
@@ -570,7 +613,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       chart.removeOverlay({ groupId: DR.GROUP });
       var shownList = eurOn ? list.map(function (d) { return mapPoints(d, function (v, t) { return v * rateAt(t); }); }) : list;
       if (shownList.length) chart.createOverlay(shownList.map(function (d) { return Object.assign(DR.toCreate(d), handlers()); }));
-      setSelected(null);
+      pending.current = null;
+      setSelected(null); setTool(null);
     };
     // the symbol's drawings, once its bars are on the chart
     useEffect(function () {
@@ -580,13 +624,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       drawShow(list);
       setDrawCount(list.length);
     }, [lib, sym, shown, sym && base ? 1 : 0]);
+    // an unfinished drawing: Escape (or another tool) takes it off again
+    var cancelTool = function () {
+      var chart = chartRef.current;
+      if (chart && pending.current) chart.removeOverlay({ id: pending.current });
+      pending.current = null;
+      setTool(null);
+    };
     var startTool = function (t) {
       var chart = chartRef.current;
       if (!chart || !DR) return;
+      if (pending.current) cancelTool();
+      var id = 'd' + Date.now().toString(36);
+      pending.current = id;
       setTool(t.id); setAlertMsg(null);
-      chart.createOverlay(Object.assign({ name: t.overlay, groupId: DR.GROUP, id: 'd' + Date.now().toString(36),
+      chart.createOverlay(Object.assign({ name: t.overlay, groupId: DR.GROUP, id: id,
         extendData: t.id === 'text' ? { text: '' } : null,
         onDrawEnd: function (ev) {
+          pending.current = null;
           setTool(null);
           persist();
           var o = ev && ev.overlay;
@@ -618,6 +673,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setNoteDlg(null);
       persist();
     };
+    // CH-5: keys on the focused chart - move, zoom, newest / oldest bar, cancel or delete a drawing
+    var onPlotKey = function (ev) {
+      var chart = chartRef.current, k = ev.key, code = ev.code;
+      if (!chart || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      var dur = reducedMotion() ? 0 : 160, step = ev.shiftKey ? 240 : 48;
+      if (k === 'ArrowLeft') chart.scrollByDistance(step, dur);
+      else if (k === 'ArrowRight') chart.scrollByDistance(-step, dur);
+      else if (k === '+' || k === '=' || code === 'NumpadAdd') chart.zoomAtCoordinate(1.25, undefined, dur);
+      else if (k === '-' || k === '−' || code === 'NumpadSubtract') chart.zoomAtCoordinate(0.8, undefined, dur);
+      else if (k === 'End') chart.scrollToRealTime(dur);
+      // the library puts the given bar at the right edge: one screen of bars in, so the first bar sits on the left
+      else if (k === 'Home') { var vr = chart.getVisibleRange() || {}; chart.scrollToDataIndex(Math.min(shown.length - 1, Math.max(0, Math.floor((vr.to || 0) - (vr.from || 0)) - 1)), dur); }
+      else if (k === 'Escape' && (tool || clearArm)) { cancelTool(); setClearArm(false); }
+      else if ((k === 'Delete' || k === 'Backspace') && selected) removeSelected();
+      else return;
+      ev.preventDefault();
+    };
+
     // "Create alert at this price": a normal price rule in Alerts & Rules (rules-engine.js)
     var createAlert = function () {
       var chart = chartRef.current, Rr = W.MaerminRules;
@@ -823,7 +896,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         .concat(trades && !(trades.counts.buys + trades.counts.sells + trades.counts.dividends) ? [__('kcSummaryNoTrades', 'None of your trades fall in this period; average cost {avg}', { avg: avgTxt })] : [])
         .concat(trades && trades.counts.buys + trades.counts.sells + trades.counts.dividends ? [__('kcSummaryTrades', 'Your trades: {b} {b:buy|buys}, {s} {s:sale|sales}, {d} {d:dividend|dividends}; average cost {avg}',
           { b: trades.counts.buys, s: trades.counts.sells, d: trades.counts.dividends, avg: avgTxt })] : [])
-        .concat(rating ? [__('kcSummaryRating', 'Technical rating: {label} ({score})', { label: rating.label, score: I.num(rating.score, 2) })] : []).join('. ')
+        .concat(rating ? [__('kcSummaryRating', 'Technical rating: {label} ({score})', { label: rating.label, score: I.num(rating.score, 2) })] : [])
+        .concat(drawCount ? [__('kcSummaryDrawings', '{n} {n:drawing|drawings} on this symbol', { n: drawCount })] : []).join('. ')
       : '';
     var badge = DFX && DFX.badge ? DFX.badge(React, props.theme, base) : null;
     var plotBusy = lib !== 'ready' || data.state === 'loading';
@@ -854,8 +928,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('p', { className: 'ui-muted' }, __('kcRatingHow', 'MAERMIN’s own method: moving averages vs. price (trend) and RSI, Stochastic, MACD and Donchian (momentum), averaged. '), __('trustNoAdvice', 'No tax or investment advice — estimates only.'))) : null;
     var TOOL_LABEL = { trend: __('kcDrawTrend', 'Trend line'), ray: __('kcDrawRay', 'Ray'), hline: __('kcDrawHline', 'Horizontal line'), vline: __('kcDrawVline', 'Vertical line'),
       channel: __('kcDrawChannel', 'Parallel channel'), fib: __('kcDrawFib', 'Fibonacci'), rect: __('kcDrawRect', 'Rectangle'), text: __('kcDrawText', 'Text note'), measure: __('kcDrawMeasure', 'Measure') };
+    var toolDef = DR && tool ? DR.TOOLS.filter(function (t) { return t.id === tool; })[0] : null;
     var drawRow = DR ? e('div', { className: 'ui-ch-draw', role: 'toolbar', 'aria-label': __('kcDraw', 'Draw'), 'data-testid': 'ch-draw',
-        onKeyDown: function (ev) { if ((ev.key === 'Delete' || ev.key === 'Backspace') && selected) { ev.preventDefault(); removeSelected(); } } },
+        onKeyDown: function (ev) {
+          if ((ev.key === 'Delete' || ev.key === 'Backspace') && selected) { ev.preventDefault(); removeSelected(); }
+          else if (ev.key === 'Escape' && (tool || clearArm)) { ev.preventDefault(); cancelTool(); setClearArm(false); }
+        } },
       e('span', { className: 'ui-ch-draw__label' }, __('kcDraw', 'Draw')),
       DR.TOOLS.map(function (t) {
         return e(UIC.Chip, { key: t.id, 'data-testid': 'ch-draw-' + t.id, pressed: tool === t.id, onClick: function () { startTool(t); } }, TOOL_LABEL[t.id]);
@@ -927,18 +1005,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           action: data.state === 'error' ? { label: __('kcRetry', 'Retry'), onClick: function () { setTries(tries + 1); } } : null }) : null,
         lib !== 'error' && plotBusy ? e(UIC.Skeleton, { shape: 'chart', 'data-testid': 'ch-loading' }) : null,
         lib === 'ready' ? e('div', { className: 'ui-ch-plotwrap' },
-          e('div', { ref: plotRef, 'data-testid': 'ch-plot', style: { height: plotHeight + 'px' }, className: ['ui-ch-plot', plotBusy || dataMsg ? 'is-idle' : ''].join(' ').trim() }),
+          e('div', { ref: plotRef, 'data-testid': 'ch-plot', style: { height: plotHeight + 'px' }, className: ['ui-ch-plot', plotBusy || dataMsg ? 'is-idle' : ''].join(' ').trim(),
+            tabIndex: plotBusy || dataMsg ? -1 : 0, role: 'img', onKeyDown: onPlotKey, 'aria-describedby': 'ch-live',
+            'aria-label': __('kcPlotLabel', 'Price chart of {sym}', { sym: sym }) + '. ' + __('kcPlotKeys', 'Arrow keys move it, + and − zoom, End shows the newest bar.') }),
+          // CH-5: what to do while a tool is active (on the chart, so nothing moves under the pointer)
+          toolDef ? e('p', { className: 'ui-ch-hint', role: 'status', 'data-testid': 'ch-draw-hint' },
+            __('kcPlaceHint', '{tool}: click or tap the chart to place {n} {n:point|points}. Esc cancels.', { tool: TOOL_LABEL[toolDef.id], n: toolDef.points })) : null,
+          e('p', { className: 'ui-ch-keys', 'aria-hidden': 'true' }, __('kcPlotKeys', 'Arrow keys move it, + and − zoom, End shows the newest bar.')),
           tip ? e('div', { className: 'ui-ch-tip', role: 'status', 'data-testid': 'ch-trade-tip', style: { left: Math.max(0, tip.x + 12) + 'px', top: Math.max(0, tip.y - 8) + 'px' } }, tradeTipText(tip.m)) : null) : null) : null,
       sym && base && data.state === 'ok' ? ratingCard : null,
       data.state === 'ok' && !ohlc ? e('p', { 'data-testid': 'ch-old-worker', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('kcOldWorker', 'Your Worker is older than 2026.10.15: redeploy it for candles. Line and area work already.')) : null,
-      e('p', { className: 'sr-only', 'aria-live': 'polite', 'data-testid': 'ch-live' }, summary));
+      e('p', { className: 'sr-only', 'aria-live': 'polite', 'data-testid': 'ch-live', id: 'ch-live' }, summary));
   }
 
   var api = {
     LIB: LIB, TIMEFRAMES: TIMEFRAMES, timeframe: timeframe, TYPES: TYPES, type: type, availableTypes: availableTypes, usableType: usableType,
     SCALES: SCALES, PREFS_KEY: PREFS_KEY, normalizePrefs: normalizePrefs, loadPrefs: loadPrefs, savePrefs: savePrefs,
-    requestUrl: requestUrl, toKLine: toKLine, placeMarks: placeMarks, tradeCounts: tradeCounts, ratingRows: ratingRows, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
+    requestUrl: requestUrl, toKLine: toKLine, localNum: localNum, localDate: localDate, placeMarks: placeMarks, tradeCounts: tradeCounts, ratingRows: ratingRows, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
     View: View
   };
   if (typeof window !== 'undefined') window.MaerminCharts = api;

@@ -1767,6 +1767,117 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // CH-5: keyboard, the tap hint, demo index candles, touch at 390×844.
+  // Tab from the draw row lands on the chart (the library's own tabindex="1"
+  // is gone); arrows and + move and zoom it; a tool shows its hint and Escape
+  // takes an unfinished drawing off again; ^GSPC has candles in the demo and
+  // compares; on a phone a pinch and a one-finger drag change the chart and
+  // the page never scrolls sideways.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { tabs: 0, at: '', positive: -1, moved: false, zoomed: false, hint: '', label: '', afterEsc: -1, hintAfter: -1, gspc: '', old: -1, cmp: '' };
+    let err = '';
+    const snap = () => page.evaluate(() => [...document.querySelectorAll('[data-testid="ch-plot"] canvas')].map((c) => c.toDataURL()).join('|'));
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^AAPL$/ }).click();
+      await page.locator('[data-testid="ch-draw"]').waitFor({ timeout: 15000 });
+      await page.waitForTimeout(500);
+      r.positive = await page.evaluate(() => [...document.querySelectorAll('[tabindex]')].filter((n) => n.tabIndex > 0).length);
+      r.label = await page.locator('[data-testid="ch-plot"]').getAttribute('aria-label');
+      await page.locator('[data-testid="ch-draw-measure"]').focus();
+      while (r.tabs < 10 && r.at !== 'ch-plot') { await page.keyboard.press('Tab'); r.tabs++; r.at = await page.evaluate(() => document.activeElement.getAttribute('data-testid') || ''); }
+      const s0 = await snap();
+      await page.keyboard.press('Shift+ArrowLeft');
+      await page.waitForTimeout(400);
+      const s1 = await snap();
+      r.moved = s1 !== s0;
+      await page.keyboard.press('+'); await page.keyboard.press('+');
+      await page.waitForTimeout(400);
+      r.zoomed = (await snap()) !== s1;
+      // a tool: its hint; one click of two, then Escape: nothing stays
+      await page.locator('[data-testid="ch-draw-trend"]').click();
+      r.hint = await page.locator('[data-testid="ch-draw-hint"]').textContent();
+      await page.locator('[data-testid="ch-plot"]').scrollIntoViewIfNeeded();
+      const box = await page.locator('[data-testid="ch-plot"]').boundingBox();
+      await page.mouse.click(box.x + box.width * 0.4, box.y + 150);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      r.hintAfter = await page.locator('[data-testid="ch-draw-hint"]').count();
+      await page.mouse.click(box.x + box.width * 0.6, box.y + 120);
+      await page.waitForTimeout(400);
+      r.afterEsc = await page.evaluate(() => ((JSON.parse(localStorage.getItem('maermin_chart_drawings') || '{}').bySymbol || {}).AAPL || []).length);
+      // an index in the demo: candles, and it compares
+      await page.locator('[data-testid="ch-symbol"]').fill('^GSPC');
+      await page.locator('[data-testid="ch-go"]').click();
+      await page.waitForFunction(() => /^\^GSPC, 1D, Candles:/.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 15000 });
+      r.gspc = (await page.locator('[data-testid="ch-live"]').textContent()).slice(0, 30);
+      r.old = await page.locator('[data-testid="ch-old-worker"]').count();
+      await page.locator('[data-testid="ch-cmp-input"]').fill('EUNL.DE');
+      await page.locator('[data-testid="ch-cmp-add"]').click();
+      await page.waitForFunction(() => /Compared: EUNL\.DE [+-]/.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 15000 });
+      r.cmp = 'ok';
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('CH-5: Tab from the draw row lands on the labelled chart; no positive tabindex left from the library', !err && r.at === 'ch-plot' && r.tabs <= 3 && r.positive === 0 && /^Price chart of AAPL\. Arrow keys/.test(r.label || ''), err || JSON.stringify(r));
+    ok('CH-5: arrows move the chart, + zooms it (library hotkeys off, the chart has its own)', r.moved && r.zoomed, err || JSON.stringify(r));
+    ok('CH-5: a tool says what to do; Escape takes an unfinished drawing off again', /^Trend line: click or tap the chart to place 2 points/.test(r.hint) && r.hintAfter === 0 && r.afterEsc === 0, err || JSON.stringify(r));
+    ok('CH-5: demo: ^GSPC has candles (no old-Worker note) and EUNL.DE compares', /^\^GSPC, 1D, Candles:/.test(r.gspc) && r.old === 0 && r.cmp === 'ok', err || JSON.stringify(r));
+    ok('no page errors in Charts (keyboard)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { pinch: false, pan: false, wide: 0, hint: 0 };
+    let err = '';
+    const snap = () => page.evaluate(() => [...document.querySelectorAll('[data-testid="ch-plot"] canvas')].map((c) => c.toDataURL()).join('|'));
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('main').first().waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="ch-symbol"]').fill('MSFT');
+      await page.locator('[data-testid="ch-go"]').click();
+      await page.locator('[data-testid="ch-draw"]').waitFor({ timeout: 15000 });
+      await page.waitForTimeout(500);
+      await page.locator('[data-testid="ch-plot"]').scrollIntoViewIfNeeded();
+      const b = await page.locator('[data-testid="ch-plot"]').boundingBox();
+      const cdp = await context.newCDPSession(page);
+      const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([px, py], i) => ({ x: px, y: py, id: i })) });
+      const cx = b.x + b.width / 2, cy = b.y + b.height * 0.4;
+      const s0 = await snap();
+      await touch('touchStart', [[cx - 30, cy], [cx + 30, cy]]);
+      for (let i = 1; i <= 8; i++) await touch('touchMove', [[cx - 30 - i * 12, cy], [cx + 30 + i * 12, cy]]);
+      await touch('touchEnd', []);
+      await page.waitForTimeout(400);
+      const s1 = await snap();
+      r.pinch = s1 !== s0;
+      await touch('touchStart', [[cx, cy]]);
+      for (let i = 1; i <= 8; i++) await touch('touchMove', [[cx + i * 15, cy]]);
+      await touch('touchEnd', []);
+      await page.waitForTimeout(400);
+      r.pan = (await snap()) !== s1;
+      await page.locator('[data-testid="ch-draw-trend"]').click();
+      r.hint = await page.locator('[data-testid="ch-draw-hint"]').count();
+      r.wide = await page.evaluate(() => document.documentElement.scrollWidth);
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('CH-5: phone 390×844: pinch zooms and a drag moves the chart; with the tap hint up the page stays 390 px wide', !err && r.pinch && r.pan && r.hint === 1 && r.wide <= 390, err || JSON.stringify(r));
+    ok('no page errors in Charts (phone touch)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
