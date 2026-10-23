@@ -33,10 +33,15 @@ function ok(name, cond, info) {
   console.log('\nsettings (maermin_chart_prefs):');
   ok('the key', C.PREFS_KEY === 'maermin_chart_prefs');
   const def = C.normalizePrefs(null);
-  ok('defaults: no symbol, candles, 1D, linear, listing currency, volume on', JSON.stringify(def) === JSON.stringify({ symbol: '', type: 'candles', timeframe: '1D', scale: 'linear', eur: false, volume: true }), def);
-  const good = { symbol: ' sap.de ', type: 'heikin', timeframe: '4h', scale: 'log', eur: true, volume: false };
-  ok('valid values kept, symbol trimmed and upper case', JSON.stringify(C.normalizePrefs(good)) === JSON.stringify({ symbol: 'SAP.DE', type: 'heikin', timeframe: '4h', scale: 'log', eur: true, volume: false }));
+  ok('defaults: no symbol, candles, 1D, linear, listing currency, the volume indicator, nothing compared', JSON.stringify(def) === JSON.stringify({ symbol: '', type: 'candles', timeframe: '1D', scale: 'linear', eur: false, indicators: [{ id: 'vol', params: [] }], compare: [] }), def);
+  const good = { symbol: ' sap.de ', type: 'heikin', timeframe: '4h', scale: 'log', eur: true, indicators: [{ id: 'rsi', params: [7] }, { id: 'sma', params: [10, 0, 0] }], compare: [' msft', 'ALV.DE'] };
+  ok('valid values kept, symbols trimmed and upper case', JSON.stringify(C.normalizePrefs(good)) === JSON.stringify({ symbol: 'SAP.DE', type: 'heikin', timeframe: '4h', scale: 'log', eur: true,
+    indicators: [{ id: 'rsi', params: [7] }, { id: 'sma', params: [10, 0, 0] }], compare: ['MSFT', 'ALV.DE'] }), C.normalizePrefs(good));
   const bad = C.normalizePrefs({ symbol: 'AK-47 | Redline', type: 'pie', timeframe: '2h', scale: 'x', eur: 'yes', volume: 0, extra: 1 });
+  ok('CH-3a settings: volume off → no indicators; no flag → the volume indicator', JSON.stringify(C.normalizePrefs({ volume: false }).indicators) === '[]' && C.normalizePrefs({ volume: true }).indicators[0].id === 'vol');
+  const cmpBad = C.normalizePrefs({ symbol: 'SAP.DE', compare: ['sap.de', 'MSFT', 'msft', 'AK-47 | Redline', 7, 'AAPL', 'KO', 'PEP'] });
+  ok('compare: market symbols only, not the main one, once each, at most three', JSON.stringify(cmpBad.compare) === JSON.stringify(['MSFT', 'AAPL', 'KO']), cmpBad.compare);
+  ok('a broken indicator list gives none (no crash)', JSON.stringify(C.normalizePrefs({ indicators: '{oops' }).indicators) === '[]' && JSON.stringify(C.normalizePrefs({ indicators: [{ id: 'nope' }, 5] }).indicators) === '[]');
   ok('invalid values dropped to the defaults, unknown fields left out', JSON.stringify(bad) === JSON.stringify(def), bad);
   ok('a string is parsed; broken JSON gives the defaults', C.normalizePrefs(JSON.stringify(good)).symbol === 'SAP.DE' && JSON.stringify(C.normalizePrefs('{oops')) === JSON.stringify(def));
   const mem = {}; const store = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
