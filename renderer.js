@@ -1116,6 +1116,9 @@ function InvestmentTracker() {
   const [positionDetail, setPositionDetail] = useState(null);
   // P5-5.4: the symbol shown on the Research page
   const [researchSymbol, setResearchSymbol] = useState('');
+  // CH-3a: the symbol shown in Charts ('' = the view's own last symbol)
+  const [chartsSymbol, setChartsSymbol] = useState('');
+  const openCharts = (sym) => { setChartsSymbol(String(sym || '').toUpperCase()); setActiveView('charts'); };
   // P4-2: Overview positions table shows open or fully sold (closed) positions.
   const [posTab, setPosTab] = useState('open');
   const [taxOwner, setTaxOwner] = useState(() => {
@@ -1229,6 +1232,7 @@ function InvestmentTracker() {
     { id: 'nav:intelligence',  label: t.intelTitle || 'Portfolio Intelligence', category: __('palCatTools', 'Tools'), shortcut: 'g i' },
     { id: 'nav:tags',          label: t.navTags || 'Tags',                 category: __('palCatTools', 'Tools'),      shortcut: 'g s' },
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: __('palCatTools', 'Tools'),      shortcut: 'g e' },
+    { id: 'nav:charts',        label: __('navCharts', 'Charts'),           category: __('palCatAnalysis', 'Analysis'),   shortcut: 'g k' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: __('palCatTools', 'Tools'),      shortcut: 'g h' },
     { id: 'nav:trash',         label: t.navTrash || 'Trash',               category: __('palCatTools', 'Tools') },
     { id: 'nav:privacy',       label: t.navPrivacy || 'Privacy',           category: __('palCatTools', 'Tools') },
@@ -2792,6 +2796,7 @@ function InvestmentTracker() {
       case 'nav:intelligence':  setActiveView('intelligence'); break;
       case 'nav:tags':          setActiveView('tags'); break;
       case 'nav:discovery':     setActiveView('discovery'); break;
+      case 'nav:charts':        setActiveView('charts'); break;
       case 'nav:share':         setActiveView('share'); break;
       case 'nav:trash':         setActiveView('trash'); break;
       case 'nav:privacy':       setActiveView('privacy'); break;
@@ -3480,6 +3485,7 @@ function InvestmentTracker() {
           React.createElement(window.MaerminResearch.View, {
             theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: marketWorker,
             exchangeRate, fxAt, privacy: privacyMode,
+            onCharts: window.MaerminCharts ? openCharts : null, // CH-3a
             positions: window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [],
             symbols: (() => {
               const s = new Set(transactions.filter((tx) => tx.symbol && (tx.category === 'stocks' || tx.category === 'bonds')).map((tx) => String(tx.symbol).toUpperCase()));
@@ -3700,8 +3706,19 @@ function InvestmentTracker() {
       case 'watchlist':
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.WatchlistView, {
-            prices, priceHistory, theme: currentTheme, t, addToast
+            prices, priceHistory, theme: currentTheme, t, addToast,
+            onCharts: window.MaerminCharts ? openCharts : null // CH-3a
           }) : renderAnalyticsPlaceholder(t.navWatchlist || 'Watchlist');
+
+      // CH-3a (Phase 7): the Charts workspace - candles, timeframes, scales.
+      // Prices through the Worker (the demo's sample data in demo mode).
+      case 'charts':
+        return window.MaerminCharts ?
+          React.createElement(window.MaerminCharts.View, {
+            theme: currentTheme, transactions, symbol: chartsSymbol, onSymbol: setChartsSymbol,
+            workerUrl: viewWorkerUrl, exchangeRate, fxAt, demo: demoMode,
+            symbols: window.MaerminCharts.quickPicks(transactions, (() => { try { return JSON.parse(localStorage.getItem('maermin_watchlist') || '[]') || []; } catch (e) { return []; } })())
+          }) : renderAnalyticsPlaceholder(__('navCharts', 'Charts'));
 
       case 'transactions':
         return renderTransactionsView();
@@ -4227,6 +4244,8 @@ function InvestmentTracker() {
           workerUrl: marketWorker,
           // P5-5.4: open the Research page for this position
           onResearch: window.MaerminResearch && positionDetail.cat !== 'crypto' && positionDetail.cat !== 'skins' ? () => { setResearchSymbol(String(positionDetail.sym || '').toUpperCase()); setPositionDetail(null); setActiveView('research'); } : null,
+          // CH-3a: open the Charts view for this position
+          onCharts: window.MaerminCharts && positionDetail.cat !== 'crypto' && positionDetail.cat !== 'skins' ? () => { const s = positionDetail.sym; setPositionDetail(null); openCharts(s); } : null,
           closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
           buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
           // A split may have been added/removed inside the modal — re-run

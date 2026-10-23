@@ -204,7 +204,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('input', { 'data-testid': 'rs-symbol', list: 'rs-symbols', value: draft, placeholder: __('rsSymbolPh', 'Symbol, e.g. AAPL or SAP.DE'), 'aria-label': __('rsSymbol', 'Symbol'), className: ['ui-input', 'ui-rs-pick__input'].join(' '),
             onChange: function (ev) { setDraft(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') go(); } }),
           e('datalist', { id: 'rs-symbols' }, (props.symbols || []).map(function (s) { return e('option', { key: s, value: s }); })),
-          e(UIC.Button, { variant: 'primary', 'data-testid': 'rs-go', onClick: go }, __('rsOpen', 'Open')))),
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'rs-go', onClick: go }, __('rsOpen', 'Open')),
+          // CH-3a: the same symbol in the Charts view
+          sym && props.onCharts ? e(UIC.Button, { 'data-testid': 'rs-charts', onClick: function () { props.onCharts(sym); } }, __('rsCharts', 'Open in Charts')) : null)),
       !base ? note(__('rsNeedWorker', 'The research page loads market data through your own Worker (API Settings) or the shared price service.'), true) : null,
       !sym ? e(UIC.EmptyState, { title: __('rsTitle', 'Research'), text: __('rsPick', 'Pick a symbol: one you hold, one on your watchlist, or any other.') }) : null,
       sym && base ? e(UIC.ChartFrame, { 'data-testid': 'rs-chart-card', legend: legend,

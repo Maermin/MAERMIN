@@ -86,6 +86,8 @@ function looksLikeText(s) {
   if (/^→ /.test(s) && SAME_IN_ALL.has(s.slice(2))) return false;
   if (!/[A-Za-z]{2}/.test(s)) return false;
   if (/^(https?:|data:|mailto:|\.\/|\/|#)/.test(s)) return false;
+  if (/^sha(256|384|512)-[A-Za-z0-9+/=]+$/.test(s)) return false;  // SRI hashes (CH-3a)
+  if (/^(Africa|America|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc)\/[A-Za-z_+\/-]+$/.test(s)) return false; // IANA time zones (CH-3a)
   if (/^[a-z0-9_.:\/@-]+$/.test(s)) return false;                // ids, classes, keys, mime
   if (/^[a-z][a-zA-Z0-9]*$/.test(s)) return false;               // camelCase ids
   if (/^[A-Z0-9_.$^=:-]+$/.test(s)) return false;                // CONSTANTS, tickers

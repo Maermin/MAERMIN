@@ -2236,6 +2236,23 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 @media (max-width: 767px) { .ui-rs-pick, .ui-rs-pick__input { width: 100%; } .ui-rs-pick__input { flex: 1; } }
 .ui-ca-table { margin-top: var(--space-4); }
 
+/* CH-3a Charts view: toolbar, chart area (KLineChart draws on canvas; its
+   colours come from the tokens via MaerminTokens.resolve), price line */
+.ui-ch-picks { margin: var(--space-2) 0 var(--space-3); }
+.ui-ch-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; margin-bottom: var(--space-3); }
+.ui-ch-plot { width: 100%; height: 520px; }
+.ui-ch-plot.is-idle { display: none; }
+.ui-ch-price { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.ui-ch-price b { font-size: var(--type-title); font-weight: 700; letter-spacing: -0.01em; }
+.ui-wl-actions { display: inline-flex; align-items: center; gap: var(--space-1); }
+@media (max-width: 767px) {
+  .ui-ch-plot { height: 380px; }
+  /* the quick picks and the timeframe row scroll inside themselves, never the page */
+  .ui-ch-picks { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--space-1); }
+  .ui-ch-picks > * { flex: 0 0 auto; }
+  .ui-ch-toolbar .ui-seg { max-width: 100%; overflow-x: auto; }
+}
+
 /* ============================================================================
    R4.4 Market views (PLAN Phase 6): Discovery, News, Events, Watchlist.
    ========================================================================== */

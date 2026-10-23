@@ -124,7 +124,7 @@ CONNECT_EXTRA.forEach((o) => {
 });
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/",
+  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://unpkg.com/klinecharts@10.1.0/dist/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/",
   "style-src 'self'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https://community.akamai.steamstatic.com https://s.yimg.com https://coin-images.coingecko.com https://assets.coingecko.com",
