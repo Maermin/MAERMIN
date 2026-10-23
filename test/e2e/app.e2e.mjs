@@ -1709,6 +1709,64 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // CH-4: drawings and an alert from the chart, in the demo (in-memory storage).
+  // A horizontal line drawn with a real click is stored under the symbol;
+  // clicking it offers "Create alert at this price", which adds a normal price
+  // rule; Delete and Undo; the line survives a timeframe switch and leaving
+  // and re-opening the view; no page error.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { drawn: 0, rule: '', afterDelete: -1, afterUndo: -1, afterTf: -1, back: 0 };
+    let err = '';
+    const stored = () => page.evaluate(() => ((JSON.parse(localStorage.getItem('maermin_chart_drawings') || '{}').bySymbol || {}).AAPL || []).length);
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^AAPL$/ }).click();
+      await page.locator('[data-testid="ch-draw"]').waitFor({ timeout: 15000 });
+      await page.locator('[data-testid="ch-plot"]').scrollIntoViewIfNeeded();
+      const box = await page.locator('[data-testid="ch-plot"]').boundingBox();
+      const x = box.x + box.width * 0.45, y = box.y + 200;
+      await page.locator('[data-testid="ch-draw-hline"]').click();
+      await page.mouse.click(x, y);
+      await page.waitForTimeout(500);
+      r.drawn = await stored();
+      // the draw row gains buttons after the first drawing: measure the chart again
+      const box2 = await page.locator('[data-testid="ch-plot"]').boundingBox();
+      await page.mouse.click(x - 120, box2.y + 200);
+      await page.locator('[data-testid="ch-alert"]').waitFor({ timeout: 5000 });
+      await page.locator('[data-testid="ch-alert"]').click();
+      await page.locator('[data-testid="ch-alert-msg"]').waitFor({ timeout: 5000 });
+      r.rule = await page.evaluate(() => window.MaerminRules.load().rules.map((q) => q.metric + ' ' + q.target + ' ' + q.op).join());
+      await page.locator('[data-testid="ch-draw-delete"]').click();
+      await page.waitForTimeout(300);
+      r.afterDelete = await stored();
+      await page.locator('[data-testid="ch-draw-undo"]').click();
+      await page.waitForTimeout(500);
+      r.afterUndo = await stored();
+      await page.locator('[data-testid="ch-tf"] [role="radio"]').filter({ hasText: /^1W$/ }).click();
+      await page.waitForTimeout(1500);
+      r.afterTf = await stored();
+      await page.keyboard.press('g'); await page.keyboard.press('w');
+      await page.waitForTimeout(600);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="ch-draw-clear"]').waitFor({ timeout: 15000 });
+      r.back = await page.locator('[data-testid="ch-draw-clear"]').count();
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('CH-4: a horizontal line drawn with a click is stored under the symbol', !err && r.drawn === 1, err || JSON.stringify(r));
+    ok('CH-4: "Create alert at this price" adds a normal price rule to Alerts & Rules', /^symbol_price AAPL (gte|lte)$/.test(r.rule), err || JSON.stringify(r));
+    ok('CH-4: Delete removes it, Undo brings it back; it survives a timeframe switch and re-opening the view', r.afterDelete === 0 && r.afterUndo === 1 && r.afterTf === 1 && r.back === 1, err || JSON.stringify(r));
+    ok('no page errors in Charts (drawings)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });

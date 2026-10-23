@@ -79,6 +79,7 @@
     'maermin_rebalance_targets',  // allocation targets
     'maermin_rebalance_prefs',    // never-sell holdings (symbols) + tolerance bands (P4-4)
     'maermin_chart_prefs',        // Charts view: names the last symbol (CH-3a)
+    'maermin_chart_drawings',     // Charts view: drawings per symbol, with notes (CH-4)
     'maermin_corporate_actions',  // held symbols + splits
     'maermin_corporate_events',   // symbol / ISIN changes, mergers, spin-offs of held symbols (P5-3.10)
     'maermin_loss_carry',         // opening loss carry-forward balances per year and pot (P5-4.1)

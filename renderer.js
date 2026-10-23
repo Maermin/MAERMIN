@@ -3717,6 +3717,7 @@ function InvestmentTracker() {
           React.createElement(window.MaerminCharts.View, {
             theme: currentTheme, transactions, symbol: chartsSymbol, onSymbol: setChartsSymbol,
             workerUrl: viewWorkerUrl, exchangeRate, fxAt, demo: demoMode, privacy: privacyMode, // CH-3c: trade tooltips hide amounts
+            onOpenRules: () => setActiveView('rules'), // CH-4: after "Create alert at this price"
             symbols: window.MaerminCharts.quickPicks(transactions, (() => { try { return JSON.parse(localStorage.getItem('maermin_watchlist') || '[]') || []; } catch (e) { return []; } })())
           }) : renderAnalyticsPlaceholder(__('navCharts', 'Charts'));
 

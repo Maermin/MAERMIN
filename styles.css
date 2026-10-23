@@ -2267,6 +2267,9 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   background: var(--surface-2); border: 1px solid var(--border); }
 .ui-ch-meter__mark { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--text); }
 .ui-ch-votes { margin-bottom: var(--space-2); }
+/* CH-4: the drawing tools */
+.ui-ch-draw { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); }
+.ui-ch-draw__label { font-size: var(--type-small, 0.85rem); color: var(--text-dim); margin-right: var(--space-1); }
 .ui-ch-votes th, .ui-ch-votes td { text-align: left; }
 .ui-ch-votes th.num, .ui-ch-votes td.num { text-align: right; }
 @media (max-width: 767px) {
