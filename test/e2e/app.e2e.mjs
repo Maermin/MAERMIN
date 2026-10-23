@@ -1673,6 +1673,42 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // CH-3c: your trades and the technical rating in the demo. AAPL (a demo
+  // holding) shows My trades on: the summary counts the demo buy and dividend
+  // and names the average cost; the rating card shows a label and its votes;
+  // switching My trades off drops them from the summary; no page error.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { chip: '', on: '', off: '', label: '', votes: 0, how: '' };
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await page.keyboard.press('g'); await page.keyboard.press('k');
+      await page.locator('[data-testid="charts-view"]').waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="ch-pick"]', { hasText: /^AAPL$/ }).click();
+      await page.waitForFunction(() => /Your trades: \d+ buys?, \d+ sales?, \d+ dividends?; average cost [\d.,]+ USD/.test((document.querySelector('[data-testid="ch-live"]') || {}).textContent || ''), null, { timeout: 15000 });
+      r.chip = await page.locator('[data-testid="ch-trades"]').getAttribute('aria-pressed');
+      r.on = await page.locator('[data-testid="ch-live"]').textContent();
+      r.label = await page.locator('[data-testid="ch-rating-label"]').textContent();
+      r.votes = await page.locator('[data-testid="ch-rating"] tbody tr').count();
+      r.how = await page.locator('[data-testid="ch-rating"]').innerText();
+      await page.locator('[data-testid="ch-trades"]').click();
+      await page.waitForTimeout(600);
+      r.off = await page.locator('[data-testid="ch-live"]').textContent();
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r).slice(0, 300); }
+    ok('CH-3c: My trades on for a held symbol: the summary counts buys / sales / dividends and names the average cost', !err && r.chip === 'true' && /Your trades: 1 buy, 0 sales, 1 dividend; average cost/.test(r.on), err || JSON.stringify(r));
+    ok('CH-3c: the technical rating card: a label in words, its votes, the method and the disclaimer', /^(Strong sell|Sell|Neutral|Buy|Strong buy)$/.test(r.label) && r.votes >= 7 && /own method/.test(r.how) && /No tax or investment advice/.test(r.how) && /Technical rating: /.test(r.on), err || JSON.stringify(r));
+    ok('CH-3c: switching My trades off removes them from the chart summary', !/Your trades/.test(r.off) && /Technical rating/.test(r.off), err || r.off);
+    ok('no page errors in Charts (my trades, rating)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
