@@ -96,7 +96,7 @@ globalThis.window.MaerminComponents = require('../renderer-components.js').Compo
 // ---------------------------------------------------------------------------
 const VIEW_MODULES = [
   { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['Sparkline', 'WatchlistView'] },
-  { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'ReturnsHeatmap', 'GrossNetSwitch', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
+  { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'ReturnsHeatmap', 'GrossNetSwitch', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'calcXIRR', 'calcTWR'] },
   { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['PositionDetailModal', 'CS2SkinPicker', 'SymbolPicker'] },
   { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
   { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
