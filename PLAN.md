@@ -746,7 +746,7 @@ After a context reset: read this table and `git log`, then continue with the fir
 
 | Package | Status | Branch | PR | Notes |
 |---|---|---|---|---|
-| CH-0 Scope into the repo | in review | `charts/ch-0-scope` | | Owner confirmed D1–D4 on 2026-10-23 ("yes", klinecharts@10.1.0). Docs only: Phase 7 section, Decisions (new surfaces), `ROADMAP.md` "Sanctioned new surfaces", D3 vetting and CSP probe. The brief itself was already added by #230. |
+| CH-0 Scope into the repo | in review | `charts/ch-0-scope` | https://github.com/Maermin/MAERMIN/pull/231 | Owner confirmed D1–D4 on 2026-10-23 ("yes", klinecharts@10.1.0). Docs only: Phase 7 section, Decisions (new surfaces), `ROADMAP.md` "Sanctioned new surfaces", D3 vetting and CSP probe. The brief itself was already added by #230. |
 | CH-1 Worker: OHLCV in the price route | not started | | | Stop after merge: the owner redeploys the Worker. |
 | CH-2 `chart-engine.js` | not started | | | |
 | CH-3 Charts view | not started | | | Re-check the klinecharts SRI hash and changelog before adding it. |
