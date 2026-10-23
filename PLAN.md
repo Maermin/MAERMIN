@@ -1,6 +1,6 @@
 # MAERMIN — Implementation Plan
 
-**Status:** scope confirmed 2026-10-05; Phase 4 scope confirmed 2026-10-09; Phase 5 (v12 "Atlas") scope confirmed 2026-10-12. Work proceeds one PR per package; the owner merges.
+**Status:** scope confirmed 2026-10-05; Phase 4 scope confirmed 2026-10-09; Phase 5 (v12 "Atlas") scope confirmed 2026-10-12; Phase 7 (v12.2 "Atlas Charts") scope confirmed 2026-10-23. Work proceeds one PR per package; the owner merges.
 **Basis:** [`FINDINGS.md`](FINDINGS.md) (audit 2026-10-05), an i18n audit of `main` @ `0d0fdbd` (summarised in P2-2), and the owner interview of 2026-10-05.
 **Previous plan:** the 2026-10-03 plan (WP-1 … WP-12) is done; see this file's git history. Its WP-16 (importers) is deferred below.
 
@@ -11,6 +11,7 @@
 - **Market data:** bring-your-own Cloudflare Worker stays. No shared hosted Worker. *Superseded for Phase 5: an owner-hosted Worker for market data only, used as a fallback when no own Worker is set.*
 - **Order:** stabilize first (Phase 1: wrong money/tax figures, data loss, security), then improve (Phase 2).
 - **Navigation:** 5–6 areas plus a Simple/Advanced mode. Nothing is deleted.
+- **New surfaces (2026-10-23):** "integrate, don't accrete" stays the rule. Two views are sanctioned exceptions: Discovery (Phase 5) and **Charts** (Phase 7, Insight area, advanced mode, right after Research). Any further new tab needs the owner's decision first.
 - **Legal:** in-app disclaimer + privacy page. No Impressum in this plan (the owner checks § 5 DDG separately).
 
 **Deferred:** broker importers for Trade Republic, Scalable Capital, Consorsbank (old WP-16); a shared hosted Worker; AT/CH/UK tax systems (*Phase 5 brings the importers, a price-only shared Worker and AT/CH back into scope; see "Decisions reversed for Atlas"*); the remaining Medium/Low findings that are not listed in a package below stay in `FINDINGS.md`.
@@ -496,6 +497,123 @@ Every one of the 32 views in `nav-model.js` (and the aliased views) is listed un
 themes pass WCAG AA; the gate green on `main`; README screenshots and the demo show the new design; RELEASE.md has a
 redesign entry; the owner has approved R5.
 
+## Phase 7 — Charts (v12.2 "Atlas Charts")
+
+**Goal.** A Charts workspace with the core of TradingView's charting, built only on open-source software and the user's
+own Cloudflare Worker, plus one thing TradingView cannot do: the user's own trades and cost basis drawn on the chart.
+
+**Basis.** The agent brief [`docs/CHARTS-AGENT-PROMPT.md`](docs/CHARTS-AGENT-PROMPT.md) (the scope; where it conflicts
+with `CONTRIBUTING.md`, these house rules or the code, the agent stops and reports) and the owner's answers of
+2026-10-23. One PR per package, branch `charts/ch-<n>-<short-name>` from the latest `main`. Each package starts with a
+plan the owner approves before code is written. **The owner merges every Phase 7 PR** (this overrides the earlier
+self-merge permission for this phase).
+
+### Already in MAERMIN — reuse and link, do not rebuild
+
+| TradingView feature | Already in MAERMIN | Module |
+|---|---|---|
+| Fundamentals, analyst targets, profile | Research page | `research.js` (Worker `action=research`) |
+| Watchlists | Watchlist view | `renderer.js` (view `watchlist`) |
+| Screener | Discovery | `discovery.js` (Worker `action=screener`) |
+| News | News Feed | Worker `action=news` |
+| Earnings / dividend / central-bank calendar | Events | `event-feed.js`, `earnings-calendar.js` |
+| Price alerts, push | Alerts & Rules, Worker push | `rules-engine.js`, `web-push.js`, `cf-worker/push.js` |
+| Backtesting | Backtester | `backtester.js` |
+| SMA / EMA / Bollinger / MACD | Research chart (line only) | `research.js` (`sma`, `ema`, `macd`, `bollinger`) |
+
+**The gap this phase closes:** candlestick, OHLC bars, Heikin Ashi, area and line charts with volume; intraday and
+higher timeframes; a full indicator library; drawing tools saved per symbol; compare several symbols, percent and log
+scale; a technical rating summary; the user's buys, sells, dividends and average-cost line on the chart; "create alert
+at this price" from the chart.
+
+**Out of scope:** Pine Script or any user scripting, community ideas / social features, paper trading or order
+placement, real-time ticks / WebSockets, a market-wide heatmap, an economic calendar beyond Events, multi-chart grid
+layouts (may come later), and any TradingView data, widget, scraping or login.
+
+### Owner decisions (2026-10-23, all four defaults confirmed)
+
+| # | Decision | Answer |
+|---|---|---|
+| D1 | New tab exception | **Yes, sanctioned.** Charts is the second exception after Discovery (Decisions above, `ROADMAP.md` "Sanctioned new surfaces"). |
+| D2 | Placement | Insight area → **Charts**, `advanced: true`, directly after Research in `nav-model.js`. View id `charts`, deep link and `g`+key shortcut like the other views. |
+| D3 | Chart library | **KLineChart `klinecharts@10.1.0`** (Apache-2.0), from unpkg. Fallback only if a later package finds a blocker: Lightweight Charts `lightweight-charts@5.2.1` (Apache-2.0; no built-in indicators or drawings; keep its attribution). |
+| D4 | Drawings sync | On the device, in the encrypted backup and in the existing sync payload like other user data. No new transport. |
+
+**D3 vetting (2026-10-23).** npm `klinecharts`, publisher `liihuu` (single maintainer), repository
+`github.com/klinecharts/KLineChart`, Apache-2.0, ≈ 35 k downloads / week, regular releases (10.0.0 2026-07-10 …
+10.0.4 2026-10-12, 10.1.0 2026-10-14). No install-time scripts (`prepare` / `prepublishOnly` only run in the author's
+checkout). UMD build `https://unpkg.com/klinecharts@10.1.0/dist/umd/klinecharts.min.js` (239,687 bytes) sets the global
+`klinecharts`; SRI `sha384-PdxmZHfTETfZiWcY/lOW/FdSPI3RTThvwFZDXUCvqNbLhWIL6z0bmLCSd7BorO6s`. Not on cdnjs. Static scan
+of the build: no `fetch`, XHR, WebSocket, `sendBeacon`, `eval`, `new Function`, `innerHTML`, `insertRule`, `cssText` or
+`localStorage`; the only URL is the licence link. **CSP probe:** a page with this app's exact CSP plus
+`https://unpkg.com/klinecharts@10.1.0/dist/umd/` in `script-src` rendered candles, volume, RSI and a Fibonacci overlay
+with zero `securitypolicyviolation` events and no console output; the library adds no `<style>` element and sets
+inline styles only through the CSSOM (`element.style.x = …`), which `style-src 'self'` allows. Risk: a single
+maintainer; mitigated by the exact pin and SRI. CH-3 re-checks the hash and the changelog before adding it.
+
+### Fixed constraints
+
+- **Privacy.** Only symbol, interval and range leave the device (to the user's own Worker), as in Research today.
+  Quantities, trades, costs and drawings never leave the device unencrypted. No telemetry. No third-party script except
+  the one pinned chart library.
+- **Data source.** The user's own Worker, `action=yf` (Yahoo chart API). No TradingView data, widgets, APIs or
+  scraping. No new upstream host.
+- **Dependency.** One CDN library, exact version, SRI `sha384`, `crossorigin="anonymous"`, loaded **lazily** when the
+  Charts view first opens (not on app start), through the existing `loadScripts` helper jsPDF uses.
+- **CSP.** Add only the library's exact versioned path to `script-src`, in **both** `index.html` and `build.mjs`
+  (`test/csp.test.js` checks them). If the library ever needs `'unsafe-inline'` styles: stop and report; never loosen
+  the CSP.
+- **One source of truth.** Positions, average cost, trades and dividends from `ledger.js` / `MaerminMetrics`. Indicator
+  maths shared with Research live in one module (`chart-engine.js`; move, don't copy; Research's output identical,
+  proven by tests).
+- **EUR canonical** internally; the chart shows the listing currency by default with a EUR toggle, converted with the
+  FX history (`fx-history.js`), never a single spot rate for history.
+- **No secrets** in the repo or client code; no API keys are needed for this release.
+- **UI.** `React.createElement`, Atlas Map tokens from `theme-tokens.js` (light and dark), library colours themed from
+  the same tokens, filled buttons use `accentFill` / `onColor`. Every string through `__()` with `en` and `de` keys.
+  Works at 1366×900 desktop and 390×844 touch, keyboard reachable, visible focus, and a text alternative (current
+  price, change, selected range) for screen readers.
+- **Demo mode** shows a meaningful chart without a Worker: made-up OHLCV fixtures for the demo holdings (never real
+  account data).
+- **Disclaimer.** Charts and the technical rating carry the existing "no investment advice — estimates only" wording.
+- **Older Worker.** Without OHLCV the Charts view still works with closes only (line / area) and shows the same
+  "update your Worker" note Discovery uses.
+
+### Found while planning (for the packages below)
+
+- **KLineChart built-ins do not match MAERMIN's maths:** its `SMA` is the weighted SMA(N, M), not a simple average
+  (`MA` is the simple one); it has KDJ, not Stochastic; it has no ATR, VWAP, Ichimoku or Donchian. CH-3 registers
+  every indicator from `chart-engine.js` with `registerIndicator`, so the numbers match Research and the rating.
+- **Drawing overlays:** built in are segment / straight / ray lines, horizontal and vertical lines, parallel lines,
+  price channel and Fibonacci lines. Rectangle, text note and measure are not; CH-4 registers them with
+  `registerOverlay`.
+- **Worker version:** a bump of `WORKER_VERSION` in `cf-worker/worker.js` also bumps `EXPECTED_WORKER_VERSION` in
+  `onboarding.js` (enforced by a test).
+
+### Packages
+
+| Order | Package | What | Effort |
+|---|---|---|---|
+| 0 | CH-0 Scope into the repo | This section, Decisions, `ROADMAP.md`, the D3 vetting. Docs only. | S |
+| 1 | CH-1 Worker: OHLCV in the price route | `prices[]` gains `o`, `h`, `l`, `v` (nullable; `price` stays the close); cache key `yf2` → `yf3`; server-side interval / range check against Yahoo's limits with a clear 400; Worker version bump and `ohlcv: true` in `action=version`; `worker.single.js` regenerated; `docs/WORKER.md` and RELEASE.md say to redeploy. **Stop after merge:** the owner redeploys the Worker. | M |
+| 2 | CH-2 `chart-engine.js` | `window.MaerminChartEngine`, pure and Node-tested: `parseBars`, `toCurrency`, `heikinAshi`, `resample`, `percentSeries`; indicators moved from `research.js` (SMA, EMA, MACD, Bollinger) plus RSI, Stochastic, ATR, VWAP, OBV, Ichimoku, Donchian; `rate(bars)` technical rating (MAERMIN's own documented method); `tradeMarks`, `avgCostLine` from the ledger. Research uses it with identical output. | M–L |
+| 3 | CH-3 Charts view | View `charts` per D2, lazy library load with skeleton and retry, symbol search and quick picks, chart types, timeframes, indicators, compare (up to 3), linear / log / percent scale, **My trades**, technical rating card, "Open in Charts" from Research, Watchlist and the position dialog, light prefs in `prefs-store.js`, older-Worker fallback, e2e in demo mode. | L |
+| 4 | CH-4 Drawings and alert from chart | The drawing tools of the brief with select / move / delete / undo; one key (e.g. `maermin_chart_drawings`) in backup `KEYS`, `SENSITIVE_KEYS` and sync (D4), validated on load; "Create alert at this price" makes a normal `rules-engine.js` price rule. | M |
+| 5 | CH-5 Polish, accessibility, demo | Keyboard, screen-reader summary, reduced motion, touch pinch / pan at 390×844, demo fixtures for every demo holding, German review of every new string. | S–M |
+| 6 | CH-6 Release v12.2.0 "Atlas Charts" | `package.json` 12.2.0, RELEASE.md (Worker redeploy for candles; one added backup key), README, `docs/ARCHITECTURE.md`. The owner runs the release workflow. | S |
+
+**Gate** before every push: `npm run check && npm test && npm run build:web && CI=1 npm run test:e2e`; after any
+`cf-worker/*.js` change also `npm run build:worker` and commit `cf-worker/worker.single.js`. The chart library joins
+the CDN → local-fixture map in `test/e2e/app.e2e.mjs` the way jsPDF does. Each PR states which of these it touches,
+since nobody has tested them for this feature: real iOS Safari, a screen reader, the German UI, passkeys, two-device
+sync.
+
+**Stops:** after every package plan; after CH-1 merges (Worker redeploy); whenever the library breaks the CSP, needs
+inline styles or fails vetting; whenever a test the agent did not write fails and looks wrong.
+
+**Done means:** CH-0 … CH-6 merged, the gate green on `main`, the owner's Worker redeployed, RELEASE.md and
+`package.json` at v12.2.0, and the Charts view working in demo mode and with real data on desktop and phone, EN and DE.
+
 ## Progress
 
 Updated in each package's PR. After a context reset: read this table and `git log`, then continue with the first package that is not merged.
@@ -621,3 +739,17 @@ After a context reset: read this table, `docs/DESIGN-SYSTEM.md` and `git log`, t
 | R5.4 part 1 renderer.js | merged | `redesign/r5.4-cleanup` | https://github.com/Maermin/MAERMIN/pull/225 | renderer.js inline styles 103 → 5 (the five left are computed: segment widths, holding and category colours, weight bars, theme swatches). Removed the unused dashboard KPI strip (`DashboardKpiStrip`, never rendered since the Overview redesign) and its 15 keys. The CS2-Worker and recovery-code banners on the Overview as warning callouts with shared buttons; the Import dialog (`i`) on the shared dialog look with a named field and a keyboard-reachable file picker; the settings popover sections, the Hide amounts / Animations switches (now `aria-pressed`) and the corporate-action lists (the × is a named IconButton) on classes; the view error fallback on the shared error state; the app root takes its colours from CSS. R5.4 split in 3 PRs: part 2 the other view files, part 3 unused CSS and old shell code, README screenshots and demo, RELEASE.md. |
 | R5.4 part 2 Remaining view files | merged | `redesign/r5.4b-views` | https://github.com/Maermin/MAERMIN/pull/226 | `style:` in the app code 399 (before part 1) → 81; what is left is computed (bar and meter widths, data and category colours, chart geometry, tree indent, logo sizes) or not CSS at all (number-format and spreadsheet options). investment-views (DCA, sectors, countries, currencies, liquidity, goals) 85 → 4: labelled shared fields, bars, rows and key / value grids on classes, liquidity scores with a tone next to their rating word, the goal chart SVG on token classes. taxonomies 38 → 2: the shared table look, buttons, fields and Heading; buy / sell with ▲ / ▼, the target sum with ✓ / !. Net worth: Card titles, the composition bar and legend, a fieldset for interest, account rows with a named remove button. The Overview value chart header (hero figure, return chip with ▲ / ▼, source badges, period pills) on classes; the chart card now lines up with its neighbour. Rebalancing targets, per-holding returns tables (cells take dim / strong / tone classes), the position chart, research and budget SVG text and lines on token classes; three error fallbacks on the shared error state. One unit check (strategy-theme H-8) now asserts that no text carries an inline colour. |
 | R5.4 part 3 Cleanup and release | merged | `redesign/r5.4c-release` | https://github.com/Maermin/MAERMIN/pull/227 | Removed the old shell: `MobileBottomNav`, the sidebar glider and header-condense code in motion.js, and 32 CSS classes nothing uses any more (old header, sidebar, bottom nav, brand, promo and helpers) with 5 unused keyframes; styles.css 3,520 → 3,083 lines. README: new screenshots of the demo in the Atlas Map design (`docs/screenshots/atlas-map/`), version badge 12.0.0. RELEASE.md: the redesign under Unreleased. Phase 6 final report: [`docs/REDESIGN-R5-REPORT.md`](docs/REDESIGN-R5-REPORT.md). |
+
+### Phase 7 progress
+
+After a context reset: read this table and `git log`, then continue with the first package that is not merged. If a PR is open for it, read its comments first. Scope: "Phase 7 — Charts" above and [`docs/CHARTS-AGENT-PROMPT.md`](docs/CHARTS-AGENT-PROMPT.md).
+
+| Package | Status | Branch | PR | Notes |
+|---|---|---|---|---|
+| CH-0 Scope into the repo | in review | `charts/ch-0-scope` | https://github.com/Maermin/MAERMIN/pull/231 | Owner confirmed D1–D4 on 2026-10-23 ("yes", klinecharts@10.1.0). Docs only: Phase 7 section, Decisions (new surfaces), `ROADMAP.md` "Sanctioned new surfaces", D3 vetting and CSP probe. The brief itself was already added by #230. |
+| CH-1 Worker: OHLCV in the price route | not started | | | Stop after merge: the owner redeploys the Worker. |
+| CH-2 `chart-engine.js` | not started | | | |
+| CH-3 Charts view | not started | | | Re-check the klinecharts SRI hash and changelog before adding it. |
+| CH-4 Drawings and alert from chart | not started | | | Rectangle, text note, measure need custom overlays. |
+| CH-5 Polish, accessibility, demo | not started | | | |
+| CH-6 Release v12.2.0 "Atlas Charts" | not started | | | |

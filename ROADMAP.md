@@ -84,13 +84,22 @@ v12 "Atlas":
 
 Still out of scope for Atlas: native apps, community features, UK tax, new UI languages, an add-on system, a public third-party API.
 
+## Sanctioned new surfaces
+
+The V7 rule (no new tabs) has exactly two owner-approved exceptions. Anything else integrates into an existing view.
+
+| Surface | Decided | Why it is a tab of its own |
+|---|---|---|
+| **Discovery** | Phase 5 (v12 "Atlas") | Screens assets you don't own; no existing view holds a market universe. |
+| **Charts** | 2026-10-23, Phase 7 (v12.2 "Atlas Charts") | A full-height interactive chart workspace (candles, timeframes, indicators, drawings, compare, your own trades) does not fit inside Research. Insight area, advanced mode, placed right after Research; Research keeps its own price chart and links to Charts. Scope: `PLAN.md` Phase 7, brief `docs/CHARTS-AGENT-PROMPT.md`. |
+
 ---
 
 ## Deferred — with rationale (these break "client-side + no new tabs")
 
 | Epic | Why deferred | What it needs first |
 |---|---|---|
-| **8 Asset Discovery** (ETF/stock/crypto/dividend screeners, top movers) | Screening assets you **don't own** needs a live, queryable universe (fundamentals, ratios, dividends) — not derivable from local holdings. It's also a genuinely new surface. | A market-data provider (e.g. an extended Cloudflare Worker proxying a screener API) + an agreed new "Discovery" area. Owner decision: this is the one sanctioned new surface. |
+| **8 Asset Discovery** (ETF/stock/crypto/dividend screeners, top movers) | Screening assets you **don't own** needs a live, queryable universe (fundamentals, ratios, dividends) — not derivable from local holdings. It's also a genuinely new surface. | A market-data provider (e.g. an extended Cloudflare Worker proxying a screener API) + an agreed new "Discovery" area. Owner decision: a sanctioned new surface (shipped as Discovery). |
 | **9 Social layer** (public snapshots, shareable links, community watchlists, anonymous benchmarking) | Requires a **hosted, persistent, multi-user backend** (KV + moderation) and explicit privacy redaction. Inherently server-side; contradicts "fully client-side." | Worker `social.publish/get` actions over KV (sketched in the architecture plan), storing only %-weight redacted snapshots — never absolute values. |
 | **10 Professional UX** (dashboard redesign, widget system, custom layouts, themes, keyboard nav) | **Partially shipped in v10**: dark-fintech redesign (`styles.css`/`renderer.js`) + layout persistence (`dashboard-layout.js`, key `maermin_dashboard_layout`). Remaining: drag-and-drop widget registry UI, additional themes. | A widget registry on top of `MaerminDashboard`; incremental, no backend. |
 
