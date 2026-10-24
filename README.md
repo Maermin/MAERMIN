@@ -50,7 +50,7 @@ No MAERMIN account  ·  No MAERMIN server  ·  No ads  ·  No remote telemetry  
 | **Dark theme** | **Phone (German)** |
 | <img src="docs/screenshots/atlas-map/overview-dark.jpg" alt="Overview in the dark theme" width="440"> | <img src="docs/screenshots/atlas-map/phone-overview-de.jpg" alt="Overview on a phone, German, with the dock at the bottom" width="220"> |
 
-All pictures show the built-in demo (`?demo`, made-up data) in the Atlas Map design. Five themes are built in: light, dark, purple, high contrast and colour-blind safe.
+All pictures show the built-in demo (`?demo`, made-up data) in the Atlas Map design. Five themes are built in: light, dark, Nebula (purple), high contrast and colour-blind safe.
 
 ---
 

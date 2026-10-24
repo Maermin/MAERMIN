@@ -77,7 +77,7 @@ const TR = require('../tax-report-builder.js');
   const xml = TR.buildExcelWorkbook(rx);
   ok('workbook is SpreadsheetML with the Excel proc instruction', /mso-application progid="Excel.Sheet"/.test(xml) && /urn:schemas-microsoft-com:office:spreadsheet/.test(xml));
   ok('has separate Summary, Realized Gains and Dividends worksheets',
-    xml.indexOf('ss:Name="Summary"') > -1 && xml.indexOf('ss:Name="Realized Gains"') > -1 && xml.indexOf('ss:Name="Dividends"') > -1);
+    xml.indexOf('ss:Name="Summary"') > -1 && /ss:Name="Reali[sz]ed [Gg]ains"/.test(xml) && xml.indexOf('ss:Name="Dividends"') > -1);
   ok('money cells are real Number cells, not strings', /<Cell ss:StyleID="cur"><Data ss:Type="Number">1500<\/Data>/.test(xml));
   ok('a styled header row exists', xml.indexOf('ss:StyleID="hdr"') > -1 && xml.indexOf('#7E22CE') > -1);
   ok('XML special chars are escaped', TR.buildExcelWorkbook(TR.build([], { year: 2025, owner: { name: 'A & B <Co>' } })).indexOf('A &amp; B &lt;Co&gt;') > -1);

@@ -230,8 +230,8 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
   const TONE = window.MaerminComponents.toneOf;
   const figures = position.closedRow ? [
     // P4-2: a fully sold position - realised figures from the FIFO ledger
-    { label: __('colRealizedPnl', 'Realized P&L'), value: signed(position.closedRow.gain), tone: TONE(position.closedRow.gain) },
-    { label: __('pdRealizedReturn', 'Realized return'), value: position.closedRow.ret === null ? '—' : window.MaerminI18n.pct(position.closedRow.ret * 100, 2, true),
+    { label: __('colRealizedPnl', 'Realised P&L'), value: signed(position.closedRow.gain), tone: TONE(position.closedRow.gain) },
+    { label: __('pdRealizedReturn', 'Realised return'), value: position.closedRow.ret === null ? '—' : window.MaerminI18n.pct(position.closedRow.ret * 100, 2, true),
       tone: position.closedRow.ret === null ? null : TONE(position.closedRow.ret) },
     { label: __('colDisposedCost', 'Cost basis sold'), value: money(position.closedRow.cost) },
     { label: __('colProceeds', 'Proceeds'), value: money(position.closedRow.proceeds) },
@@ -239,7 +239,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
     { label: __('feeTotalPaid', 'Total Fees Paid'), value: money(metrics.totalFees) }
   ] : [
     { label: __('retCurrentValue', 'Current Value'), value: money(metrics.currentValue) },
-    { label: __('pdUnrealized', 'Unrealized P&L'), value: signed(metrics.unrealizedPL), tone: TONE(metrics.unrealizedPL) },
+    { label: __('pdUnrealized', 'Unrealised P&L'), value: signed(metrics.unrealizedPL), tone: TONE(metrics.unrealizedPL) },
     { label: __('pdAvgCost', 'Avg Cost'), value: money(metrics.avgCost) },
     { label: __('pdCurrentPrice', 'Current Price'), value: money(metrics.currentPrice) },
     { label: __('pdUnrealisedPct', 'Unrealised return'), value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true), tone: TONE(metrics.unrealizedPct) },

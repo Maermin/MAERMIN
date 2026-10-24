@@ -39,7 +39,7 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   const result = useMemo(() => (A ? A.compute(positions) : null), [positions]);
 
   if (!A) return React.createElement('div', null, window.MaerminUtils.errorNote(__('attrModuleMissing', 'Attribution module not loaded')));
-  if (!result || !result.rows.length) return React.createElement('div', null, window.MaerminUtils.emptyNote(__('attrNoPositions', 'No positions to analyze')));
+  if (!result || !result.rows.length) return React.createElement('div', null, window.MaerminUtils.emptyNote(__('attrNoPositions', 'No positions to analyse')));
 
   // Return decomposition: unrealised price gain + dividends received (booked
   // dividend transactions only, converted to EUR) and an illustrative tax
@@ -164,15 +164,15 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
   return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-ru'].join(' ') },
     h('p', { className: 'ui-view__lead' }, __('ruSubtitle', 'FIFO-based breakdown of locked-in gains/losses vs open positions')),
     h('div', { className: 'ui-ov-tiles' },
-      tile(__('fifoRealizedPnl', 'Realized P&L'), totalRealized, __('ruFromClosed', 'From closed/partial positions')),
-      tile(__('pdUnrealized', 'Unrealized P&L'), totalUnrealized, __('ruOpenAtCurrent', 'Open positions at current prices')),
-      tile(__('ruTotalPnl', 'Total P&L'), totalRealized + totalUnrealized, __('ruCombined', 'Combined realized + unrealized'))),
-    h(UIC.Card, { variant: 'plain', headingLevel: 'h3', title: __('ruTitle', 'Realized & Unrealized P&L') },
-      h(UIC.Table, { rows: results, rowKey: (e) => e.sym, caption: __('ruTitle', 'Realized & Unrealized P&L'), columns: [
+      tile(__('fifoRealizedPnl', 'Realised P&L'), totalRealized, __('ruFromClosed', 'From closed/partial positions')),
+      tile(__('pdUnrealized', 'Unrealised P&L'), totalUnrealized, __('ruOpenAtCurrent', 'Open positions at current prices')),
+      tile(__('ruTotalPnl', 'Total P&L'), totalRealized + totalUnrealized, __('ruCombined', 'Combined realised + unrealised'))),
+    h(UIC.Card, { variant: 'plain', headingLevel: 'h3', title: __('ruTitle', 'Realised & unrealised P&L') },
+      h(UIC.Table, { rows: results, rowKey: (e) => e.sym, caption: __('ruTitle', 'Realised & unrealised P&L'), columns: [
         { key: 'pos', label: __('position', 'Position'), phone: 'title', render: (e) => h('span', { className: 'ui-asset__text' },
           h('span', { className: 'ui-asset__name' }, e.name), h('span', { className: 'ui-asset__sub' }, window.MaerminI18n.category(e.category))) },
-        { key: 'real', label: __('fifoRealizedPnl', 'Realized P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.realizedPnL, e.hasSells) },
-        { key: 'unreal', label: __('pdUnrealized', 'Unrealized P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.unrealizedPnL, e.remainingQty > 0.0001) },
+        { key: 'real', label: __('fifoRealizedPnl', 'Realised P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.realizedPnL, e.hasSells) },
+        { key: 'unreal', label: __('pdUnrealized', 'Unrealised P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.unrealizedPnL, e.remainingQty > 0.0001) },
         { key: 'total', label: __('ruTotalPnl', 'Total P&L'), align: 'right', phone: 'value', render: (e) => h('b', null, pnl(e.totalPnL, true)) }
       ] })));
 }

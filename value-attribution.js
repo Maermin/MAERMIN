@@ -295,8 +295,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       moneyIn: __('vaMoneyIn', 'Money in'),
       moneyOut: __('vaMoneyOut', 'Money out'),
       income: __('vaIncome', 'Dividends & interest'),
-      realized: __('vaRealized', 'Realized gains'),
-      unrealized: __('vaUnrealized', 'Change in unrealized gains'),
+      realized: __('vaRealized', 'Realised gains'),
+      unrealized: __('vaUnrealized', 'Change in unrealised gains'),
       fx: __('vaFx', 'Currency effect'),
       fees: __('vaFees', 'Fees'),
       taxes: __('vaTaxes', 'Taxes'),
@@ -365,8 +365,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         res.missing.length ? e('p', { className: 'ui-note' },
           __('vaMissing', 'Not priced, so not measured: {list}.', { list: res.missing.map(function (m) { return m.symbol; }).join(', ') })) : null,
         e('p', { className: 'ui-note' },
-          res.cash ? __('vaNoteCash', 'Money in and out = deposits, withdrawals and transfers of the clearing account. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')
-            : __('vaNoteNoCash', 'Without a clearing account, purchases count as money in and sales and payouts as money out. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')));
+          res.cash ? __('vaNoteCash', 'Money in and out = deposits, withdrawals and transfers of the clearing account. Gains are shown before fees; fees and taxes count when they were paid. Realised gains follow the FIFO ledger; the currency effect is taken out of the unrealised gains.')
+            : __('vaNoteNoCash', 'Without a clearing account, purchases count as money in and sales and payouts as money out. Gains are shown before fees; fees and taxes count when they were paid. Realised gains follow the FIFO ledger; the currency effect is taken out of the unrealised gains.')));
     }
 
     return e(UIC.Card, { 'data-testid': 'value-attribution', title: __('vaTitle', 'Profit by source'), headingLevel: 'h3', action: periods, className: 'ui-chart' }, body);

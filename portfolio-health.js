@@ -369,7 +369,7 @@
         metric(t.healthEffectivePositions || 'Effective positions', I.num(h.effectiveN, 1)),
         metric(t.healthLargestPosition || 'Largest position', I.pct(h.maxWeight * 100, 0)),
         metric(t.healthAssetClasses || 'Asset classes', String(h.classCount)),
-        e(UIC.Stat, { key: 'u', className: 'ui-tile', label: t.healthUnrealized || 'Unrealized', value: I.pct(h.unrealizedPct, 1, true), tone: UIC.toneOf(h.unrealizedPct) })),
+        e(UIC.Stat, { key: 'u', className: 'ui-tile', label: t.healthUnrealized || 'Unrealised', value: I.pct(h.unrealizedPct, 1, true), tone: UIC.toneOf(h.unrealizedPct) })),
 
       e('div', { className: 'ui-grid-2' },
         // Recommendations

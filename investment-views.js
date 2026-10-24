@@ -198,7 +198,7 @@ function DCAAnalyzerView(props) {
   }, [investAmount, frequency, priceArray]);
   
   return React.createElement('div', { className: 'ui-stack' },
-    React.createElement('h2', { className: 'ui-section-title' }, __('ivDcaTitle', 'DCA Strategy Analyzer')),
+    React.createElement('h2', { className: 'ui-section-title' }, __('ivDcaTitle', 'DCA strategy analyser')),
     
     // R5.4: shared fields on classes; computed bar widths and data colours stay inline
     React.createElement('div', { className: 'ui-iv-form' },
@@ -369,7 +369,7 @@ function SectorAllocationView(props) {
           )
         )
       )
-    ) : window.MaerminUtils.emptyNote(__('ivNoSectorData', 'Add positions to analyze sector allocation'))
+    ) : window.MaerminUtils.emptyNote(__('ivNoSectorData', 'Add positions to analyse sector allocation'))
   );
 }
 
@@ -444,7 +444,7 @@ function CountryAllocationView(props) {
           React.createElement('strong', { className: 'ui-callout__title' }, '! ' + __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', null, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
       )
-    ) : React.createElement('p', { className: 'ui-muted' }, __('ivNoCountryData', 'Add positions to analyze country allocation'))
+    ) : React.createElement('p', { className: 'ui-muted' }, __('ivNoCountryData', 'Add positions to analyse country allocation'))
   );
 }
 
@@ -1083,7 +1083,7 @@ function InvestmentAnalysisDashboard(props) {
   // Only real, data-driven analysis tabs
   var sections = [
     { id: 'dca',      label: __('ivTabDca', 'DCA Strategy'),     desc: __('ivTabDcaDesc', 'Compare DCA vs. lump sum') },
-    { id: 'sectors',  label: __('ivSectors', 'Sectors'),          desc: __('ivTabSectorsDesc', 'Analyze sector allocation') },
+    { id: 'sectors',  label: __('ivSectors', 'Sectors'),          desc: __('ivTabSectorsDesc', 'Analyse sector allocation') },
     { id: 'countries',label: __('ivTabCountries', 'Countries'),        desc: __('ivTabCountriesDesc', 'Geographic allocation') },
     { id: 'currency', label: __('ivCurrencies', 'Currencies'),       desc: __('ivTabCurrencyDesc', 'Foreign-currency exposure') },
     { id: 'size',     label: __('ivTabSize', 'Company Size'),      desc: __('ivTabSizeDesc', 'Market-cap size buckets') },

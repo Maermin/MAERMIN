@@ -695,7 +695,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
   const signed = (v) => `${v >= 0 ? '+' : ''}${formatPrice(v)} ${sym}`;
   const tone = (v) => 'tone-' + UIC.toneOf(v);
   if (entries.length === 0) return h('div', { className: ['ui-view', 'ui-view--cont'].join(' ') },
-    h(UIC.EmptyState, { title: __('fifoTitle', 'FIFO Cost Basis'), text: __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis') }));
+    h(UIC.EmptyState, { title: __('fifoTitle', 'FIFO cost basis'), text: __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis') }));
 
   const detail = activeSymbol ? fifo[activeSymbol] : null;
   const TABLE = ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ');
@@ -705,16 +705,16 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
 
     // Summary
     h('div', { className: 'ui-tiles' },
-      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalRealized', 'Total Realized P&L'), value: signed(totalRealizedPnL), tone: UIC.toneOf(totalRealizedPnL) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalRealized', 'Total realised P&L'), value: signed(totalRealizedPnL), tone: UIC.toneOf(totalRealizedPnL) }),
       h(UIC.Stat, { className: 'ui-tile', label: __('positions', 'Positions'), value: String(entries.length) }),
-      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalLots', 'Total Realized Lots'), value: String(entries.reduce((s, e) => s + e.realized.length, 0)) })),
+      h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalLots', 'Realised lots'), value: String(entries.reduce((s, e) => s + e.realized.length, 0)) })),
 
     // Position table
-    h(UIC.Card, { headingLevel: 'h3', title: __('fifoTitle', 'FIFO Cost Basis') },
+    h(UIC.Card, { headingLevel: 'h3', title: __('fifoTitle', 'FIFO cost basis') },
       h('div', { className: 'ui-table-wrap' },
         h('table', { className: TABLE },
           h('thead', null, h('tr', null,
-            [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg Cost (FIFO)'), __('fifoQtyHeld', 'Qty Held'), __('fifoTotalCost', 'Total Cost'), __('fifoRealizedPnl', 'Realized P&L'), __('fifoLots', 'Lots')].map((label, i) =>
+            [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg cost (FIFO)'), __('fifoQtyHeld', 'Qty held'), __('fifoTotalCost', 'Total cost'), __('fifoRealizedPnl', 'Realised P&L'), __('fifoLots', 'Lots')].map((label, i) =>
               h('th', { key: i, scope: 'col', className: i > 0 ? 'is-right' : 'is-sticky' }, label)))),
           h('tbody', null,
             entries.map(e => {
@@ -734,7 +734,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
             }))))),
 
     // Lot detail for active symbol
-    detail && h(UIC.Card, { headingLevel: 'h3', title: __('fifoRealizedLotsOf', '{sym} — Realized Lots', { sym: detail.symbol }) },
+    detail && h(UIC.Card, { headingLevel: 'h3', title: __('fifoRealizedLotsOf', '{sym} — realised lots', { sym: detail.symbol }) },
       h('div', { className: 'ui-table-wrap' },
         h('table', { className: TABLE },
           h('thead', null, h('tr', null,
