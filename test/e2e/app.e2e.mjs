@@ -1947,6 +1947,41 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 V-3, V-4, U-2: tickers on the holdings map; the FIFO table
+  // counts open holdings, keeps closed ones last and marked, "–" for no sale;
+  // upcoming dividends grouped by month, three months first.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let r = {}, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('[data-testid="ov-map"]').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      r.map = await page.locator('[data-testid="ov-map"]').innerText();
+      await openView(page, 'dividends');
+      await page.locator('[data-testid="dc-up-month"]').first().waitFor({ timeout: 10000 });
+      r.months = await page.locator('[data-testid="dc-up-month"]').count();
+      r.more = await page.locator('[data-testid="dc-up-more"]').innerText();
+      await page.locator('[data-testid="dc-up-more"]').click();
+      r.allMonths = await page.locator('[data-testid="dc-up-month"]').count();
+      await openView(page, 'tax');
+      await page.locator('.ui-fifo tbody tr').first().waitFor({ timeout: 10000 });
+      r.positions = await page.locator('.ui-fifo .ui-stat').nth(1).innerText();
+      const rows = await page.locator('.ui-fifo tbody tr').allInnerTexts();
+      r.last = rows[rows.length - 1].replace(/\s+/g, ' ');
+      r.zeroBold = rows.filter((t) => /\+0[.,]00/.test(t)).length;
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('audit V-3: the holdings map shows tickers (ALV.DE), not 4-letter glyphs (ALVD)', !err && /ALV\.DE/.test(r.map) && !/\bALVD\b/.test(r.map), err || JSON.stringify(r).slice(0, 300));
+    ok('audit U-2: upcoming dividends in months, three first; the button shows the rest', r.months === 3 && /^\d+ more payments? in the following months$/.test(r.more) && r.allMonths > 3, err || JSON.stringify(r));
+    ok('audit V-4: FIFO counts open holdings, closed ones last and marked, no "+0.00" rows', /plus 1 closed/.test(r.positions) && /^TSLA\s?closed – – – \+/.test(r.last) && r.zeroBold === 0, err || JSON.stringify(r));
+    ok('no page errors (tables and lists)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
