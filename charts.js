@@ -157,6 +157,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var de = lang === 'de', sep = de ? '.' : ',', dec = de ? ',' : '.';
     return m[1] + m[2].replace(/\B(?=(\d{3})+$)/g, sep) + (m[3] != null ? dec + m[3] : '') + m[4];
   }
+  // The library centres each time label on its tick, so one near an edge is cut in half
+  // ("‹t 2026" on a phone): keep only the labels that fit inside the axis. width(text) → px.
+  function fitTicks(ticks, axisWidth, width) {
+    return (ticks || []).filter(function (t) {
+      var half = width(String(t.text)) / 2;
+      return t.coord - half >= 0 && t.coord + half <= axisWidth;
+    });
+  }
   // parts: { YYYY, MM, DD, HH, mm, ss } in the exchange's zone; months: short names
   var DATE_PARTS = ['YYYY', 'MM', 'DD', 'HH', 'mm', 'ss']; // the library's template tokens
   function localDate(p, template, lang, months) {
@@ -520,6 +528,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var chart = chartRef.current;
       if (!chart) return;
       chart.overrideYAxis({ paneId: 'candle_pane', name: scale(prefs.scale).axis });
+      chart.overrideXAxis({ createTicks: function (q) {
+        var K = W.klinecharts, st = chart.getStyles().xAxis.tickText;
+        var width = K && K.utils && K.utils.calcTextWidth ? function (t) { return K.utils.calcTextWidth(t, st.size, st.weight, st.family); } : function (t) { return t.length * st.size * 0.6; };
+        return fitTicks(q.defaultTicks, q.bounding.width, width);
+      } });
     }, [lib, prefs.scale, sym && base ? 1 : 0]);
 
     // indicators: the chart shows exactly the list in the settings (CH-3b)
@@ -823,6 +836,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       chart.setSymbol({ ticker: sym, pricePrecision: precision(list[list.length - 1].close), volumePrecision: 0 });
       chart.setPeriod(tf.period);
       chart.resetData(); // the loader above answers with the new bars
+      // the library's 10 px a bar shows about three weeks on a phone, with no room for time labels
+      chart.setBarSpace(narrow ? 6 : 10);
     }, [lib, shown, sym && base ? 1 : 0]);
 
     // ---- render ----
@@ -1060,7 +1075,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var api = {
     LIB: LIB, TIMEFRAMES: TIMEFRAMES, timeframe: timeframe, TYPES: TYPES, type: type, availableTypes: availableTypes, usableType: usableType,
     SCALES: SCALES, PREFS_KEY: PREFS_KEY, normalizePrefs: normalizePrefs, loadPrefs: loadPrefs, savePrefs: savePrefs,
-    requestUrl: requestUrl, toKLine: toKLine, localNum: localNum, localDate: localDate, placeMarks: placeMarks, tradeCounts: tradeCounts, ratingRows: ratingRows, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
+    requestUrl: requestUrl, toKLine: toKLine, localNum: localNum, localDate: localDate, fitTicks: fitTicks, placeMarks: placeMarks, tradeCounts: tradeCounts, ratingRows: ratingRows, rangeChange: rangeChange, precision: precision, quickPicks: quickPicks, chartStyles: chartStyles,
     View: View
   };
   if (typeof window !== 'undefined') window.MaerminCharts = api;
