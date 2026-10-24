@@ -1778,7 +1778,7 @@ async function runBuild(browser, label, dir) {
     await wire(context, external);
     const page = await context.newPage();
     const errors = watch(page);
-    const r = { tabs: 0, at: '', positive: -1, moved: false, zoomed: false, hint: '', label: '', afterEsc: -1, hintAfter: -1, gspc: '', old: -1, cmp: '' };
+    const r = { tabs: 0, at: '', positive: -1, moved: false, zoomed: false, hint: '', label: '', afterEsc: -1, hintAfter: -1, gspc: '', old: -1, cmp: '', picks: 0, more: '', allPicks: 0 };
     let err = '';
     const snap = () => page.evaluate(() => [...document.querySelectorAll('[data-testid="ch-plot"] canvas')].map((c) => c.toDataURL()).join('|'));
     try {
@@ -1792,6 +1792,11 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="ch-draw"]').waitFor({ timeout: 15000 });
       await page.waitForTimeout(500);
       r.positive = await page.evaluate(() => [...document.querySelectorAll('[tabindex]')].filter((n) => n.tabIndex > 0).length);
+      // more holdings than 16 quick picks: "+N more" shows the rest
+      r.picks = await page.locator('[data-testid="ch-pick"]').count();
+      r.more = await page.locator('[data-testid="ch-pick-more"]').textContent();
+      await page.locator('[data-testid="ch-pick-more"]').click();
+      r.allPicks = await page.locator('[data-testid="ch-pick"]').count();
       r.label = await page.locator('[data-testid="ch-plot"]').getAttribute('aria-label');
       await page.locator('[data-testid="ch-draw-measure"]').focus();
       while (r.tabs < 10 && r.at !== 'ch-plot') { await page.keyboard.press('Tab'); r.tabs++; r.at = await page.evaluate(() => document.activeElement.getAttribute('data-testid') || ''); }
@@ -1829,6 +1834,7 @@ async function runBuild(browser, label, dir) {
     ok('CH-5: Tab from the draw row lands on the labelled chart; no positive tabindex left from the library', !err && r.at === 'ch-plot' && r.tabs <= 3 && r.positive === 0 && /^Price chart of AAPL\. Arrow keys/.test(r.label || ''), err || JSON.stringify(r));
     ok('CH-5: arrows move the chart, + zooms it (library hotkeys off, the chart has its own)', r.moved && r.zoomed, err || JSON.stringify(r));
     ok('CH-5: a tool says what to do; Escape takes an unfinished drawing off again', /^Trend line: click or tap the chart to place 2 points/.test(r.hint) && r.hintAfter === 0 && r.afterEsc === 0, err || JSON.stringify(r));
+    ok('follow-up: 16 quick picks and "+N more", which shows every holding', r.picks === 16 && /^\+\d+ more$/.test(r.more) && r.allPicks === 16 + parseInt(r.more.slice(1), 10), err || JSON.stringify(r));
     ok('CH-5: demo: ^GSPC has candles (no old-Worker note) and EUNL.DE compares', /^\^GSPC, 1D, Candles:/.test(r.gspc) && r.old === 0 && r.cmp === 'ok', err || JSON.stringify(r));
     ok('no page errors in Charts (keyboard)', errors.length === 0, errors.join(' | '));
     await context.close();
