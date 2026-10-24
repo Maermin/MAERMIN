@@ -82,6 +82,10 @@ function ok(name, cond, detail) { cond ? (passed++, console.log('  ✓ ' + name)
   }
   const bad = await call('action=yf&symbol=DAILY&interval=4h&range=1y');
   ok('an unknown interval is still refused with 400', bad.status === 400, bad);
+  for (const iv of ['constructor', '__proto__', 'toString']) {
+    const odd = await call('action=yf&symbol=DAILY&interval=' + iv + '&range=1y');
+    ok('interval "' + iv + '" is refused with 400', odd.status === 400, odd);
+  }
 
   // Every pair the app requests today (grep of the client code, 2026-10-23) stays allowed.
   const appPairs = [['1d', '5d'], ['1d', '1mo'], ['1d', '3mo'], ['1d', '6mo'], ['1d', '1y'], ['1d', '2y'], ['1d', '5y'], ['1d', '10y'], ['1d', 'max'], ['1d', 'ytd'],

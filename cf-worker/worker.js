@@ -144,7 +144,7 @@ async function handle(request, env, ctx) {
     if (request.method === 'GET' && action === 'yf') {
       const iv = url.searchParams.get('interval') || '1d';
       const rg = url.searchParams.get('range') || '1y';
-      const ranges = YF_ALLOWED_RANGES[iv];
+      const ranges = Object.prototype.hasOwnProperty.call(YF_ALLOWED_RANGES, iv) ? YF_ALLOWED_RANGES[iv] : null;
       if (ranges && YF_RANGES.has(rg) && ranges.indexOf(rg) === -1) {
         return res(JSON.stringify({ error: 'interval/range not supported', interval: iv, range: rg, allowed: ranges }), 400, request);
       }

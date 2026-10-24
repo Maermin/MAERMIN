@@ -405,7 +405,13 @@
   }
 
   // ---- export -----------------------------------------------------------------------
-  function csvCell(v) { var s = v == null ? '' : String(v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  // Text that a spreadsheet would read as a formula (= + - @, tab, CR) gets a
+  // leading apostrophe; plain numbers stay numbers.
+  function csvCell(v) {
+    var s = v == null ? '' : String(v);
+    if (!(s.trim() !== '' && isFinite(Number(s))) && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
   function exportCsv(result) {
     var lines = [['Security', 'Key', 'Effective weight %', 'Direct weight %', 'Via funds weight %', 'Value EUR', 'Via'].join(',')];
     ((result && result.effectiveExposure) || []).forEach(function (x) {
