@@ -884,22 +884,22 @@ only; no Worker was used.
 
 ### Findings
 
-| ID | Sev. | Finding | Package |
+| ID | Sev. | Finding | PR |
 |---|---|---|---|
-| V-1 | Medium | **Key figures cut off.** Stat values never wrap and end in "…" when too wide: at 1366 px the Overview shows "108,034.34…" (Cost basis) and "+68,722.33…" (Unrealised gain); on a phone Net Worth shows "178.5…" for both of its main figures. A regression of run 2026-10-16's V-3 fix (no wrap, then ellipsis). | 1 |
-| V-2 | Low | The net-worth projection chart on a phone: axis labels about 6 px high (the SVG is scaled down), unreadable. | 1 |
-| U-1 | Medium | **Research is empty in demo mode.** It gets the real market Worker (`marketWorker`) instead of the view Worker every other view gets (`viewWorkerUrl`), so the demo shows only "loads market data through your own Worker" next to a Charts tab that works with sample data. The notice has no way to API Settings outside demo mode either. | 2 |
-| V-3 | Low | Holdings map tiles are labelled with the 4-letter avatar glyph ("ALVD", "SAPD", "ORPA", "AIRP") instead of the ticker. | 3 |
-| V-4 | Low | Tax → FIFO cost basis: a bold "+0.00 €" for every holding without a sale; a sold-out holding (TSLA, 0 shares, 0.00 €) stays in the table and in "Positions 32". | 3 |
-| U-2 | Low | Dividends → Upcoming: about 60 rows in one list (12 months of projected payments), which pushes dividend safety and yield on cost far down the page. | 3 |
-| U-3 | Low | Mixed spelling and case in English: "realis-" 32 times and "realiz-" 22 times, "colour" / "color", "analyse" / "analyze"; Tax mixes Title Case ("Total Realized P&L", "Avg Cost (FIFO)") with the app's sentence case. | 4 |
-| F-1 | Low | The purple theme is "Nebula" in the menu, hard-coded in English, while README, RELEASE and the `purpleMode` key say "Purple" / "Lila". | 4 |
-| D-1 | Low | `fire-extras.js` (Coast-FIRE) is loaded on every start and tested, but no view calls it (its header promises an Overview FIRE card that does not exist); its key `coastNumber` is the one unused translation key. | 5 |
+| V-1 | Medium | **Key figures cut off.** Stat values never wrap and end in "…" when too wide: at 1366 px the Overview shows "108,034.34…" (Cost basis) and "+68,722.33…" (Unrealised gain); on a phone Net Worth shows "178.5…" for both of its main figures. A regression of run 2026-10-16's V-3 fix (no wrap, then ellipsis). | #244 |
+| V-2 | Low | The net-worth projection chart on a phone: axis labels about 6 px high (the SVG is scaled down), unreadable. | #244 |
+| U-1 | Medium | **Research is empty in demo mode.** It gets the real market Worker (`marketWorker`) instead of the view Worker every other view gets (`viewWorkerUrl`), so the demo shows only "loads market data through your own Worker" next to a Charts tab that works with sample data. The notice has no way to API Settings outside demo mode either. | #245 |
+| V-3 | Low | Holdings map tiles are labelled with the 4-letter avatar glyph ("ALVD", "SAPD", "ORPA", "AIRP") instead of the ticker. | #246 |
+| V-4 | Low | Tax → FIFO cost basis: a bold "+0.00 €" for every holding without a sale; a sold-out holding (TSLA, 0 shares, 0.00 €) stays in the table and in "Positions 32". | #246 |
+| U-2 | Low | Dividends → Upcoming: about 60 rows in one list (12 months of projected payments), which pushes dividend safety and yield on cost far down the page. | #246 |
+| U-3 | Low | Mixed spelling and case in English: "realis-" 32 times and "realiz-" 22 times, "colour" / "color", "analyse" / "analyze"; Tax mixes Title Case ("Total Realized P&L", "Avg Cost (FIFO)") with the app's sentence case. | #247 |
+| F-1 | Low | The purple theme is "Nebula" in the menu, hard-coded in English, while README, RELEASE and the `purpleMode` key say "Purple" / "Lila". | #247 |
+| D-1 | Low | `fire-extras.js` (Coast-FIRE) is loaded on every start and tested, but no view calls it (its header promises an Overview FIRE card that does not exist); its key `coastNumber` is the one unused translation key. | this PR |
 
 No finding touches stored data, a migration, a backup key, a Worker route or a money rule. No security finding;
 dependencies and CDN pins are current.
 
-### Fix packages
+### Fix packages (all done)
 
 1. `cleanup/1-figures-fit`: stat values shrink to fit instead of ending in "…"; projection chart labels readable on
    phones. e2e: no stat value cut at 1366 px and 360 px.
@@ -909,5 +909,9 @@ dependencies and CDN pins are current.
    upcoming dividends grouped by month with the next three shown.
 4. `cleanup/4-wording`: one spelling (British, the majority, as in "colour-blind" and the EU tax wording) and sentence
    case; the theme named Nebula everywhere, translated.
-5. `cleanup/5-dead-code`: remove `fire-extras.js`, its test and key (or, if the owner prefers, show Coast-FIRE in an
-   existing card instead; the default is removal, as the module never shipped a surface).
+5. `cleanup/5-dead-code`: removed `fire-extras.js`, its test, its script tag and its key (the default; the module never
+   had a surface).
+
+Notes from the packages: V-4 kept closed holdings in the FIFO table (marked, last, not counted) instead of dropping
+them, because their realised lots matter for tax. U-2 shows no month totals, because a month can mix currencies.
+U-3 changed five copy assertions from earlier phases to accept both spellings; no logic assertion changed.

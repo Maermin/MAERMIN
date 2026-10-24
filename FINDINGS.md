@@ -1,18 +1,18 @@
-# MAERMIN open findings — 2026-10-24 (audit after v12.2.0)
+# MAERMIN open findings — 2026-10-24 (after the audit of v12.2.0)
 
-**Open: 9 findings from the 2026-10-24 audit** (none Critical or High; details in [docs/AUDIT.md](docs/AUDIT.md), section "Run 2026-10-24"):
+**No open findings.** The 9 findings of the 2026-10-24 audit (none Critical or High) are fixed; details in [docs/AUDIT.md](docs/AUDIT.md), section "Run 2026-10-24":
 
-| ID | Sev. | Finding |
-|---|---|---|
-| V-1 | Medium | Key figures cut off with "…" (desktop Overview, phone Net Worth) |
-| U-1 | Medium | Research is empty in demo mode; its Worker notice has no way to API Settings |
-| V-2 | Low | Net-worth projection chart labels unreadable on phones |
-| V-3 | Low | Holdings map labels are 4-letter glyphs, not tickers |
-| V-4 | Low | FIFO table: bold "+0.00 €" rows, sold-out holdings listed and counted |
-| U-2 | Low | Upcoming dividends: about 60 rows in one list |
-| U-3 | Low | Mixed British / American spelling and Title Case |
-| F-1 | Low | Theme named "Nebula" in the menu, "Purple" in docs and keys |
-| D-1 | Low | `fire-extras.js` loaded and tested but never used |
+| ID | Sev. | Finding | Fixed in |
+|---|---|---|---|
+| V-1 | Medium | Key figures cut off with "…" (desktop Overview, phone Net Worth) | #244 |
+| U-1 | Medium | Research is empty in demo mode; its Worker notice has no way to API Settings | #245 |
+| V-2 | Low | Net-worth projection chart labels unreadable on phones | #244 |
+| V-3 | Low | Holdings map labels are 4-letter glyphs, not tickers | #246 |
+| V-4 | Low | FIFO table: bold "+0.00 €" rows, sold-out holdings listed and counted | #246 |
+| U-2 | Low | Upcoming dividends: about 60 rows in one list | #246 |
+| U-3 | Low | Mixed British / American spelling and Title Case | #247 |
+| F-1 | Low | Theme named "Nebula" in the menu, "Purple" in docs and keys | #247 |
+| D-1 | Low | `fire-extras.js` loaded and tested but never used | this PR |
 
 Earlier lists:
 
