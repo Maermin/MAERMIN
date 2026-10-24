@@ -53,6 +53,16 @@ ok('index candles close where the benchmark line does', Math.abs(gspcBars[gspcBa
 const gm5 = CE.parseBars(DFX.respond(url('action=yf&symbol=%5EGSPC&interval=5m&range=1mo&bars=1'), today).body);
 ok('intraday index bars in New York hours', gm5.exchangeTz === 'America/New_York' && gm5.bars.length > 1000, [gm5.exchangeTz, gm5.bars.length]);
 
+console.log('\naudit U-1: research for a demo stock:');
+const rs = DFX.respond(url('action=research&symbol=SAP.DE'), today);
+const rb = rs.body;
+const KINDS = ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'];
+ok('200, sample, the demo name, its last close as price, EUR', rs.status === 200 && rb.sample === true && rb.name === 'SAP SE' && Math.abs(rb.price - Math.round(lastClose * 100) / 100) < 1e-9 && rb.currency === 'EUR', [rs.status, rb.name, rb.price, lastClose]);
+ok('the Worker payload shape: valuation, financials, analysts with a 4-period trend, 8 EPS quarters, profile', ['valuation', 'financials', 'analysts', 'earnings', 'profile'].every((k) => rb[k]) && rb.analysts.trend.length === 4 && rb.earnings.length === 8 && /^[1-4]Q\d{4}$/.test(rb.earnings[0].quarter));
+ok('analyst counts are whole and add up to the count', rb.analysts.trend.every((t) => KINDS.every((k) => Number.isInteger(t[k]) && t[k] >= 0)) && KINDS.reduce((a, k) => a + rb.analysts.trend[0][k], 0) === rb.analysts.count);
+ok('sector and country from the static table', rb.profile.sector === 'Technology' && rb.profile.country === 'Germany', rb.profile);
+ok('deterministic; a symbol outside the demo: 404', JSON.stringify(DFX.respond(url('action=research&symbol=SAP.DE'), today).body) === JSON.stringify(rb) && DFX.respond(url('action=research&symbol=ZZZZ'), today).status === 404);
+
 console.log('\nother requests are unchanged:');
 ok('without bars=1 a demo holding is still a local 404', DFX.respond(url('action=yf&symbol=SAP.DE&interval=1d&range=1y'), today).status === 404);
 ok('monthly history for the dividend backtest unchanged (no candles)', DFX.respond(url('action=yf&symbol=KO&interval=1mo&range=10y'), today).body.prices[0].o === undefined);

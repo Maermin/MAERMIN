@@ -293,6 +293,48 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       epsEstimate: r(0.4 + (h % 400) / 100, 2), revenueEstimate: (1 + h % 90) * 1e9 };
   }
 
+  // ---- audit 2026-10-24 U-1: the research page for a demo stock ---------------
+  // The shape of the Worker's ?action=research (researchPayload): name, price and
+  // currency from the demo's own holdings and closes; sector and country from the
+  // app's static table; ratios, analyst views and EPS made up from a seeded hash.
+  function research(sym, todayIso) {
+    var t = dayNo(todayIso || todayISO());
+    var hs = demoSeries(t)['stocks|' + sym];
+    if (!hs || !hs.d.length) return null;
+    var DEMO = (typeof window !== 'undefined' && window.MaerminDemo) || require('./demo-data.js');
+    var tx = (DEMO.getTransactions ? DEMO.getTransactions() : []).filter(function (x) { return String(x.symbol).toUpperCase() === sym && x.symbolName; })[0];
+    var EM = (typeof window !== 'undefined' && window.MaerminEquityMeta) || null;
+    if (!EM) { try { EM = require('./equity-metadata.js'); } catch (e) { EM = null; } }
+    var meta = EM && EM.STATIC ? EM.STATIC[sym] : null;
+    var u = function (k) { return unit(sym + ':rs:' + k); };
+    var price = r(hs.p[hs.p.length - 1], 2);
+    var pe = r(12 + u('pe') * 28, 1), eps = r(price / pe, 2);
+    var counts = function (k) { var n = 8 + Math.round(u('n' + k) * 22); var b = Math.round(n * (0.3 + u('b' + k) * 0.4)); var sb = Math.round(n * u('sb' + k) * 0.25); var hd = Math.max(0, n - b - sb - 2); return { strongBuy: sb, buy: b, hold: hd, sell: Math.max(0, n - b - sb - hd - 1), strongSell: n - b - sb - hd - Math.max(0, n - b - sb - hd - 1) }; };
+    var trend = ['0m', '-1m', '-2m', '-3m'].map(function (p, i) { return Object.assign({ period: p }, counts(i)); });
+    var n0 = trend[0].strongBuy + trend[0].buy + trend[0].hold + trend[0].sell + trend[0].strongSell;
+    var target = price * (1.02 + u('tg') * 0.2);
+    var earnings = [];
+    var y = parseInt(iso(t).slice(0, 4), 10), q = Math.floor((parseInt(iso(t).slice(5, 7), 10) - 1) / 3); // the current quarter (not reported yet)
+    for (var k = 8; k >= 1; k--) {
+      var qi = q - k, yy = y + Math.floor(qi / 4), qq = ((qi % 4) + 4) % 4 + 1;
+      var est = r(eps / 4 * (0.9 + u('e' + k) * 0.2), 2);
+      earnings.push({ quarter: qq + 'Q' + yy, actual: r(est * (0.94 + u('a' + k) * 0.14), 2), estimate: est });
+    }
+    return {
+      symbol: sym, name: tx ? tx.symbolName : sym, currency: hs.cur || 'EUR', price: price, sample: true,
+      valuation: { marketCap: Math.round((20 + u('mc') * 900) * 1e9), trailingPE: pe, forwardPE: r(pe * (0.85 + u('fpe') * 0.1), 1), peg: r(1 + u('peg') * 2, 2), priceToBook: r(1.5 + u('pb') * 10, 2),
+        priceToSales: r(1 + u('ps') * 8, 2), beta: r(0.6 + u('beta') * 0.9, 2), high52: r(price * (1.05 + u('hi') * 0.2), 2), low52: r(price * (0.65 + u('lo') * 0.2), 2),
+        dividendYield: r(u('dy') * 0.04, 4), payoutRatio: r(0.2 + u('pr') * 0.5, 2) },
+      financials: { revenue: Math.round((5 + u('rev') * 300) * 1e9), revenueGrowth: r(-0.02 + u('rg') * 0.2, 3), grossMargins: r(0.3 + u('gm') * 0.4, 3), operatingMargins: r(0.1 + u('om') * 0.25, 3),
+        profitMargins: r(0.05 + u('pm') * 0.2, 3), returnOnEquity: r(0.08 + u('roe') * 0.3, 3), debtToEquity: r(20 + u('de') * 150, 1), freeCashflow: Math.round((1 + u('fcf') * 60) * 1e9) },
+      analysts: { count: n0, recommendationKey: trend[0].strongBuy + trend[0].buy > n0 / 2 ? 'buy' : 'hold', recommendationMean: r(1.8 + u('rm') * 1.2, 1),
+        targetMean: r(target, 2), targetMedian: r(target * (0.98 + u('tmd') * 0.04), 2), targetHigh: r(target * 1.25, 2), targetLow: r(target * 0.75, 2), trend: trend },
+      earnings: earnings,
+      profile: { sector: meta ? meta[0] : null, industry: null, country: meta ? meta[1] : null, website: null, employees: Math.round(5000 + u('emp') * 200000), summary: '' },
+      source: 'sample', fetchedAt: iso(t) + 'T00:00:00Z'
+    };
+  }
+
   // ---- the router ------------------------------------------------------------
   function query(url) {
     var q = {}, i = url.indexOf('?');
@@ -317,6 +359,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (q.action === 'screener') return { status: 200, type: 'json', body: screener(q, todayIso) };
     if (q.action === 'news' && q.symbol) return { status: 200, type: 'xml', body: news(q.symbol, todayIso) };
     if (q.action === 'earnings' && q.symbol) return { status: 200, type: 'json', body: earnings(q.symbol.toUpperCase(), todayIso) };
+    if (q.action === 'research' && q.symbol) {
+      var rs = research(q.symbol.toUpperCase(), todayIso);
+      if (rs) return { status: 200, type: 'json', body: rs };
+    }
     return { status: 404, type: 'json', body: { error: 'no-sample-data' } };
   }
 
@@ -345,7 +391,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       __('dfxBadge', 'Sample data'));
   }
 
-  var api = { BASE: BASE, isDemoUrl: isDemoUrl, fxHistory: fxHistory, yfSeries: yfSeries, yfBars: yfBars, screener: screener, news: news, earnings: earnings, respond: respond, installFetch: installFetch, badge: badge };
+  var api = { BASE: BASE, isDemoUrl: isDemoUrl, fxHistory: fxHistory, yfSeries: yfSeries, yfBars: yfBars, research: research, screener: screener, news: news, earnings: earnings, respond: respond, installFetch: installFetch, badge: badge };
   if (typeof window !== 'undefined') { window.MaerminDemoFixtures = api; installFetch(window); }
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

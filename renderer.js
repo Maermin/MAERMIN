@@ -3483,7 +3483,7 @@ function InvestmentTracker() {
       case 'research':
         return window.MaerminResearch ?
           React.createElement(window.MaerminResearch.View, {
-            theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: marketWorker,
+            theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: viewWorkerUrl, demo: demoMode, // audit U-1: sample research in demo mode
             exchangeRate, fxAt, privacy: privacyMode,
             onCharts: window.MaerminCharts ? openCharts : null, // CH-3a
             positions: window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [],
@@ -4084,7 +4084,7 @@ function InvestmentTracker() {
       holdingsMap: () => {
         const d = ovListData();
         const items = d.list.filter((p) => p.value > 0).map((p) => ({
-          key: p.cat + '|' + p.sym, label: d.glyph(p.sym) || p.name, value: p.value, p,
+          key: p.cat + '|' + p.sym, label: (p.cat === 'skins' ? d.glyph(p.sym) : p.sym) || p.name, value: p.value, p, // audit V-3: the ticker, not the 4-letter avatar glyph (ALV.DE, not ALVD)
           pct: p.cost > 0 ? p.pnlPct : null, pctText: p.cost > 0 ? window.MaerminI18n.pct(Math.abs(p.pnlPct), 1) : null,
           title: p.name + ' · ' + d.money(p.value) + (p.cost > 0 ? ' · ' + d.fmtPct(p.pnlPct) : '')
         }));

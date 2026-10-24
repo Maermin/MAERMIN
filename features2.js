@@ -1284,6 +1284,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ symbol: '', date: '', amount: '', withholding: '', currency: 'EUR', notes: '' });
   const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [allUpcoming, setAllUpcoming] = useState(false); // audit U-2: the next three months unless opened
 
   // Persist only when uncontrolled — the parent owns persistence otherwise.
   useEffect(() => { if (!controlled) localStorage.setItem('maermin_divevents', JSON.stringify(localEvents)); }, [localEvents, controlled]);
@@ -1429,18 +1430,32 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 
     // Upcoming list
     upcoming.length > 0 && h(UIC.Card, { className: 'ui-dc-up', headingLevel: 'h3', title: __('dcUpcoming', 'Upcoming dividends') },
-      h('ul', { className: 'ui-rows' },
-        upcoming.slice(0, 60).map(e =>
-          h('li', { key: e.id, className: 'ui-rows__row' },
-            // R3.5: the holding's name next to its symbol
-            h('div', { className: 'ui-rows__main' },
-              h('b', null, e.symbol),
-              nameOf(e.symbol) ? h('span', null, nameOf(e.symbol)) : null),
-            h('div', { className: 'ui-rows__side' },
-              h('b', { className: ['num', 'tone-income'].join(' ') }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))),
-              h('span', { className: 'num' }, window.MaerminI18n.date(e.date) + (e.derived ? ' · ' + __('dcProjected', 'projected') : ''))))
-        )
-      )
+      // audit U-2: grouped by month; the next three months, the rest behind a button
+      (() => {
+        const months = [];
+        upcoming.slice(0, 60).forEach((e) => {
+          const m = String(e.date).slice(0, 7), last = months[months.length - 1];
+          if (last && last.m === m) last.rows.push(e); else months.push({ m, rows: [e] });
+        });
+        const shown = allUpcoming ? months : months.slice(0, 3);
+        const hidden = months.slice(shown.length).reduce((n, g) => n + g.rows.length, 0);
+        return h(React.Fragment, null,
+          shown.map((g) => h('section', { key: g.m, className: 'ui-dc-up__month', 'data-testid': 'dc-up-month' },
+            // no month total: a month can mix currencies (USD and EUR payments)
+            h('h4', { className: 'ui-dc-up__head' }, window.MaerminI18n.date(g.m + '-15', 'monthLong')),
+            h('ul', { className: 'ui-rows' },
+              g.rows.map(e =>
+                h('li', { key: e.id, className: 'ui-rows__row' },
+                  // R3.5: the holding's name next to its symbol
+                  h('div', { className: 'ui-rows__main' },
+                    h('b', null, e.symbol),
+                    nameOf(e.symbol) ? h('span', null, nameOf(e.symbol)) : null),
+                  h('div', { className: 'ui-rows__side' },
+                    h('b', { className: ['num', 'tone-income'].join(' ') }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))),
+                    h('span', { className: 'num' }, window.MaerminI18n.date(e.date) + (e.derived ? ' · ' + __('dcProjected', 'projected') : '')))))))),
+          hidden > 0 || allUpcoming ? h(UIC.Button, { variant: 'quiet', size: 'sm', 'data-testid': 'dc-up-more', 'aria-expanded': allUpcoming, onClick: () => setAllUpcoming(!allUpcoming) },
+            allUpcoming ? __('dcShowFewer', 'Show the next three months only') : __('dcShowMore', '{n} more {n:payment|payments} in the following months', { n: hidden })) : null);
+      })()
     )
   );
 }

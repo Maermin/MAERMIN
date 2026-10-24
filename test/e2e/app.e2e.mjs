@@ -1884,6 +1884,39 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 U-1: Research works in demo mode (it used to get the real
+  // market Worker, which the demo does not have): a demo stock shows its key
+  // figures, analysts, EPS and a price chart, marked as sample data.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { sample: 0, figures: 0, analysts: 0, eps: 0, chart: 0, notice: -1, title: '' };
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await openView(page, 'research');
+      await page.locator('[data-testid="rs-symbol"]').fill('SAP.DE');
+      await page.locator('[data-testid="rs-go"]').click();
+      await page.locator('[data-testid="rs-figures"]').waitFor({ timeout: 15000 });
+      await page.waitForTimeout(800);
+      r.title = await page.locator('[data-testid="research-view"] h2').first().innerText();
+      r.sample = await page.locator('[data-testid="research-view"] [data-testid="sample-data"]').count();
+      r.figures = await page.locator('[data-testid="rs-figures"]').count();
+      r.analysts = await page.locator('[data-testid="rs-analysts"]').count();
+      r.eps = await page.locator('[data-testid="rs-eps"]').count();
+      r.chart = await page.locator('[data-testid="rs-chart"] path').count();
+      r.notice = await page.locator('[data-testid="rs-need-worker"]').count();
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('audit U-1: Research in demo mode: SAP.DE with key figures, analysts, EPS and a price chart, marked sample data', !err && /SAP SE/.test(r.title) && r.sample === 1 && r.figures === 1 && r.analysts === 1 && r.eps === 1 && r.chart > 0 && r.notice === 0, err || JSON.stringify(r));
+    ok('no page errors (Research demo)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // Audit 2026-10-24 V-1 / V-2: key figures never end in "…" (they shrink to
   // fit), at 1366 px on the Overview and at 360 px on Net Worth; the
   // projection chart's labels stay readable on a phone.
@@ -1911,6 +1944,41 @@ async function runBuild(browser, label, dir) {
     ok('audit V-1: no key figure cut with "…" (' + view + ', ' + w + ' px)', !err && r.stats > 3 && r.cut.length === 0, err || JSON.stringify(r));
     if (view === 'net-worth') ok('audit V-2: projection chart labels readable on a phone (≥ 9 px)', r.label != null && r.label >= 9, err || JSON.stringify(r));
     ok('no page errors (figures fit, ' + view + ')', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // Audit 2026-10-24 V-3, V-4, U-2: tickers on the holdings map; the FIFO table
+  // counts open holdings, keeps closed ones last and marked, "–" for no sale;
+  // upcoming dividends grouped by month, three months first.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let r = {}, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('[data-testid="ov-map"]').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      r.map = await page.locator('[data-testid="ov-map"]').innerText();
+      await openView(page, 'dividends');
+      await page.locator('[data-testid="dc-up-month"]').first().waitFor({ timeout: 10000 });
+      r.months = await page.locator('[data-testid="dc-up-month"]').count();
+      r.more = await page.locator('[data-testid="dc-up-more"]').innerText();
+      await page.locator('[data-testid="dc-up-more"]').click();
+      r.allMonths = await page.locator('[data-testid="dc-up-month"]').count();
+      await openView(page, 'tax');
+      await page.locator('.ui-fifo tbody tr').first().waitFor({ timeout: 10000 });
+      r.positions = await page.locator('.ui-fifo .ui-stat').nth(1).innerText();
+      const rows = await page.locator('.ui-fifo tbody tr').allInnerTexts();
+      r.last = rows[rows.length - 1].replace(/\s+/g, ' ');
+      r.zeroBold = rows.filter((t) => /\+0[.,]00/.test(t)).length;
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('audit V-3: the holdings map shows tickers (ALV.DE), not 4-letter glyphs (ALVD)', !err && /ALV\.DE/.test(r.map) && !/\bALVD\b/.test(r.map), err || JSON.stringify(r).slice(0, 300));
+    ok('audit U-2: upcoming dividends in months, three first; the button shows the rest', r.months === 3 && /^\d+ more payments? in the following months$/.test(r.more) && r.allMonths > 3, err || JSON.stringify(r));
+    ok('audit V-4: FIFO counts open holdings, closed ones last and marked, no "+0.00" rows', /plus 1 closed/.test(r.positions) && /^TSLA\s?closed – – – \+/.test(r.last) && r.zeroBold === 0, err || JSON.stringify(r));
+    ok('no page errors (tables and lists)', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 

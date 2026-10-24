@@ -698,6 +698,12 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
     h(UIC.EmptyState, { title: __('fifoTitle', 'FIFO cost basis'), text: __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis') }));
 
   const detail = activeSymbol ? fifo[activeSymbol] : null;
+  // audit V-4: sold-out holdings stay (their realised lots matter) but go last, marked, and are
+  // not counted as positions; "–" where there is nothing to show instead of a bold +0.00
+  const isOpen = (e) => e.unrealizedQty > 1e-9;
+  const rows = entries.filter(isOpen).concat(entries.filter((e) => !isOpen(e)));
+  const soldOut = entries.length - entries.filter(isOpen).length;
+  const dash = h('span', { className: 'is-dim' }, '–');
   const TABLE = ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ');
 
   return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-fifo'].join(' ') },
@@ -706,7 +712,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
     // Summary
     h('div', { className: 'ui-tiles' },
       h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalRealized', 'Total realised P&L'), value: signed(totalRealizedPnL), tone: UIC.toneOf(totalRealizedPnL) }),
-      h(UIC.Stat, { className: 'ui-tile', label: __('positions', 'Positions'), value: String(entries.length) }),
+      h(UIC.Stat, { className: 'ui-tile', label: __('positions', 'Positions'), value: String(entries.length - soldOut), sub: soldOut ? __('fifoSoldOutN', 'plus {n} closed', { n: soldOut }) : undefined }),
       h(UIC.Stat, { className: 'ui-tile', label: __('fifoTotalLots', 'Realised lots'), value: String(entries.reduce((s, e) => s + e.realized.length, 0)) })),
 
     // Position table
@@ -717,7 +723,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
             [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg cost (FIFO)'), __('fifoQtyHeld', 'Qty held'), __('fifoTotalCost', 'Total cost'), __('fifoRealizedPnl', 'Realised P&L'), __('fifoLots', 'Lots')].map((label, i) =>
               h('th', { key: i, scope: 'col', className: i > 0 ? 'is-right' : 'is-sticky' }, label)))),
           h('tbody', null,
-            entries.map(e => {
+            rows.map(e => {
               const key = (e.symbol || '').toLowerCase() + '-' + (e.category || 'crypto');
               return h('tr', {
                 key, className: ['is-clickable', activeSymbol === key ? 'is-selected' : ''].join(' ').trim(),
@@ -725,11 +731,11 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
                 'aria-label': __('fifoToggleLots', 'Toggle lot details for {sym}', { sym: e.symbol || key }),
                 'aria-expanded': activeSymbol === key
               },
-                h('th', { scope: 'row', className: 'is-sticky' }, e.symbol),
-                h('td', null, `${formatPrice(e.avgCostFIFO)} ${sym}`),
-                h('td', null, window.MaerminI18n.num(e.unrealizedQty, 4)),
-                h('td', { className: 'is-dim' }, `${formatPrice(e.unrealizedCost)} ${sym}`),
-                h('td', { className: [tone(e.totalRealizedPnL), 'is-strong'].join(' ') }, signed(e.totalRealizedPnL)),
+                h('th', { scope: 'row', className: 'is-sticky' }, e.symbol, isOpen(e) ? null : h(UIC.Badge, { className: 'ui-fifo__sold' }, __('fifoSoldOut', 'closed'))),
+                h('td', null, isOpen(e) ? `${formatPrice(e.avgCostFIFO)} ${sym}` : dash),
+                h('td', null, isOpen(e) ? window.MaerminI18n.num(e.unrealizedQty, 4) : dash),
+                h('td', { className: 'is-dim' }, isOpen(e) ? `${formatPrice(e.unrealizedCost)} ${sym}` : '–'),
+                e.realized.length ? h('td', { className: [tone(e.totalRealizedPnL), 'is-strong'].join(' ') }, signed(e.totalRealizedPnL)) : h('td', null, dash),
                 h('td', { className: 'is-dim' }, e.realized.length));
             }))))),
 
