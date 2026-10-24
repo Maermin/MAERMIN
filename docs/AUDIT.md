@@ -842,3 +842,72 @@ details move here once they are released.
 - All features gated behind the Worker or keys (owner, Q4). No stored data key, migration, backup key or Worker route
   was removed. The one additive field is the optional `separateDepot` on portfolios (#183).
 - The existing radii (10 / 16 / 22 px); `--radius-md` (12 px) was added between them.
+
+## Run 2026-10-24 — audit and cleanup after v12.2.0 "Atlas Charts"
+
+From `main` @ `c1dfde4` (v12.2.0 plus the Charts follow-ups #240 and #241). The owner picked this run as the next
+phase after Phase 7. Report first, then one PR per package on `cleanup/<n>-…` branches; the owner merges. Demo data
+only; no Worker was used.
+
+### Gate at the start
+
+| Gate | 2026-10-24 (start) |
+|---|---|
+| `npm run check` | ok, 3995 keys in en and de, no new colour literals |
+| `npm test` | 222 suites, 0 failures |
+| `npm run build:web` | ok |
+| `CI=1 npm run test:e2e` | 714 / 0 |
+| `npm audit` | 0 vulnerabilities |
+
+### Method
+
+- **Sweep:** every view the rail and its page tabs reach (33, advanced mode), demo data, in seven setups: desktop
+  1366 px dark EN, light DE, Nebula, Contrast and Colour-blind; phone 390 px dark EN and 360 px light DE. Per view:
+  page errors, console errors and warnings, failed requests, sideways overflow, `NaN` / `undefined` / `Infinity` /
+  `[object Object]` / raw `{placeholders}`, English words in the German UI, WCAG AA text contrast (own text against
+  the composed background) and text cut with an ellipsis. Plus a full-page screenshot of each, read by eye.
+- **Static:** modules loaded but never used, translation keys never read, CSS classes never written, German strings
+  identical to English, spelling, `npm audit`, pinned CDN libraries.
+- **Figures across views:** realised gains, fees, XIRR and the end value agree between Overview, Tax and Returns
+  (the 82 € gap in "Profit by source" is the CS2 skin, which the page says it leaves out).
+
+### Measurements
+
+| | Result |
+|---|---|
+| Page errors, console errors, failed requests (33 views × 7 setups) | 0 |
+| Sideways overflow at 360 / 390 px | 0 |
+| Broken values (`NaN`, `undefined`, raw placeholders) | 0 |
+| Text below WCAG AA in any of the five themes | 0 |
+| English UI text in German | 0 (the hits were the German words "Portfolio", "Import", "Export") |
+| Key figures cut with "…" | 4 (desktop Overview 2, phone Net Worth 2) |
+
+### Findings
+
+| ID | Sev. | Finding | Package |
+|---|---|---|---|
+| V-1 | Medium | **Key figures cut off.** Stat values never wrap and end in "…" when too wide: at 1366 px the Overview shows "108,034.34…" (Cost basis) and "+68,722.33…" (Unrealised gain); on a phone Net Worth shows "178.5…" for both of its main figures. A regression of run 2026-10-16's V-3 fix (no wrap, then ellipsis). | 1 |
+| V-2 | Low | The net-worth projection chart on a phone: axis labels about 6 px high (the SVG is scaled down), unreadable. | 1 |
+| U-1 | Medium | **Research is empty in demo mode.** It gets the real market Worker (`marketWorker`) instead of the view Worker every other view gets (`viewWorkerUrl`), so the demo shows only "loads market data through your own Worker" next to a Charts tab that works with sample data. The notice has no way to API Settings outside demo mode either. | 2 |
+| V-3 | Low | Holdings map tiles are labelled with the 4-letter avatar glyph ("ALVD", "SAPD", "ORPA", "AIRP") instead of the ticker. | 3 |
+| V-4 | Low | Tax → FIFO cost basis: a bold "+0.00 €" for every holding without a sale; a sold-out holding (TSLA, 0 shares, 0.00 €) stays in the table and in "Positions 32". | 3 |
+| U-2 | Low | Dividends → Upcoming: about 60 rows in one list (12 months of projected payments), which pushes dividend safety and yield on cost far down the page. | 3 |
+| U-3 | Low | Mixed spelling and case in English: "realis-" 32 times and "realiz-" 22 times, "colour" / "color", "analyse" / "analyze"; Tax mixes Title Case ("Total Realized P&L", "Avg Cost (FIFO)") with the app's sentence case. | 4 |
+| F-1 | Low | The purple theme is "Nebula" in the menu, hard-coded in English, while README, RELEASE and the `purpleMode` key say "Purple" / "Lila". | 4 |
+| D-1 | Low | `fire-extras.js` (Coast-FIRE) is loaded on every start and tested, but no view calls it (its header promises an Overview FIRE card that does not exist); its key `coastNumber` is the one unused translation key. | 5 |
+
+No finding touches stored data, a migration, a backup key, a Worker route or a money rule. No security finding;
+dependencies and CDN pins are current.
+
+### Fix packages
+
+1. `cleanup/1-figures-fit`: stat values shrink to fit instead of ending in "…"; projection chart labels readable on
+   phones. e2e: no stat value cut at 1366 px and 360 px.
+2. `cleanup/2-research-demo`: Research gets the view Worker, sample research data in demo mode, and a way to API
+   Settings in its notice.
+3. `cleanup/3-tables-lists`: tickers on the holdings map; FIFO table without sold-out rows and with "–" for no sale;
+   upcoming dividends grouped by month with the next three shown.
+4. `cleanup/4-wording`: one spelling (British, the majority, as in "colour-blind" and the EU tax wording) and sentence
+   case; the theme named Nebula everywhere, translated.
+5. `cleanup/5-dead-code`: remove `fire-extras.js`, its test and key (or, if the owner prefers, show Coast-FIRE in an
+   existing card instead; the default is removal, as the module never shipped a surface).

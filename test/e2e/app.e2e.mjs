@@ -1917,6 +1917,36 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 V-1 / V-2: key figures never end in "…" (they shrink to
+  // fit), at 1366 px on the Overview and at 360 px on Net Worth; the
+  // projection chart's labels stay readable on a phone.
+  for (const [w, h, view] of [[1366, 900, 'overview'], [360, 800, 'net-worth']]) {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: w, height: h }, isMobile: w < 768, hasTouch: w < 768 });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let r = { cut: null, stats: 0, label: null }, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('main').first().waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      if (view !== 'overview') await openView(page, view);
+      await page.locator('.ui-stat__value').first().waitFor({ timeout: 10000 });
+      await page.waitForTimeout(1500); // count-up done
+      r = await page.evaluate(() => {
+        const vals = [...document.querySelectorAll('main .ui-stat__value')].filter((e) => e.offsetParent);
+        const svgText = document.querySelector('.ui-pj__svg text');
+        return { stats: vals.length, cut: vals.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim()),
+          label: svgText ? svgText.getBoundingClientRect().height : null };
+      });
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('audit V-1: no key figure cut with "…" (' + view + ', ' + w + ' px)', !err && r.stats > 3 && r.cut.length === 0, err || JSON.stringify(r));
+    if (view === 'net-worth') ok('audit V-2: projection chart labels readable on a phone (≥ 9 px)', r.label != null && r.label >= 9, err || JSON.stringify(r));
+    ok('no page errors (figures fit, ' + view + ')', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
