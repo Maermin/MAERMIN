@@ -600,7 +600,29 @@ function Heading(props) {
 }
 
 // Stat / KPI: label, value (tone from the figure or given), sub line, split figures.
+// A figure never ends in "…": when it is wider than its card, its font steps
+// down (to 55 % at most) until it fits; again when the card is resized.
+function fitText(el) {
+  if (!el) return;
+  el.style.fontSize = '';
+  if (el.scrollWidth <= el.clientWidth) return;
+  const max = parseFloat(getComputedStyle(el).fontSize) || 0;
+  for (let s = max - 1; s >= max * 0.55 && el.scrollWidth > el.clientWidth; s -= 1) el.style.fontSize = s + 'px';
+}
+function useFitText(ref, dep) {
+  (typeof document !== 'undefined' && document.createElement ? React.useLayoutEffect : useEffect)(() => { fitText(ref.current); });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => fitText(el));
+    ro.observe(el.parentElement || el);
+    return () => ro.disconnect();
+  }, [dep]);
+}
+
 function Stat(props) {
+  const valueRef = useRef(null);
+  useFitText(valueRef, props.size);
   const tone = props.tone || (typeof props.signed === 'number' ? toneOf(props.signed) : null);
   const clickable = typeof props.onClick === 'function';
   const rest = omit(props, ['label', 'value', 'sub', 'tone', 'signed', 'split', 'className', 'onClick', 'size']);
@@ -611,7 +633,7 @@ function Stat(props) {
     onClick: props.onClick, onKeyDown: onKey
   }),
   h('div', { className: 'ui-stat__label' }, props.label),
-  h('div', { className: cx('ui-stat__value', 'num', tone && 'tone-' + tone) }, props.value),
+  h('div', { ref: valueRef, className: cx('ui-stat__value', 'num', tone && 'tone-' + tone) }, props.value),
   props.sub ? h('div', { className: 'ui-stat__sub' }, props.sub) : null,
   Array.isArray(props.split) && props.split.length ? h('div', { className: 'ui-stat__split' },
     props.split.map((s, i) => h('div', { key: i },
