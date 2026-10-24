@@ -138,6 +138,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var hzState = React.useState(10); var years = hzState[0]; var setYears = hzState[1];
     var customState = React.useState(''); var custom = customState[0]; var setCustom = customState[1];
+    // the drawing is as wide as its box, so the 10 px labels stay 10 px on a phone (a fixed 720
+    // wide drawing scaled into 300 px made them about 4 px)
+    var boxState = React.useState(0); var boxW = boxState[0]; var setBoxW = boxState[1];
+    var svgRef = React.useRef(null);
+    React.useEffect(function () {
+      var el = svgRef.current && svgRef.current.parentElement;
+      if (!el || typeof ResizeObserver === 'undefined') return undefined;
+      var ro = new ResizeObserver(function () { setBoxW(Math.round(el.clientWidth)); });
+      ro.observe(el);
+      return function () { ro.disconnect(); };
+    }, []);
 
     var liabilities = props.liabilities || (window.MaerminRecurring ? window.MaerminRecurring.loadFromAccounts() : []);
     var proj = projectPortfolio({
@@ -161,7 +172,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // ---- SVG chart geometry -------------------------------------------------
     // Padded plot area leaves room for a Y value axis (left) and year axis (bot).
-    var W = 720, H = 300, padL = 60, padR = 16, padT = 16, padB = 30;
+    var W = boxW ? Math.max(260, Math.min(720, boxW)) : 720, narrow = W < 480;
+    var H = narrow ? 220 : 300, padL = 60, padR = 16, padT = 16, padB = 30;
     var plotW = W - padL - padR, plotH = H - padT - padB;
     var pts = proj.scenarios.realistic.points;
     var maxYear = pts[pts.length - 1].year || years || 1;
@@ -195,7 +207,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var yTicks = [];
     for (var ti = 0; ti <= TICKS; ti++) yTicks.push(minV + (maxV - minV) * ti / TICKS);
     // X labels: subsample year points so they never overlap on long horizons.
-    var xStep = Math.max(1, Math.ceil(pts.length / 6));
+    var xStep = Math.max(1, Math.ceil(pts.length / (narrow ? 4 : 6)));
     var yearLabel = function (yr) { return yr === 0 ? __('pjNow', 'Now') : __('pjYears', '{n}y', { n: window.MaerminI18n.num(Math.round(yr * 10) / 10, { min: 0, max: 1 }) }); };
     var money = function (v) { return fmt(v) + (sym ? ' ' + sym : ''); };
 
@@ -209,7 +221,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var tableRows = pts.map(function (p, i) {
       return { id: i, year: p.year, optimistic: proj.scenarios.optimistic.points[i].value, realistic: p.value, conservative: proj.scenarios.conservative.points[i].value };
-    }).filter(function (r, i) { return i % xStep === 0 || i === pts.length - 1; });
+    }).filter(function (r, i) { var step = Math.max(1, Math.ceil(pts.length / 6)); return i % step === 0 || i === pts.length - 1; });
 
     return e(UIC.ChartFrame, {
       'data-testid': 'projection', className: 'ui-pj',
@@ -226,7 +238,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       source: __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) })
     },
       // chart
-      e('svg', { viewBox: '0 0 ' + W + ' ' + H, className: 'ui-pj__svg', 'aria-hidden': 'true' },
+      e('svg', { ref: svgRef, viewBox: '0 0 ' + W + ' ' + H, className: 'ui-pj__svg', 'aria-hidden': 'true' },
         // horizontal gridlines + Y value labels
         yTicks.map(function (v, i) {
           var yy = y(v);
@@ -238,6 +250,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         // X year labels
         pts.map(function (p, i) {
           if (i % xStep !== 0 && i !== pts.length - 1) return null;
+          if (i !== pts.length - 1 && pts.length - 1 - i < xStep / 2) return null; // too close to the last label
           return e('text', { key: 'x' + i, x: x(p), y: H - 10, textAnchor: 'middle', fontSize: 10, className: 'ui-pj__axis' }, yearLabel(p.year));
         }),
         // soft fill under the realistic curve
