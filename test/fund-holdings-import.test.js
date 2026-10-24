@@ -148,6 +148,9 @@ const xtrackers = [
     ok('a security also held directly keeps the direct name', rr.effectiveExposure.filter((x) => x.key === 'NVDA')[0].name === 'NVIDIA Corp.'); }
   const csv = FF.exportCsv(r);
   ok('CSV export: header + one line per security, quoted names', /^Security,Key,Effective weight %/.test(csv) && csv.trim().split('\r\n').length === r.effectiveExposure.length + 1 && /NESTLE SA/.test(csv));
+  const csvText = FF.exportCsv({ effectiveExposure: [{ name: '=1+1', key: '@K', effectiveWeight: 0.5, directWeight: 0.5, fundedWeight: 0, valueEUR: -3, via: [{ fund: '-F' }] }] }).split('\r\n')[1];
+  ok('CSV export: text cells starting with = @ - are written as text', csvText.indexOf("'=1+1,'@K,") === 0 && /,'-F$/.test(csvText), csvText);
+  ok('CSV export: a negative value stays a plain number', csvText.split(',')[5] === '-3.00', csvText);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

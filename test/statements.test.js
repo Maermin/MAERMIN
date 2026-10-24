@@ -104,6 +104,15 @@ const C = (o) => Object.assign({ category: 'crypto', currency: 'EUR', portfolioI
   ok('an unknown sale id: null', ST.sourceOfFunds(sof, 'nope', {}) === null);
   ok('text summary for the PDF', /ETH/.test(ST.sourceOfFundsLines(tr).join('\n')) && /BTC/.test(ST.sourceOfFundsLines(tr).join('\n')) && /EUR/.test(ST.sourceOfFundsLines(tr).join('\n')));
 
+  // ---- CSV cells: text stays text in a spreadsheet, numbers stay numbers ----------------
+  const rfText = ST.rollForwardCSV({ rows: [{ category: 'stocks', symbol: '=1+2', realized: -1.23, ok: true },
+    { category: 'stocks', symbol: '@SUM(A1)', ok: true }, { category: 'stocks', symbol: '-X', ok: true }] }).split('\n');
+  ok('roll-forward: a symbol starting with = is written as text', rfText[1].split(';')[1] === "'=1+2", rfText[1]);
+  ok('roll-forward: @ and - prefixes are written as text too', rfText[2].split(';')[1] === "'@SUM(A1)" && rfText[3].split(';')[1] === "'-X", rfText.slice(2));
+  ok('roll-forward: a negative amount stays a plain number', rfText[1].split(';')[9] === '-1,23', rfText[1]);
+  const dvText = ST.datevCSV([{ amount: 5, sh: 'S', currency: 'EUR', konto: '1200', gegenkonto: '8100', date: '0101', beleg: '+tx1', text: 'Kauf' }]).split('\n');
+  ok('DATEV: a text field starting with + is written as text, the amount as a number', dvText[1].split(';')[6] === "'+tx1" && dvText[1].split(';')[0] === '5,00', dvText[1]);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failed) process.exit(1);
 })();

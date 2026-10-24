@@ -137,7 +137,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { year: year, rows: rows, ok: rows.every(function (r) { return r.ok; }) };
   }
   function deNum(v, dec) { return (Math.round(num(v) * Math.pow(10, dec)) / Math.pow(10, dec)).toFixed(dec).replace('.', ','); }
-  function csvCell(v) { var s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  // Text that a spreadsheet would read as a formula (= + - @, tab, CR) gets a
+  // leading apostrophe; numbers in German format ("-1,23") stay numbers.
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (!/^-?\d+(,\d+)?$/.test(s) && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
   function rollForwardCSV(rf) {
     var head = [__('stmCategory', 'Category'), __('stmSymbol', 'Symbol'), __('stmOpenQty', 'Opening quantity'), __('stmOpenCost', 'Opening cost'),
       __('stmBoughtQty', 'Bought quantity'), __('stmBoughtCost', 'Purchases'), __('stmSoldQty', 'Sold quantity'), __('stmSoldCost', 'Cost of sales'),
