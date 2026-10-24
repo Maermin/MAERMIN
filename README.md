@@ -240,7 +240,7 @@ MAERMIN/
 ├── dividend-data-service.js    Dividend data + forecast (window.DividendDataService)
 ├── tax-report-builder.js       Filing-grade tax report + PDF/Excel (window.MaerminTaxReport)
 ├── projection.js · recurring.js  Forecast / liabilities engines
-├── renderer.js                 Main React app — state, routing, transactions (~5,400 lines)
+├── renderer.js                 Main React app — state, routing, transactions (~6,400 lines)
 ├── features.js … features7.js  Feature views (charts, analysis, dividends, net worth, …)
 ├── build.mjs                   Web build — bundles + minifies (reads index.html order)
 ├── test/                       Node test harnesses (npm test)
@@ -248,16 +248,16 @@ MAERMIN/
 └── cf-worker/worker.js         Cloudflare Worker — market-data proxy, sync, broker relay
 ```
 
-> Full module/view map and data flow: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+> Module/view map of the main modules and data flow: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ### Development
 
 The app runs directly from `index.html` (no build needed for dev). Common scripts:
 
 ```bash
-npm install        # once, pulls esbuild (web build)
+npm install        # once: esbuild (build), playwright-core, react, react-dom, klinecharts (tests, e2e)
 npm test           # run all Node test harnesses (test/*.test.js)
-npm run check      # syntax-check every JS file (fast pre-commit gate)
+npm run check      # syntax check of every JS file, plus the i18n and colour guards (fast pre-commit gate)
 npm run build:web  # -> dist/index.html + dist/maermin.min.js + dist/styles.css
 npm run test:e2e   # headless Chromium smoke test of index.html + dist/ (after build:web)
 ```

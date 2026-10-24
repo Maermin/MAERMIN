@@ -245,7 +245,8 @@
 
   // A recorded price counts as the fill of a due date only when it is at most
   // MAX_PRICE_AGE_DAYS older (weekends, holidays, a few days without a
-  // refresh); older points fall through to the estimated path (AUDIT BUG-019).
+  // refresh); older points leave the date pending (AUDIT BUG-019; since audit
+  // 2026-10-24 BUG-5 nothing is booked at an estimated price any more).
   var MAX_PRICE_AGE_DAYS = 7;
   function priceAtDate(history, prices, symbol, dueDateISO) {
     var sym = String(symbol || '');
@@ -266,20 +267,6 @@
       var live = num((prices || {})[sym]) || num((prices || {})[sym.toLowerCase()]) || num((prices || {})[sym.toUpperCase()]);
       if (live != null && live > 0) return live;
     }
-    return null;
-  }
-
-  // Like priceAtDate but never leaves a back-dated occurrence unbooked when a
-  // current price exists: if no recorded price covers the due date, fall back
-  // to the live price and flag the result as an ESTIMATE so the booked buy is
-  // transparently marked (note + estimatedPrice) and stays editable. Returns
-  // { price, estimated } or null when not even a live price is available.
-  function priceForBackfill(history, prices, symbol, dueDateISO) {
-    var exact = priceAtDate(history, prices, symbol, dueDateISO);
-    if (exact != null) return { price: exact, estimated: false };
-    var sym = String(symbol || '');
-    var live = num((prices || {})[sym]) || num((prices || {})[sym.toLowerCase()]) || num((prices || {})[sym.toUpperCase()]);
-    if (live != null && live > 0) return { price: live, estimated: true };
     return null;
   }
 
@@ -355,7 +342,6 @@
     buildTransaction: buildTransaction,
     amountToEUR: amountToEUR,
     priceAtDate: priceAtDate,
-    priceForBackfill: priceForBackfill,
     repriceEstimated: repriceEstimated,
     runCatchUp: runCatchUp
   };

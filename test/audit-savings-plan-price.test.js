@@ -13,10 +13,13 @@ const SP = require('../savings-plan-executor.js');
 
 console.log('savings-plan price at due date:');
 const hist = { BTC: [{ timestamp: '2023-01-01T10:00:00Z', price: 15000 }] };
-const r = SP.priceForBackfill(hist, { BTC: 60000 }, 'BTC', '2025-06-01');
-ok('a 2023 price is not an exact fill for a 2025-06-01 execution', !(r && r.price === 15000 && r.estimated === false));
-const near = SP.priceForBackfill({ BTC: [{ timestamp: '2025-05-30T10:00:00Z', price: 58000 }] }, { BTC: 60000 }, 'BTC', '2025-06-01');
-ok('a price two days before is still an exact fill', near && near.price === 58000 && near.estimated === false);
+// Since audit 2026-10-24 (BUG-5, JUNK) the app resolves prices with
+// priceAtDate only (priceForBackfill and its estimated fallback are gone):
+// no recorded price near the due date = no fill, the date stays pending.
+const r = SP.priceAtDate(hist, { BTC: 60000 }, 'BTC', '2025-06-01');
+ok('a 2023 price is not a fill for a 2025-06-01 execution (it stays pending)', r === null);
+const near = SP.priceAtDate({ BTC: [{ timestamp: '2025-05-30T10:00:00Z', price: 58000 }] }, { BTC: 60000 }, 'BTC', '2025-06-01');
+ok('a price two days before is still an exact fill', near === 58000);
 
 console.log('dedupeExecutions with identical ids:');
 const row = { id: 'sp-1', type: 'buy', symbol: 'BTC', quantity: 0.01, price: 10000, source: 'savings-plan', planId: 'p1', dueDate: '2025-01-01' };

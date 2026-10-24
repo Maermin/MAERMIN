@@ -103,44 +103,10 @@
     } catch (e) { /* storage full / unavailable — non-fatal */ }
   }
 
-  // FIRE = financial independence number via the safe-withdrawal-rate rule.
-  // fireNumber = annualExpenses / (withdrawalRate%)  ==  annualExpenses * (100/wr).
-  // `monthlySavings` is optional; when provided we estimate years-to-FIRE.
-  function computeFireMetrics(netWorth, settings, monthlySavings) {
-    settings = settings || loadFireSettings();
-    var wr = settings.withdrawalRate > 0 ? settings.withdrawalRate : DEFAULT_FIRE.withdrawalRate;
-    var annualExpenses = settings.annualExpenses > 0 ? settings.annualExpenses : 0;
-    var configured = annualExpenses > 0;
-    var fireNumber = configured ? annualExpenses * (100 / wr) : 0;
-    var progress = fireNumber > 0 ? (netWorth / fireNumber) * 100 : 0;
-    var currentAnnualPassive = netWorth * (wr / 100);
-
-    // Simple (non-compounding) years estimate from a steady monthly contribution.
-    var yearsToFire = null;
-    if (configured && progress < 100 && monthlySavings > 0) {
-      yearsToFire = (fireNumber - netWorth) / (monthlySavings * 12);
-    } else if (configured && progress >= 100) {
-      yearsToFire = 0;
-    }
-
-    return {
-      configured: configured,
-      fireNumber: fireNumber,
-      netWorth: netWorth,
-      withdrawalRate: wr,
-      annualExpenses: annualExpenses,
-      progress: Math.max(0, progress),
-      monthlyPassiveIncome: currentAnnualPassive / 12,
-      coveredExpenseRatio: annualExpenses > 0 ? (currentAnnualPassive / annualExpenses) * 100 : 0,
-      yearsToFire: yearsToFire
-    };
-  }
-
   // ---- Dividends -----------------------------------------------------------
   // Expected forward annual dividend income from current stock holdings.
-  // Reuses DividendDataService's per-symbol lookup (DB/cache/API) — same
-  // shares*annualDividend basis as analyzePortfolioDividends, without the
-  // heavy historical/forecast/calendar work or its console logging.
+  // Reuses DividendDataService's per-symbol lookup (DB/cache/API): shares *
+  // annualDividend per payer.
   // opts.exchangeRate: EUR per USD. The dividend service gives each payer's
   // per-share dividend in ITS currency (USD for a US stock); it is converted to
   // EUR here - it used to be added as EUR (AUDIT BUG-038: 11.52 "€" for
@@ -584,7 +550,6 @@
     computeNetWorth: computeNetWorth,
     loadFireSettings: loadFireSettings,
     saveFireSettings: saveFireSettings,
-    computeFireMetrics: computeFireMetrics,
     computeExpectedAnnualDividends: computeExpectedAnnualDividends,
     healthScore: healthScore,
     REBAL_TARGETS_KEY: REBAL_TARGETS_KEY,

@@ -894,7 +894,7 @@ only; no Worker was used.
 | U-2 | Low | Dividends → Upcoming: about 60 rows in one list (12 months of projected payments), which pushes dividend safety and yield on cost far down the page. | #246 |
 | U-3 | Low | Mixed spelling and case in English: "realis-" 32 times and "realiz-" 22 times, "colour" / "color", "analyse" / "analyze"; Tax mixes Title Case ("Total Realized P&L", "Avg Cost (FIFO)") with the app's sentence case. | #247 |
 | F-1 | Low | The purple theme is "Nebula" in the menu, hard-coded in English, while README, RELEASE and the `purpleMode` key say "Purple" / "Lila". | #247 |
-| D-1 | Low | `fire-extras.js` (Coast-FIRE) is loaded on every start and tested, but no view calls it (its header promises an Overview FIRE card that does not exist); its key `coastNumber` is the one unused translation key. | this PR |
+| D-1 | Low | `fire-extras.js` (Coast-FIRE) is loaded on every start and tested, but no view calls it (its header promises an Overview FIRE card that does not exist); its key `coastNumber` is the one unused translation key. | #248 |
 
 No finding touches stored data, a migration, a backup key, a Worker route or a money rule. No security finding;
 dependencies and CDN pins are current.
