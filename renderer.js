@@ -3483,7 +3483,7 @@ function InvestmentTracker() {
       case 'research':
         return window.MaerminResearch ?
           React.createElement(window.MaerminResearch.View, {
-            theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: marketWorker,
+            theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: viewWorkerUrl, demo: demoMode, // audit U-1: sample research in demo mode
             exchangeRate, fxAt, privacy: privacyMode,
             onCharts: window.MaerminCharts ? openCharts : null, // CH-3a
             positions: window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [],
