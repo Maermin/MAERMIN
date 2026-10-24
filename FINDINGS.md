@@ -1,6 +1,20 @@
-# MAERMIN open findings — 2026-10-17 (after the 2026-10-16 cleanup run)
+# MAERMIN open findings — 2026-10-24 (audit after v12.2.0)
 
-**No open findings.**
+**Open: 9 findings from the 2026-10-24 audit** (none Critical or High; details in [docs/AUDIT.md](docs/AUDIT.md), section "Run 2026-10-24"):
+
+| ID | Sev. | Finding |
+|---|---|---|
+| V-1 | Medium | Key figures cut off with "…" (desktop Overview, phone Net Worth) |
+| U-1 | Medium | Research is empty in demo mode; its Worker notice has no way to API Settings |
+| V-2 | Low | Net-worth projection chart labels unreadable on phones |
+| V-3 | Low | Holdings map labels are 4-letter glyphs, not tickers |
+| V-4 | Low | FIFO table: bold "+0.00 €" rows, sold-out holdings listed and counted |
+| U-2 | Low | Upcoming dividends: about 60 rows in one list |
+| U-3 | Low | Mixed British / American spelling and Title Case |
+| F-1 | Low | Theme named "Nebula" in the menu, "Purple" in docs and keys |
+| D-1 | Low | `fire-extras.js` loaded and tested but never used |
+
+Earlier lists:
 
 The 2026-10-05 list (36 items) is closed: 34 items were fixed in the P1/P2 packages and
 released with v11 and v12. The last two (M-4 DCA analyzer, M-15 FIFO per depot) were
