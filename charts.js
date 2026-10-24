@@ -392,6 +392,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s14 = useState(null); var noteDlg = s14[0], setNoteDlg = s14[1];
     var s15 = useState(null); var alertMsg = s15[0], setAlertMsg = s15[1];
     var s16 = useState(false); var clearArm = s16[0], setClearArm = s16[1];
+    var s17 = useState(false); var allPicks = s17[0], setAllPicks = s17[1];
     var s17 = useState(0); var drawCount = s17[0], setDrawCount = s17[1];
     var drawHistory = useRef([]), drawLast = useRef([]), pending = useRef(null);
     var DR = W.MaerminChartDrawings;
@@ -574,12 +575,46 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         return { name: TRADE, groupId: TRADES_GROUP, lock: true, paneId: 'candle_pane', points: [{ timestamp: m.barT * 1000, value: m.y }], extendData: m,
           onMouseEnter: show, onClick: show, onMouseLeave: function () { setTip(null); } };
       }));
-      var values = trades.avg;
-      var spec = { name: AVG, calcParams: [], shortName: '',
-        figures: [{ key: 'avg', title: __('kcAvgCost', 'Average cost') + ': ', type: 'line', styles: function () { return { color: T ? T.resolve('var(--income)') : '', style: 'dashed', dashedValue: [6, 4], size: 1.5 }; } }],
-        calc: function (dataList) { return dataList.map(function (x, i) { return { avg: values[i] == null ? null : values[i] }; }); } };
+      var values = trades.avg, avgLabel = __('kcAvgCost', 'Average cost');
+      var money = function (v) { return props.privacy ? '••••' : fmtPrice(v); };
+      // no figures: the library sizes the price axis by figure values, and an average cost far
+      // below today's price would squash the candles. The line is drawn here instead; when it
+      // lies outside the visible prices, a label at the top or bottom edge says where it is.
+      var spec = { name: AVG, calcParams: [], shortName: '', figures: [],
+        calc: function (dataList) { return dataList.map(function (x, i) { return { avg: values[i] == null ? null : values[i] }; }); },
+        createTooltipDataSource: function (q) {
+          var i = q && q.crosshair ? q.crosshair.dataIndex : null, v = i != null ? values[i] : null, color = T ? T.resolve('var(--income)') : '';
+          return { name: '', calcParamsText: '', features: [], legends: v == null ? [] : [{ title: { text: avgLabel + ': ', color: color }, value: { text: money(v), color: color } }] };
+        },
+        draw: function (q) {
+          var ctx = q.ctx, b = q.bounding, vr = q.chart.getVisibleRange() || {}, col = T ? T.resolve('var(--income)') : '';
+          var from = Math.max(0, Math.floor(vr.from || 0)), to = Math.min(values.length, Math.ceil(vr.to || 0));
+          var prevY = null, last = null, inside = false;
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.beginPath();
+          for (var i = from; i < to; i++) {
+            var v = values[i];
+            if (v == null) { prevY = null; continue; }
+            var x = q.xAxis.convertToPixel(i), y = q.yAxis.convertToPixel(v);
+            if (y >= 0 && y <= b.height) inside = true;
+            if (prevY == null) ctx.moveTo(x, y); else { ctx.lineTo(x, prevY); ctx.lineTo(x, y); } // stepped
+            prevY = y; last = v;
+          }
+          ctx.stroke();
+          if (last != null && !inside) {
+            var up = q.yAxis.convertToPixel(last) < 0;
+            ctx.setLineDash([]);
+            ctx.font = '12px ' + (req(function () { return getComputedStyle(document.body).fontFamily; }) || 'sans-serif');
+            var txt = avgLabel + ' ' + money(last) + (up ? ' ↑' : ' ↓'), ty = up ? 40 : b.height - 24, tw = ctx.measureText(txt).width;
+            // on a backing, so candles and the high / low marks do not run through it
+            ctx.fillStyle = T ? T.alpha(T.resolve('var(--surface)'), 0.85) : 'transparent';
+            ctx.fillRect(4, ty - 2, tw + 8, 18);
+            ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            ctx.fillText(txt, 8, ty + 1);
+          }
+          return true;
+        } };
       if (hasAvg) chart.overrideIndicator(spec); else chart.createIndicator(Object.assign({ paneId: 'candle_pane' }, spec), true);
-    }, [lib, trades, shown, lang, sym && base ? 1 : 0]);
+    }, [lib, trades, shown, lang, props.privacy, sym && base ? 1 : 0]);
 
     // CH-4: drawings - kept per symbol (any timeframe), saved after every change
     // stored in the listing currency; with EUR on, each point converts at the rate of its own day
@@ -988,7 +1023,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e(UIC.Button, { variant: 'primary', 'data-testid': 'ch-go', onClick: function () { open(); } }, __('kcOpen', 'Open')))),
       bad ? e('p', { className: ['ui-callout', 'ui-callout--warn'].join(' '), role: 'alert' }, __('kcBadSymbol', '"{sym}" is not a market symbol.', { sym: bad })) : null,
       picks.length ? e('div', { className: ['ui-chips', 'ui-ch-picks'].join(' '), role: 'group', 'aria-label': __('kcYourSymbols', 'Your symbols') },
-        picks.slice(0, 16).map(function (s) { return e(UIC.Chip, { key: s, 'data-testid': 'ch-pick', pressed: s === sym, onClick: function () { open(s); } }, s); })) : null,
+        // the first 16, plus the open symbol; "+N more" shows the rest
+        (allPicks ? picks : picks.slice(0, 16).concat(picks.indexOf(sym) >= 16 ? [sym] : [])).map(function (s) { return e(UIC.Chip, { key: s, 'data-testid': 'ch-pick', pressed: s === sym, onClick: function () { open(s); } }, s); }),
+        !allPicks && picks.length > 16 ? e(UIC.Chip, { key: 'more', 'data-testid': 'ch-pick-more', onClick: function () { setAllPicks(true); } },
+          __('kcMorePicks', '+{n} more', { n: picks.length - 16 - (picks.indexOf(sym) >= 16 ? 1 : 0) })) : null) : null,
       !base ? e(UIC.EmptyState, { title: __('kcTitle', 'Charts'), text: __('kcNeedWorker', 'Charts load prices through your own Worker (API Settings) or the shared price service.'), action: UI && UI.workerAction ? UI.workerAction() : null }) : null,
       base && !sym ? e(UIC.EmptyState, { title: __('kcTitle', 'Charts'), text: __('kcPick', 'Pick a symbol: one you hold, one on your watchlist, or search for any other.') }) : null,
       sym && base ? toolbar : null,
