@@ -145,8 +145,27 @@
     return sum.outcome + ':' + (sum.total - sum.fetched);
   }
 
+  // Price history after a refresh: one { timestamp, price } point per numeric
+  // price, newest `cap` points per symbol. Pure: builds new arrays, so it can
+  // run inside a state updater on the CURRENT history (audit 2026-10-24
+  // BUG-16: the old in-place push changed arrays held by state and overwrote a
+  // history restored while the refresh ran).
+  function appendHistory(prev, prices, timestamp, cap) {
+    var out = Object.assign({}, prev || {});
+    var max = cap || 100;
+    Object.keys(prices || {}).forEach(function (symbol) {
+      var price = prices[symbol];
+      if (typeof price !== 'number' || isNaN(price)) return;
+      var series = Object.prototype.hasOwnProperty.call(out, symbol) && Array.isArray(out[symbol]) ? out[symbol] : [];
+      var next = series.concat([{ timestamp: timestamp, price: price }]);
+      out[symbol] = next.length > max ? next.slice(-max) : next;
+    });
+    return out;
+  }
+
   var api = {
     store: store,
+    appendHistory: appendHistory,
     getState: getState, get: get, set: set, subscribe: subscribe,
     mergePrices: mergePrices, refreshSummary: refreshSummary, refreshNotice: refreshNotice, sideNotice: sideNotice, summaryKey: summaryKey,
     lastKnownPrices: lastKnownPrices, effectivePrices: effectivePrices,

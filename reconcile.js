@@ -179,7 +179,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var states = currentStates();
     var src = collect(states);
     if (!src.cash.length && !src.depots.length && !(states.wallets && states.wallets.wallets && states.wallets.wallets.length)) return null;
-    var today = new Date().toISOString().slice(0, 10);
+    var today = W.MaerminUtils.todayISO();
     var cash = cashRows(src.cash, links.links, props.clearingByPf, today);
     var depots = depotRows(src.depots, props.transactions);
     var crypto = cryptoRows(states.wallets, props.transactions);

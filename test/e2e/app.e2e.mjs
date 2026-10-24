@@ -3512,8 +3512,18 @@ async function runBuild(browser, label, dir) {
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
 try {
   await runBuild(browser, 'dev entry', root);
-  if (existsSync(join(root, 'dist', 'index.html'))) await runBuild(browser, 'production build', join(root, 'dist'));
-  else { failed++; console.error('  ✗ dist/ missing — run npm run build:web first'); }
+  if (existsSync(join(root, 'dist', 'index.html'))) {
+    await runBuild(browser, 'production build', join(root, 'dist'));
+    // Audit 2026-10-24 BUG-14: the built service worker's cache version names
+    // the build, so every new bundle gets a fresh cache and no old/new mix.
+    const sw = await readFile(join(root, 'dist', 'service-worker.js'), 'utf8');
+    const { createHash } = await import('node:crypto');
+    const h = createHash('sha256');
+    for (const f of ['maermin.min.js', 'styles.css', 'boot.js', 'compute.worker.js', 'index.html']) h.update(await readFile(join(root, 'dist', f)));
+    const stamp = h.digest('hex').slice(0, 10);
+    const m = sw.match(/var VERSION = '([^']+)';/);
+    ok('audit BUG-14: dist/service-worker.js carries the build hash in its cache version', !!m && m[1].endsWith('-' + stamp), (m && m[1]) + ' vs ' + stamp);
+  } else { failed++; console.error('  ✗ dist/ missing — run npm run build:web first'); }
 } finally {
   await browser.close();
 }

@@ -272,7 +272,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var money = function (v, cur) { return I ? I.money(v, cur || 'EUR') : fmt2(v); };
     var numF = function (v, d) { return I ? I.num(v, d) : Number(v).toFixed(d); };
     function events(amounts, kinds) {
-      return build({ today: new Date().toISOString().slice(0, 10), held: held, watched: withWatched ? watched : [],
+      return build({ today: window.MaerminUtils.todayISO(), held: held, watched: withWatched ? watched : [],
         earnings: load.rows.filter(function (r) { return withWatched || held.indexOf(r.symbol) >= 0; }),
         dividends: inp.dividends, splits: props.splits, plans: props.plans, vap: inp.vap, crypto: inp.crypto, ira: inp.ira, jurisdiction: inp.jurisdiction },
         { days: 120, amounts: amounts, kinds: kinds, money: money, num: numF, date: function (d) { return I && I.date ? I.date(d) : d; } });

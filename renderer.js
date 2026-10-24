@@ -1605,7 +1605,7 @@ function InvestmentTracker() {
     try {
       const VF = window.MaerminVapForecast, GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
       if (demoMode || taxJurisdiction !== 'de' || !VF || !GT || !window.MaerminGermanTaxView) return;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = window.MaerminUtils.todayISO();
       if (today.slice(5, 7) !== '12') return;
       const state = VF.loadReminded();
       if (state[today.slice(0, 4)]) return;
@@ -1638,7 +1638,7 @@ function InvestmentTracker() {
   pushInputRef.current = { transactions, portfolio, prices, priceHistory, exchangeRate, taxJurisdiction };
   const pushCtx = () => {
     const cur = pushInputRef.current || {};
-    const today = new Date().toISOString().slice(0, 10);
+    const today = window.MaerminUtils.todayISO();
     const input = { today, dividends: [], vap: null, crypto: [], ira: null };
     try {
       if (window.DividendDataService) input.dividends = window.DividendDataService.buildPaymentSchedule(cur.portfolio, { months: 4, back: 0 })
@@ -1745,7 +1745,9 @@ function InvestmentTracker() {
       let usdToEur = exchangeRate || 0.91; // Default fallback
       try {
         // Use the open endpoint which is in the CSP
-        const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
+        // A request that never answers must not keep the refresh (and every
+        // later one) waiting (audit 2026-10-24 BUG-8).
+        const fxRes = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(8000) });
         if (fxRes.ok) {
           const fxData = await fxRes.json();
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
@@ -2065,18 +2067,10 @@ function InvestmentTracker() {
         window.MaerminDataQuality.recordFetch(Array.from(freshKeys), 'live');
       }
 
-      // Update price history
-      const newHistory = { ...priceHistory };
-      Object.entries(newPrices).forEach(([symbol, price]) => {
-        if (typeof price === 'number' && !isNaN(price)) {
-          if (!Object.prototype.hasOwnProperty.call(newHistory, symbol)) newHistory[symbol] = [];
-          newHistory[symbol].push({ timestamp, price });
-          if (newHistory[symbol].length > 100) {
-            newHistory[symbol] = newHistory[symbol].slice(-100);
-          }
-        }
-      });
-      setPriceHistory(newHistory);
+      // Update price history: on the CURRENT state (a restore may have merged
+      // history while this refresh ran) and on copies of each series, never
+      // the arrays held by state (audit 2026-10-24 BUG-16).
+      setPriceHistory(prev => window.MaerminMarket.appendHistory(prev, newPrices, timestamp, 100));
       
       // Count positions priced in THIS run - not map keys (each symbol sits
       // under 2-3 keys, and older quotes were counted too, FINDINGS H-7).
@@ -3168,10 +3162,15 @@ function InvestmentTracker() {
       // with this fresh schedule (keeping every manual entry). One state write.
       const seen = {};
       const freshSchedule = generated.filter(e => !seen[e.id] && (seen[e.id] = true));
-      setDivEvents(prev => {
-        const manual = prev.filter(e => !String(e.id).startsWith('auto-'));
-        return [...manual, ...freshSchedule];
-      });
+      const withSchedule = (prev) => [...prev.filter(e => !String(e.id).startsWith('auto-')), ...freshSchedule];
+      // The fetch can outlast this view (up to 20 × 8 s): a state update after
+      // the user left is dropped, so save the result directly as well
+      // (audit 2026-10-24 BUG-11). The view reads the key when it mounts again.
+      try {
+        const stored = JSON.parse(localStorage.getItem('maermin_divevents') || '[]');
+        localStorage.setItem('maermin_divevents', JSON.stringify(withSchedule(Array.isArray(stored) ? stored : [])));
+      } catch (e) { /* storage unavailable: the state update below still applies while mounted */ }
+      setDivEvents(withSchedule);
 
       setFetching(false);
       addToast(freshSchedule.length > 0
@@ -4504,7 +4503,7 @@ function InvestmentTracker() {
     try {
       const states = RC.currentStates();
       const src = RC.collect(states);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = window.MaerminUtils.todayISO();
       const Q = window.MaerminDataQuality, meta = Q ? Q.readMeta() : {};
       const priceItems = [];
       // without a Worker every price is "stale" - that is the Worker notice's job, not one finding per holding

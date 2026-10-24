@@ -87,6 +87,21 @@ const M = require('../market-store.js');
   M.setCostKeys(null);
   ok('cost registry can be cleared', !M.isCostFallback('VWCE.DE'));
 
+  // Audit 2026-10-24 BUG-16: the refresh appends to the CURRENT history and
+  // never mutates the arrays held by state.
+  {
+    const ap = typeof M.appendHistory === 'function' ? M.appendHistory : null;
+    const prev = { BTC: [{ timestamp: '2026-10-01T00:00:00Z', price: 1 }], ETH: [{ timestamp: '2026-10-01T00:00:00Z', price: 2 }] };
+    const btcBefore = prev.BTC;
+    const out = ap ? ap(prev, { BTC: 3, NEW: 4, BAD: NaN, TXT: 'x' }, '2026-10-24T10:00:00Z', 100) : null;
+    ok('appendHistory exists', !!ap);
+    ok('appendHistory adds one point per numeric price, keeps other series', !!out && out.BTC.length === 2 && out.BTC[1].price === 3 && out.NEW.length === 1 && out.ETH === prev.ETH && !out.BAD && !out.TXT);
+    ok('appendHistory leaves the previous arrays untouched', btcBefore.length === 1 && prev.BTC === btcBefore && (!out || out.BTC !== btcBefore));
+    const long = { X: Array.from({ length: 100 }, (_, i) => ({ timestamp: 'T' + i, price: i })) };
+    const capped = ap ? ap(long, { X: 9 }, 'T100', 100) : null;
+    ok('appendHistory keeps the newest 100 points', !!capped && capped.X.length === 100 && capped.X[0].timestamp === 'T1' && capped.X[99].price === 9);
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
