@@ -876,7 +876,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var META = {
       critical: { sev: 'critical', tone: 'loss', icon: '✗', label: t.intelCritical || 'Critical' },
       important: { sev: 'warning', tone: 'warning', icon: '!', label: t.intelImportant || 'Important' },
-      optimization: { sev: 'opportunity', tone: null, icon: '◇', label: t.intelOptimize || 'Optimization' }
+      optimization: { sev: 'opportunity', tone: null, icon: '◇', label: t.intelOptimize || 'Optimisation' }
     };
 
     function tile(priority) {

@@ -1250,7 +1250,7 @@ function InvestmentTracker() {
     // Settings
     { id: 'settings:dark',     label: t.darkMode || 'Dark Mode',           category: __('palCatDesign', 'Design') },
     { id: 'settings:light',    label: t.whiteMode || 'Light Mode',         category: __('palCatDesign', 'Design') },
-    { id: 'settings:purple',   label: t.purpleMode || 'Purple Mode',       category: __('palCatDesign', 'Design') },
+    { id: 'settings:purple',   label: t.purpleMode || 'Nebula',       category: __('palCatDesign', 'Design') },
     { id: 'settings:contrast', label: t.contrastMode || 'High Contrast',   category: __('palCatDesign', 'Design') },
     { id: 'settings:cb',       label: t.cbMode || 'Colour-Blind Safe',     category: __('palCatDesign', 'Design') },
     { id: 'settings:mode-simple',   label: (t.uiMode || 'View') + ': ' + (t.uiModeSimple || 'Simple'),     category: __('palCatDesign', 'Design') },
@@ -3318,7 +3318,7 @@ function InvestmentTracker() {
           __('taxSumAllowanceLeft', '{left} of {total} left', { left: taxMoney(Math.max(0, g.sparerpauschbetrag - (g.sparerpauschbetragUsed || 0))), total: taxMoney(g.sparerpauschbetrag) }), null, 'tax-sum-allowance'),
         g && g.carryOut && tTile(__('taxSumPots', 'Loss pots carried forward'), taxMoney((g.carryOut.shares || 0) + (g.carryOut.other || 0)),
           __('taxSumPotsSub', 'Shares {shares} · other {other}', { shares: taxMoney(g.carryOut.shares || 0), other: taxMoney(g.carryOut.other || 0) }), null, 'tax-sum-pots'),
-        !g && k && tTile(__('realizedGains', 'Realized Gains'), taxMoney(k.realizedGains), __('taxSumRealizedSub', 'net, FIFO, {y}', { y: taxYear }), k.realizedGains > 0 ? 'gain' : k.realizedGains < 0 ? 'loss' : null, 'tax-sum-realized'),
+        !g && k && tTile(__('realizedGains', 'Realised gains'), taxMoney(k.realizedGains), __('taxSumRealizedSub', 'net, FIFO, {y}', { y: taxYear }), k.realizedGains > 0 ? 'gain' : k.realizedGains < 0 ? 'loss' : null, 'tax-sum-realized'),
         tTile(__('taxSumDeadline', 'Next deadline'), deadline ? I.date(deadline) : '—',
           deadline ? __('taxSumDeadlineSub', 'Tax return for {y} (without an adviser)', { y: taxYear }) : __('taxSumDeadlineCh', 'Set by your canton'), null, 'tax-sum-deadline')
       )
@@ -3330,9 +3330,9 @@ function InvestmentTracker() {
         React.createElement(window.MaerminComponents.SectionSwitch, {
           label: t.navTaxFifo || 'Tax & FIFO', value: tab, onChange: setTab, 'data-testid': 'tax-sections',
           options: [
-            { value: 'fifo', label: t.taxTabFifo || 'FIFO Cost Basis' },
+            { value: 'fifo', label: t.taxTabFifo || 'FIFO cost basis' },
             { value: 'report', label: t.taxTabReport || 'Tax Report' },
-            { value: 'realized', label: t.taxTabRealized || 'Realized vs Unrealized' }
+            { value: 'realized', label: t.taxTabRealized || 'Realised vs unrealised' }
           ].concat(showHarvest ? [{ value: 'harvest', label: t.taxTabHarvest || 'Tax-loss harvesting' }] : [])
         })
       ),
@@ -3551,7 +3551,7 @@ function InvestmentTracker() {
                 portfolio, prices, workerUrl: marketWorker,
                 theme: currentTheme, t, formatPrice, getCurrencySymbol
               })
-          }) : renderAnalyticsPlaceholder(t.navFees || 'Fee Analyzer');
+          }) : renderAnalyticsPlaceholder(t.navFees || 'Fee Analyser');
 
       case 'portfolios':
         return window.MaerminFeatures4 ?
@@ -4012,7 +4012,7 @@ function InvestmentTracker() {
             statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
             statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
               : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
-            statCard(__('ovRealized', 'Realized gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
+            statCard(__('ovRealized', 'Realised gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
             statCard(__('ovDividendsReceived', 'Dividends received'), money(f.dividendsNet), __('ovDividendsGross', '{amount} gross', { amount: money(f.dividendsGross) }), undefined, go),
             statCard(__('ovTaxes', 'Taxes'), money(f.taxes), __('ovTaxesSub', 'Withholding + tax bookings − refunds'), undefined, go),
             statCard(__('retTotalFees', 'Total Fees'), money(f.fees), __('ovFeesSub', 'Trade fees + fee bookings'), undefined, go),
@@ -4186,7 +4186,7 @@ function InvestmentTracker() {
           { key: 'asset', label: __('colAsset', 'Asset'), phone: 'title', render: (c) => asset(c.symbolName || c.symbol, c.symbol, catMeta(c.category).color, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) })) },
           { key: 'cost', label: __('colDisposedCost', 'Cost basis sold'), align: 'right', priority: 2, phone: 'meta', render: (c) => money(c.cost) },
           { key: 'proceeds', label: __('colProceeds', 'Proceeds'), align: 'right', phone: 'value', render: (c) => money(c.proceeds) },
-          { key: 'gain', label: __('colRealizedPnl', 'Realized P&L'), align: 'right', phone: 'sub', render: (c) => React.createElement('span', { className: 'ui-pnl ' + toneCls(c.gain) },
+          { key: 'gain', label: __('colRealizedPnl', 'Realised P&L'), align: 'right', phone: 'sub', render: (c) => React.createElement('span', { className: 'ui-pnl ' + toneCls(c.gain) },
               React.createElement('b', null, signedMoney(c.gain)), React.createElement('span', null, c.ret === null ? '—' : (c.ret >= 0 ? '▲ ' : '▼ ') + fmtPct(c.ret * 100))) }
         ];
         const posTable = showClosed
@@ -4829,7 +4829,7 @@ function InvestmentTracker() {
           fact(__('txFifoLots', 'Lots used'), String(fifo.lots) + (fifo.from ? ' · ' + __('txFifoFrom', 'oldest from {date}', { date: I.date(fifo.from) }) : '')),
           fact(__('colDisposedCost', 'Cost basis sold'), money(fifo.cost)),
           fact(__('colProceeds', 'Proceeds'), money(fifo.proceeds)),
-          fact(__('colRealizedPnl', 'Realized P&L'), React.createElement('span', { className: fifo.gain > 0 ? 'tone-gain' : fifo.gain < 0 ? 'tone-loss' : '' }, (fifo.gain > 0 ? '▲ +' : fifo.gain < 0 ? '▼ ' : '') + money(fifo.gain))),
+          fact(__('colRealizedPnl', 'Realised P&L'), React.createElement('span', { className: fifo.gain > 0 ? 'tone-gain' : fifo.gain < 0 ? 'tone-loss' : '' }, (fifo.gain > 0 ? '▲ +' : fifo.gain < 0 ? '▼ ' : '') + money(fifo.gain))),
           fifo.longTerm && fact(__('txFifoHeld', 'Holding period'), __('txFifoLong', 'over one year for every lot'))
         )),
       sameDayTax.length > 0 && React.createElement('section', { className: 'ui-txd__block', 'data-testid': 'tx-tax-same-day' },
@@ -4912,7 +4912,7 @@ function InvestmentTracker() {
 
       // Tax stats (the taxpayer details above appear on the exported report)
       h('div', { className: 'ui-tiles' },
-        h(UIC.Stat, { className: 'ui-tile', label: t.realizedGains || 'Realized Gains', value: `${formatPrice(taxData.realizedGains)} ${sym}` }),
+        h(UIC.Stat, { className: 'ui-tile', label: t.realizedGains || 'Realised gains', value: `${formatPrice(taxData.realizedGains)} ${sym}` }),
         h(UIC.Stat, { className: 'ui-tile', label: (taxData.labels && taxData.labels.shortTerm) || t.shortTermGains || 'Short-term', value: `${formatPrice(taxData.shortTerm || 0)} ${sym}` }),
         h(UIC.Stat, { className: 'ui-tile', label: (taxData.labels && taxData.labels.longTerm) || t.longTermGains || 'Long-term', value: `${formatPrice(taxData.longTerm || 0)} ${sym}` }),
         h(UIC.Stat, { className: 'ui-tile', label: t.taxLiability || 'Est. Tax', value: `${formatPrice(taxData.taxLiability || 0)} ${sym}`, tone: taxData.taxLiability > 0 ? 'warning' : null })),
@@ -5921,8 +5921,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   const Icon = window.MaerminIcon || (() => null);
   const Logo = (window.MaerminIcons && window.MaerminIcons.Logo) || (() => null);
   const themeChoices = [
-    ['dark', t.darkMode || 'Dark', '#0f1018'], ['white', t.whiteMode || 'Light', '#ffffff'], ['purple', 'Nebula', '#140e24'],
-    ['contrast', __('themeContrast', 'Contrast'), '#000000'], ['cb', __('themeCbSafe', 'Color-blind'), '#1f8ad1']
+    ['dark', t.darkMode || 'Dark', '#0f1018'], ['white', t.whiteMode || 'Light', '#ffffff'], ['purple', t.purpleMode || 'Nebula', '#140e24'],
+    ['contrast', __('themeContrast', 'Contrast'), '#000000'], ['cb', __('themeCbSafe', 'Colour-blind'), '#1f8ad1']
   ];
   // Theme switch with a circular "portal" reveal from the click point
   // (View Transitions API). Falls back to an instant switch.

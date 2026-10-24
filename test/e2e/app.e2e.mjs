@@ -434,7 +434,7 @@ async function runBuild(browser, label, dir) {
       const dlg = page.locator('[aria-labelledby="dlg-position"]');
       await dlg.waitFor({ timeout: 5000 }).catch(() => {});
       const dt = await dlg.innerText().catch(() => '');
-      ok('P4-2: the dialog of a closed position shows realized figures and no average-cost line', /Realized P&L/i.test(dt) && /\+490\.00/.test(dt) && (await page.locator('[data-testid="avg-cost-line"]').count()) === 0, dt.slice(0, 200).replace(/\n/g, ' | '));
+      ok('P4-2: the dialog of a closed position shows realized figures and no average-cost line', /Reali[sz]ed P&L/i.test(dt) && /\+490\.00/.test(dt) && (await page.locator('[data-testid="avg-cost-line"]').count()) === 0, dt.slice(0, 200).replace(/\n/g, ' | '));
       ok('P5-2.4: without daily closes the position dialog shows no heatmap', (await dlg.locator('[data-testid="pos-heatmap"]').count()) === 0);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
@@ -662,12 +662,12 @@ async function runBuild(browser, label, dir) {
     });
     await rerender(page);
     // no allowance: stock gain 490 -> 490 * 25 % * 1.055 = 129.24 (crypto 700 stays under the Freigrenze)
-    { const b2 = await page.innerText('body'); ok('memoised report rebuilds after a stored setting changes (129.24 €)', /Tax Liability\s*129\.24/.test(b2), b2.slice(b2.indexOf('Realized Gains'), b2.indexOf('Realized Gains') + 160).replace(/\n/g, ' | ')); }
+    { const b2 = await page.innerText('body'); ok('memoised report rebuilds after a stored setting changes (129.24 €)', /Tax Liability\s*129\.24/.test(b2), b2.slice(b2.search(/Reali[sz]ed [Gg]ains/), b2.search(/Reali[sz]ed [Gg]ains/) + 160).replace(/\n/g, ' | ')); }
     await page.evaluate(() => {
       localStorage.setItem('maermin_tax_settings', JSON.stringify({ abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true }));
     });
     await rerender(page);
-    ok('tax KPIs: realised 1,190.00 €, tax 0.00 €', /Realized Gains\s*1,190\.00/.test(body) && /Tax Liability\s*0\.00/.test(body), body.slice(body.indexOf('Realized Gains'), body.indexOf('Realized Gains') + 140).replace(/\n/g, ' | '));
+    ok('tax KPIs: realised 1,190.00 €, tax 0.00 €', /Reali[sz]ed [Gg]ains\s*1,190\.00/.test(body) && /Tax Liability\s*0\.00/.test(body), body.slice(body.search(/Reali[sz]ed [Gg]ains/), body.search(/Reali[sz]ed [Gg]ains/) + 140).replace(/\n/g, ' | '));
 
     // P2-6: Freistellungsaufträge per broker. Main Portfolio's 2025 capital
     // income is the AAPL gain of 490 (crypto stays out): order 600 -> 490 used, 110 left.
@@ -1421,7 +1421,7 @@ async function runBuild(browser, label, dir) {
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('F1: demo Intelligence does not call Bitcoin or Ethereum a company', !!intelText && !/(Bitcoin|Ethereum|BTC|ETH)[^\n]{0,60}(exposure|alone is|of your portfolio)/.test(intelText), err || (intelText.match(/[^\n]*(Bitcoin|BTC)[^\n]*/) || ['none'])[0]);
     ok('F2: demo Rebalancing asks for targets and proposes no trades', rbEmpty === 1 && rbPlan === 0, err || `empty=${rbEmpty} plan=${rbPlan}`);
-    ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Realized gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
+    ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Reali[sz]ed gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
     ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
     { // P5-1.5: the demo opens on "All portfolios" - Analysis -> Returns reads the same book as the Overview

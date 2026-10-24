@@ -714,9 +714,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var y = oy + 2;
     // 1. Summary
     y = table(__('trSec1', '1. Tax-Year Summary'), ['Item', __('amount', 'Amount')], [
-      [__('realizedGains', 'Realized Gains'), money(s.realizedGains, cur)],
-      [__('trRealizedLosses', 'Realized Losses'), money(s.realizedLosses, cur)],
-      [__('trNetRealized', 'Net Realized'), money(s.netRealized, cur)],
+      [__('realizedGains', 'Realised gains'), money(s.realizedGains, cur)],
+      [__('trRealizedLosses', 'Realised losses'), money(s.realizedLosses, cur)],
+      [__('trNetRealized', 'Net realised'), money(s.netRealized, cur)],
       [__('trDividendIncome', 'Dividend Income'), money(s.dividendIncome, cur)],
       [__('trInterestIncome', 'Interest Income'), money(s.interestIncome, cur)],
       [__('trAccruedNet', 'Accrued interest of bonds (net)'), money(s.accruedInterestNet || 0, cur)],
@@ -751,15 +751,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var lotHead = [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trAcquired', 'Acquired'), __('trDisposed', 'Disposed'), __('trHeld', 'Held'), __('trProceeds', 'Proceeds'), __('trCost', 'Cost'), __('trGainLoss', 'Gain/Loss')];
 
-    if (report.realizedGains.length) { doc.addPage(); y = table(__('trSec2', '2. Realized Capital Gains'), lotHead, lots(report.realizedGains), 20); }
-    if (report.realizedLosses.length) { y = table(__('trSec3', '3. Realized Capital Losses'), lotHead, lots(report.realizedLosses), y); }
+    if (report.realizedGains.length) { doc.addPage(); y = table(__('trSec2', '2. Realised capital gains'), lotHead, lots(report.realizedGains), 20); }
+    if (report.realizedLosses.length) { y = table(__('trSec3', '3. Realised capital losses'), lotHead, lots(report.realizedLosses), y); }
     if (report.dividends.length) { doc.addPage(); y = table(__('trSec4', '4. Dividend Income'), [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('trCur', 'Cur')], report.dividends.map(function (d) { return [d.symbol, d8(d.date), money(d.gross, ''), money(d.withholding, ''), d.currency]; }), 20); }
     if ((report.accruedInterest || []).length) { y = table(__('trSecAccrued', 'Accrued interest of bonds (paid negative, received positive)'), [__('symbol', 'Symbol'), __('date', 'Date'), __('amount', 'Amount')], report.accruedInterest.map(function (i) { return [i.symbol, d8(i.date), money(i.amount, '')]; }), y); }
     if (report.interest.length) { y = table(__('trSec5', '5. Interest Income'), [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], report.interest.map(function (i) { return [i.source, d8(i.date), money(i.amount, '')]; }), y); }
     if (report.currencyConversions.length) { doc.addPage(); y = table(__('trSec8', '8. Currency Conversion Details'), [__('date', 'Date'), __('symbol', 'Symbol'), __('trCur', 'Cur'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBase', 'Base')], report.currencyConversions.map(function (c) { return [d8(c.date), c.symbol, c.currency, I18N().num(c.originalAmount, 2), (c.rate >= 0.1 ? I18N().num(c.rate, 4) : I18N().num(Number(c.rate.toPrecision(4)), { min: 0, max: 10 })), money(c.baseAmount, '')]; }), 20); }
     var txRows = Object.keys(report.transactionSummary).map(function (k) { return [(typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.txTypeInfo(k).label : k, String(report.transactionSummary[k])]; });
     if (txRows.length) { y = table(__('trSec9', '9. Transaction Summary'), [__('type', 'Type'), __('trCount', 'Count')], txRows, y); }
-    if (report.openPositions.length) { doc.addPage(); y = table(__('trSec10', '10. Open Positions Overview'), [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCost', 'Cost'), __('colValue', 'Value'), __('healthUnrealized', 'Unrealized')], report.openPositions.map(function (p) { return [p.symbol, cls(p.category), I18N().num(p.quantity, 4), money(p.costBasis, ''), money(p.marketValue, ''), money(p.unrealized, '')]; }), 20); }
+    if (report.openPositions.length) { doc.addPage(); y = table(__('trSec10', '10. Open Positions Overview'), [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCost', 'Cost'), __('colValue', 'Value'), __('healthUnrealized', 'Unrealised')], report.openPositions.map(function (p) { return [p.symbol, cls(p.category), I18N().num(p.quantity, 4), money(p.costBasis, ''), money(p.marketValue, ''), money(p.unrealized, '')]; }), 20); }
     if (report.corporateActions.length) { y = table(__('trSec11', '11. Tax-Relevant Corporate Actions'), [__('date', 'Date'), __('symbol', 'Symbol'), __('type', 'Type'), __('trDetail', 'Detail')], report.corporateActions.map(function (a) { return [d8(a.date), a.symbol, a.type, a.detail]; }), y); }
 
     // Page numbers + footer on every page
@@ -825,8 +825,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (owner.taxId) summaryRows.push([__('trTaxId', 'Tax ID'), owner.taxId]);
     summaryRows.push(['', '']);
     var sm = [
-      [__('realizedGains', 'Realized Gains'), num(s.realizedGains)], [__('trRealizedLosses', 'Realized Losses'), num(s.realizedLosses)],
-      [__('trNetRealized', 'Net Realized'), num(s.netRealized)], [__('trDividendIncome', 'Dividend Income'), num(s.dividendIncome)],
+      [__('realizedGains', 'Realised gains'), num(s.realizedGains)], [__('trRealizedLosses', 'Realised losses'), num(s.realizedLosses)],
+      [__('trNetRealized', 'Net realised'), num(s.netRealized)], [__('trDividendIncome', 'Dividend Income'), num(s.dividendIncome)],
       [__('trInterestIncome', 'Interest Income'), num(s.interestIncome)], [__('trAccruedNet', 'Accrued interest of bonds (net)'), num(s.accruedInterestNet || 0)], [__('trWht', 'Withholding Tax'), num(s.withholdingTax)],
       [__('trForeign', 'Foreign Tax'), num(s.foreignTax)], [__('trTotalTaxable', 'Total Taxable Income'), num(s.totalTaxableIncome)],
       [__('trEstLiability', 'Estimated Tax Liability'), num(s.estimatedTaxLiability)]
@@ -872,13 +872,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var lotCols = [110, 90, 80, 95, 95, 95, 80, 100, 100, 100];
     var lotMoney = [false, false, false, false, false, false, false, true, true, true];
     function lotRows(rows) { return rows.map(function (d) { return [d.symbol, cls(d.category), d.quantity, d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? __('yes', 'Yes') : __('no', 'No'), d.proceeds, d.costBasis, d.gain]; }); }
-    if (report.realizedGains.length) sheets.push({ name: __('realizedGains', 'Realized Gains'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
-    if (report.realizedLosses.length) sheets.push({ name: __('trRealizedLosses', 'Realized Losses'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.realizedGains.length) sheets.push({ name: __('realizedGains', 'Realised gains'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.realizedLosses.length) sheets.push({ name: __('trRealizedLosses', 'Realised losses'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
     if (report.dividends.length) sheets.push({ name: __('trSheetDividends', 'Dividends'), columns: [110, 95, 100, 100, 80], headers: [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('currency', 'Currency')], rows: report.dividends.map(function (d) { return [d.symbol, d.date, num(d.gross), num(d.withholding), d.currency]; }), money: [false, false, true, true, false] });
     if ((report.accruedInterest || []).length) sheets.push({ name: __('trSheetAccrued', 'Accrued interest'), columns: [120, 95, 100], headers: [__('symbol', 'Symbol'), __('date', 'Date'), __('amount', 'Amount')], rows: report.accruedInterest.map(function (i) { return [i.symbol, i.date, num(i.amount)]; }), money: [false, false, true] });
     if (report.interest.length) sheets.push({ name: __('trSheetInterest', 'Interest'), columns: [200, 95, 100], headers: [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], rows: report.interest.map(function (i) { return [i.source, i.date, num(i.amount)]; }), money: [false, false, true] });
     if (report.currencyConversions.length) sheets.push({ name: __('trSheetFx', 'FX Conversions'), columns: [95, 110, 80, 100, 90, 100], headers: [__('date', 'Date'), __('symbol', 'Symbol'), __('currency', 'Currency'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBaseCur', 'Base ({cur})', { cur: cur })], rows: report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, num(c.originalAmount), num(c.rate), num(c.baseAmount)]; }), money: [false, false, false, true, false, true], number: [false, false, false, true, true, true] });
-    if (report.openPositions.length) sheets.push({ name: __('trSheetOpen', 'Open Positions'), columns: [110, 90, 80, 100, 100, 100], headers: [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCostBasis', 'Cost Basis'), __('trMarketValue', 'Market Value'), __('healthUnrealized', 'Unrealized')], rows: report.openPositions.map(function (p) { return [p.symbol, cls(p.category), p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });
+    if (report.openPositions.length) sheets.push({ name: __('trSheetOpen', 'Open Positions'), columns: [110, 90, 80, 100, 100, 100], headers: [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCostBasis', 'Cost Basis'), __('trMarketValue', 'Market Value'), __('healthUnrealized', 'Unrealised')], rows: report.openPositions.map(function (p) { return [p.symbol, cls(p.category), p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });
 
     var styles = '<Styles>' +
       '<Style ss:ID="Default"><Alignment ss:Vertical="Center"/></Style>' +

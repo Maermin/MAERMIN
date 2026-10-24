@@ -346,7 +346,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var UIC = window.MaerminComponents;
         var SEVERITY = { critical: 'critical', important: 'warning', optimization: 'opportunity' };
         var MARK = { critical: '!', important: '▲', optimization: '↗' };
-        var LABELS = { critical: t.taPriCritical || 'Critical', important: t.taPriImportant || 'Important', optimization: t.taPriOptimize || 'Optimization' };
+        var LABELS = { critical: t.taPriCritical || 'Critical', important: t.taPriImportant || 'Important', optimization: t.taPriOptimize || 'Optimisation' };
 
         var input = API.gather({
           transactions: props.transactions || [],
