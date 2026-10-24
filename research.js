@@ -166,7 +166,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!sym || !base) { setSeries({ state: 'idle', points: [] }); return; }
       var dead = false;
       setSeries({ state: 'loading', points: [] });
-      fetch(base + '/?action=yf&symbol=' + encodeURIComponent(sym) + '&interval=1d&range=' + range).then(function (r) { return r.json(); })
+      // the demo answers price history for its holdings only when marked bars=1 (as for Charts)
+      fetch(base + '/?action=yf&symbol=' + encodeURIComponent(sym) + '&interval=1d&range=' + range + (props.demo ? '&bars=1' : '')).then(function (r) { return r.json(); })
         .then(function (j) { if (!dead) setSeries({ state: 'ok', points: (j && Array.isArray(j.prices) ? j.prices : []).filter(function (p) { return isNum(p.price); }) }); })
         .catch(function () { if (!dead) setSeries({ state: 'error', points: [] }); });
       return function () { dead = true; };
@@ -199,7 +200,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       .concat(on.sma50 ? [{ series: '3', label: __('rsSma50', 'SMA 50') }] : [], on.sma200 ? [{ series: '4', label: __('rsSma200', 'SMA 200') }] : [], on.ema20 ? [{ series: '2', label: __('rsEma20', 'EMA 20') }] : []);
     return e('div', { 'data-testid': 'research-view', className: 'ui-view' },
       e('div', { className: 'ui-view__bar' },
-        e('h2', { className: 'ui-section-title' }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research'))),
+        e('h2', { className: 'ui-section-title' }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research')),
+          ' ', W.MaerminDemoFixtures && W.MaerminDemoFixtures.badge ? W.MaerminDemoFixtures.badge(React, props.theme, base) : null),
         e('div', { className: 'ui-rs-pick' },
           e('input', { 'data-testid': 'rs-symbol', list: 'rs-symbols', value: draft, placeholder: __('rsSymbolPh', 'Symbol, e.g. AAPL or SAP.DE'), 'aria-label': __('rsSymbol', 'Symbol'), className: ['ui-input', 'ui-rs-pick__input'].join(' '),
             onChange: function (ev) { setDraft(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') go(); } }),
@@ -207,7 +209,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e(UIC.Button, { variant: 'primary', 'data-testid': 'rs-go', onClick: go }, __('rsOpen', 'Open')),
           // CH-3a: the same symbol in the Charts view
           sym && props.onCharts ? e(UIC.Button, { 'data-testid': 'rs-charts', onClick: function () { props.onCharts(sym); } }, __('rsCharts', 'Open in Charts')) : null)),
-      !base ? note(__('rsNeedWorker', 'The research page loads market data through your own Worker (API Settings) or the shared price service.'), true) : null,
+      !base ? e(UIC.EmptyState, { kind: 'worker', compact: true, testid: 'rs-need-worker', text: __('rsNeedWorker', 'The research page loads market data through your own Worker (API Settings) or the shared price service.'),
+        action: W.MaerminUI && W.MaerminUI.workerAction ? W.MaerminUI.workerAction() : undefined }) : null,
       !sym ? e(UIC.EmptyState, { title: __('rsTitle', 'Research'), text: __('rsPick', 'Pick a symbol: one you hold, one on your watchlist, or any other.') }) : null,
       sym && base ? e(UIC.ChartFrame, { 'data-testid': 'rs-chart-card', legend: legend,
           title: e('span', { 'data-testid': 'rs-price', className: ['ui-rs-price', 'num'].join(' ') }, priceTxt(d && d.price != null ? d.price : lastClose)),
@@ -283,7 +286,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('p', { className: 'ui-note' }, [d.profile.sector, d.profile.industry, d.profile.country].filter(Boolean).join(' · ')),
         d.profile.summary ? e('p', { className: 'ui-rs-summary' }, d.profile.summary) : null) : null,
       d ? e('p', { className: 'ui-note' },
-        __('rsSource', 'Market data: {src} through your Worker, cached up to 6 hours, for personal use. Your position and journal are computed on this device. Not investment advice.', { src: d.source || 'Yahoo Finance' })) : null);
+        d.sample ? __('rsSourceSample', 'Made-up demo data, not real market data. Your position is computed on this device. Not investment advice.')
+          : __('rsSource', 'Market data: {src} through your Worker, cached up to 6 hours, for personal use. Your position and journal are computed on this device. Not investment advice.', { src: d.source || 'Yahoo Finance' })) : null);
   }
 
   var api = { sma: sma, ema: ema, macd: macd, bollinger: bollinger, ownPosition: ownPosition, journalFor: journalFor, analystView: analystView, epsSurprises: epsSurprises, Chart: Chart, View: View };

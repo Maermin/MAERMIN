@@ -1884,6 +1884,39 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 U-1: Research works in demo mode (it used to get the real
+  // market Worker, which the demo does not have): a demo stock shows its key
+  // figures, analysts, EPS and a price chart, marked as sample data.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 1000 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = { sample: 0, figures: 0, analysts: 0, eps: 0, chart: 0, notice: -1, title: '' };
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      await openView(page, 'research');
+      await page.locator('[data-testid="rs-symbol"]').fill('SAP.DE');
+      await page.locator('[data-testid="rs-go"]').click();
+      await page.locator('[data-testid="rs-figures"]').waitFor({ timeout: 15000 });
+      await page.waitForTimeout(800);
+      r.title = await page.locator('[data-testid="research-view"] h2').first().innerText();
+      r.sample = await page.locator('[data-testid="research-view"] [data-testid="sample-data"]').count();
+      r.figures = await page.locator('[data-testid="rs-figures"]').count();
+      r.analysts = await page.locator('[data-testid="rs-analysts"]').count();
+      r.eps = await page.locator('[data-testid="rs-eps"]').count();
+      r.chart = await page.locator('[data-testid="rs-chart"] path').count();
+      r.notice = await page.locator('[data-testid="rs-need-worker"]').count();
+    } catch (e) { err = e.message.split('\n')[0] + ' | ' + JSON.stringify(r); }
+    ok('audit U-1: Research in demo mode: SAP.DE with key figures, analysts, EPS and a price chart, marked sample data', !err && /SAP SE/.test(r.title) && r.sample === 1 && r.figures === 1 && r.analysts === 1 && r.eps === 1 && r.chart > 0 && r.notice === 0, err || JSON.stringify(r));
+    ok('no page errors (Research demo)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // Audit 2026-10-24 V-1 / V-2: key figures never end in "…" (they shrink to
   // fit), at 1366 px on the Overview and at 360 px on Net Worth; the
   // projection chart's labels stay readable on a phone.
