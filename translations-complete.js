@@ -2455,11 +2455,6 @@ taSparer: 'Sparerpauschbetrag',
     rarOverall: 'Overall risk score is very high. Consider rebalancing to reduce exposure.',
 
     // P2-2 dividend insights (dividend-data-service.js)
-    ddsGrow: 'Dividend income projected to grow {pct} vs last year',
-    ddsShrink: 'Dividend income projected to decrease {pct} vs last year',
-    ddsMonthly: 'Average monthly dividend income: {amount}',
-    ddsHighYield: 'High portfolio yield ({pct}) - verify dividend sustainability',
-    ddsLowYield: 'Portfolio yield: {pct} - consider adding dividend stocks',
 
     // P2-2 import row messages (import-mapping.js)
     imInvalid: 'invalid/missing: {list}',
@@ -6541,11 +6536,6 @@ taSparer: 'Sparerpauschbetrag',
     rarOverall: 'Der Gesamtrisikowert ist sehr hoch. Erwäge ein Rebalancing, um das Risiko zu senken.',
 
     // P2-2 dividend insights (dividend-data-service.js)
-    ddsGrow: 'Das Dividendeneinkommen steigt voraussichtlich um {pct} gegenüber dem Vorjahr',
-    ddsShrink: 'Das Dividendeneinkommen sinkt voraussichtlich um {pct} gegenüber dem Vorjahr',
-    ddsMonthly: 'Durchschnittliches monatliches Dividendeneinkommen: {amount}',
-    ddsHighYield: 'Hohe Portfoliorendite ({pct}) – prüfe, ob die Dividenden nachhaltig sind',
-    ddsLowYield: 'Portfoliorendite: {pct} – erwäge zusätzliche Dividendenaktien',
 
     // P2-2 import row messages (import-mapping.js)
     imInvalid: 'ungültig/fehlt: {list}',

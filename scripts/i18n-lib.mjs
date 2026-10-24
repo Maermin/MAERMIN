@@ -14,7 +14,7 @@ export const DICT_FILE = 'translations-complete.js';
 // workers and the dictionary itself.
 export const NOT_UI = new Set([
   DICT_FILE, 'i18n.js', 'equity-metadata.js', 'fund-holdings-import.js', 'demo-data.js', 'dev-boot.js', 'icons.js',
-  'service-worker.js', 'compute.worker.js', 'compute.worker.harness.js', 'loader-status.js',
+  'service-worker.js', 'compute.worker.js', 'compute.worker.harness.js',
   // FinTS protocol syntax (segments, codes); its errors carry codes that
   // bank-sync.js turns into translated messages (P5-3.4)
   'fints.js',

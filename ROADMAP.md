@@ -136,8 +136,8 @@ remove tags, per-tag value & weight, and tag-basis target weights with buy/sell 
   `renderOverview` gates each section with `dashVis(id)` (reads `visibleSet()` per render; unknown
   ids default visible). Since P4-7 the sections also render in the saved order (drag or ↑/↓ in the view).
   Persisted in `maermin_dashboard_layout` (already in backup).
-- ✅ **By-asset-class allocation is custom-category-aware** — `allocation.js` (`computeAllocation`)
-  and the Overview's own donut/legend/positions now include custom categories with their label &
+- ✅ **By-asset-class allocation is custom-category-aware** — `metrics.js` (`buildPositions` keeps a bucket per
+  custom category) and the Overview's own donut/legend/positions now include custom categories with their label &
   colour (resolved via `MaerminCategories`). *Still 4-base-class:* rebalancing-by-class drift and
   currency-by-class exposure (a deeper, lower-visibility follow-up).
 

@@ -12,7 +12,7 @@
 | U-2 | Low | Upcoming dividends: about 60 rows in one list | #246 |
 | U-3 | Low | Mixed British / American spelling and Title Case | #247 |
 | F-1 | Low | Theme named "Nebula" in the menu, "Purple" in docs and keys | #247 |
-| D-1 | Low | `fire-extras.js` loaded and tested but never used | this PR |
+| D-1 | Low | `fire-extras.js` loaded and tested but never used | #248 |
 
 Earlier lists:
 

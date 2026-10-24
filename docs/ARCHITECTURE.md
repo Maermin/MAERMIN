@@ -356,8 +356,8 @@ predates the endpoint (400/404), it shows a clear upgrade note instead of breaki
 data is persisted and nothing sensitive is sent, so it adds no `SENSITIVE_KEYS`.
 
 **Portfolio Intelligence** (`portfolio-intelligence.js` → `MaerminIntelligence`) is the
-Feature-1 (v10) surface under **Discover & Tools** (one new view, reached from the
-sidebar hub + command palette `g i`). It is an *aggregator*, not a new analytics engine:
+Feature-1 (v10) surface, today in **Insight → Health & Risk** (advanced mode; also
+command palette `g i`). It is an *aggregator*, not a new analytics engine:
 the pure `analyzeFromInputs(inputs, opts)` runs ten structural checks — single-company
 (effective/look-through), hidden concentration, sector overexposure, country risk,
 currency risk, correlation clusters (fund overlap), style drift (sector tilt vs a broad
@@ -430,10 +430,12 @@ they add no `SENSITIVE_KEYS` and need no migration.
 - `npm test` — `test/run-all.mjs` runs every `test/*.test.js` in a child process
   and fails on any non-zero exit. Tests exercise the **real** modules via the
   Node export, with minimal DOM/crypto stubs.
-- `npm run check` — `node --check` on every JS file (fast syntax gate).
+- `npm run check` — `node --check` on every JS file (fast syntax gate), plus the i18n
+  guard (every key in en and de, no new hardcoded UI text) and the colour guard (no new
+  hex/rgb literals).
 - `npm run test:e2e` — `test/e2e/app.e2e.mjs` runs the real app (dev `index.html`
   and `dist/`) in headless Chromium via `playwright-core`: mount after unlock,
-  every sidebar view, Tax Report + PDF export, upgrade migration. Needs a built
+  every view of the rail, Tax Report + PDF export, upgrade migration. Needs a built
   `dist/` and a Chromium (`npx playwright-core install chromium`, or
   `CHROME_PATH`); offline-safe (React from `node_modules`, `JSPDF_DIR` for jsPDF).
 - `npm run bench:motion` — `test/e2e/motion.bench.mjs` measures animation
@@ -444,7 +446,7 @@ they add no `SENSITIVE_KEYS` and need no migration.
   animate only `transform` and `opacity`; no animated filters, blend modes,
   `background-position` or custom properties on large or permanent elements.
 
-CI (`.github/workflows/node.js.yml`) runs `build:web` + `test` (incl. the platform suite) on Node 22/24.
+CI (`.github/workflows/node.js.yml`) runs `check`, `build:web`, `test` (incl. the platform suite) and `test:e2e` on Node 22/24.
 
 ---
 
