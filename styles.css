@@ -3135,3 +3135,6 @@ input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus { 
   .ui-iv-num, .ui-iv-sel { width: 100%; max-width: none; }
 }
 .ui-vc-hero__ret .ui-tone-chip { font-size: var(--type-body-lg); font-weight: 700; padding: var(--space-1) var(--space-2); }
+/* audit 2026-10-24 U-2: upcoming dividends grouped by month */
+.ui-dc-up__month + .ui-dc-up__month { margin-top: var(--space-3); }
+.ui-dc-up__head { margin: 0 0 var(--space-1); font-size: var(--type-caption); font-weight: 600; color: var(--text-dim); text-transform: none; }
