@@ -118,6 +118,12 @@ function ok(name, cond, info) {
   ok('years and times unchanged; unknown templates filled', C.localDate(parts, 'YYYY', 'de') === '2026' && C.localDate(parts, 'HH:mm', 'de') === '15:30'
     && C.localDate(parts, 'HH:mm:ss', 'en') === '15:30:07' && C.localDate(parts, 'DD/MM', 'de') === '05/10');
 
+  console.log('time axis labels:');
+  const w = (t) => t.length * 7; // 7 px a character
+  const ticks = [{ coord: 10, text: 'Oct 2026' }, { coord: 120, text: '10/09' }, { coord: 300, text: '10/13' }, { coord: 385, text: 'Nov' }];
+  ok('a label cut by the left or right edge is left out, the others stay', C.fitTicks(ticks, 390, w).map((t) => t.text).join() === '10/09,10/13', C.fitTicks(ticks, 390, w).map((t) => t.text));
+  ok('a label that just fits stays; no ticks: none', C.fitTicks([{ coord: 28, text: 'Oct 2026' }], 390, w).length === 1 && C.fitTicks(null, 390, w).length === 0);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
