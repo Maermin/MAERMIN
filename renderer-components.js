@@ -339,6 +339,16 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
   });
   const [results, setResults] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  // FIRE assumptions (audit 2026-10-24 BUG-7): their only editor left with the
+  // old dashboard tile, so they live here now. Saved on every change into
+  // maermin_fire_settings (encrypted, in backup and sync), which this view and
+  // the Intelligence emergency-fund check read.
+  const [fire, setFire] = useState(() => (window.MaerminMetrics ? window.MaerminMetrics.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
+  const updateFire = (patch) => setFire(prev => {
+    const next = { ...prev, ...patch };
+    if (window.MaerminMetrics && window.MaerminMetrics.saveFireSettings) window.MaerminMetrics.saveFireSettings(next);
+    return next;
+  });
 
   const runSimulation = () => {
     if (!window.MonteCarloEngine) return;
@@ -401,6 +411,16 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         h('div', { className: 'ui-form-grid__action' },
           h(UIC.Button, { variant: 'primary', onClick: runSimulation, loading: isRunning, 'data-testid': 'mc-run' },
             isRunning ? (t.loading || 'Running...') : (t.runSimulation || 'Run Simulation'))))),
+
+    h(UIC.Card, { title: __('mcFireTitle', 'FIRE assumptions'), headingLevel: 'h3', 'data-testid': 'mc-fire-settings',
+      subtitle: __('mcFireHint', 'FIRE number = annual expenses ÷ withdrawal rate. Leave the expenses at 0 to skip it.') },
+      h('div', { className: 'ui-form-grid' },
+        h(UIC.Input, { label: __('mcFireExpenses', 'Annual expenses in retirement ({c})', { c: currencySymbol }), type: 'number', min: 0, step: 100,
+          value: fire.annualExpenses || '', placeholder: '24000', 'data-testid': 'mc-fire-expenses',
+          onChange: (e) => updateFire({ annualExpenses: Math.max(0, parseFloat(e.target.value) || 0) }) }),
+        h(UIC.Input, { label: __('mcFireRate', 'Withdrawal rate (%)'), type: 'number', min: 1, max: 10, step: 0.1,
+          value: fire.withdrawalRate, 'data-testid': 'mc-fire-rate',
+          onChange: (e) => { const v = parseFloat(e.target.value); if (v > 0) updateFire({ withdrawalRate: v }); } }))),
 
     results && h('div', { className: 'ui-ov-tiles', 'data-testid': 'mc-outcomes' },
       tile(t.portfolioValue || 'Initial Value', money(results.initialValue), null, 'mc-start'),

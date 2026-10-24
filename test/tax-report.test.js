@@ -87,6 +87,22 @@ const TR = require('../tax-report-builder.js');
   ], { year: 2025, jurisdiction: 'de', exchangeRate: 0.9, germanTax: require('../tax-calculation-engine.js').GermanTax, dividendEvents: [], fundTypes: { WORLD: 'aktienfonds' } });
   ok('German Tax worksheet present when the detail is computed', TR.buildExcelWorkbook(rg).indexOf('ss:Name="German Tax"') > -1);
 
+  // Audit 2026-10-24 BUG-1: "Auto-fetch dividends" writes a projected schedule
+  // (ids auto-*) into the dividend calendar. It is a forecast, not income.
+  console.log('dividend calendar entries in the tax report:');
+  const divTxs = [
+    { id: 'b1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 100, currency: 'EUR', date: '2025-01-10' },
+    { id: 'd1', type: 'dividend', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 0.25, currency: 'EUR', date: '2026-08-14' }
+  ];
+  const divOpts = (events) => ({ year: 2026, exchangeRate: 1, jurisdiction: 'de', today: '2026-10-24', dividendEvents: events });
+  const autoEv = [
+    { id: 'auto-AAPL-2026-08-13', symbol: 'AAPL', date: '2026-08-13', amount: 2.5, currency: 'EUR' },
+    { id: 'auto-AAPL-2026-11-27', symbol: 'AAPL', date: '2026-11-27', amount: 2.5, currency: 'EUR' }
+  ];
+  ok('projected (auto) entries are not counted: income stays 2.50', near(TR.build(divTxs, divOpts(autoEv)).summary.dividendIncome, 2.5));
+  ok('a hand-entered entry dated after today is not counted', near(TR.build(divTxs, divOpts([{ id: 'm1', symbol: 'KO', date: '2026-12-01', amount: 4, currency: 'EUR' }])).summary.dividendIncome, 2.5));
+  ok('a hand-entered entry up to today still counts', near(TR.build(divTxs, divOpts([{ id: 'm2', symbol: 'KO', date: '2026-10-24', amount: 4, currency: 'EUR' }])).summary.dividendIncome, 6.5));
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

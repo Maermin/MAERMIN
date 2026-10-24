@@ -28,6 +28,8 @@
 //   DQ-SYNC-FAILED     the last sync of a source failed → open the import
 //   DQ-RECON-DIFF      a reported balance or quantity differs from MAERMIN's
 //                      → show the comparison (Reconciliation, Transactions view)
+//   DQ-DIV-DUPLICATE   one dividend payout auto-booked twice (before the
+//                      2026-10-24 fix) → show the symbol's transactions
 //
 // The codes are part of the UI contract: never renumber or reuse one.
 //
@@ -50,7 +52,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
     fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
     cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE',
-    priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF'
+    priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF',
+    divDuplicate: 'DQ-DIV-DUPLICATE'
   };
   var USD_LIKE = /^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i;
 
@@ -99,6 +102,39 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return out;
   }
 
+  // DQ-DIV-DUPLICATE (audit 2026-10-24 BUG-2): before the fix, dividend
+  // auto-booking could book one payout twice under two dates when the anchor
+  // ex-date moved. Two auto-booked rows of one symbol and portfolio less than
+  // 25 days apart are flagged (real payouts are at least ~28 days apart, so a
+  // monthly payer is never flagged). The user checks and deletes; nothing is
+  // removed here.
+  var DIV_DUP_DAYS = 25;
+  function dividendDuplicates(transactions) {
+    var groups = {};
+    (transactions || []).forEach(function (tx) {
+      if (!tx || tx.type !== 'dividend' || tx.source !== 'dividend-auto' || !tx.symbol) return;
+      var t = Date.parse(String(tx.date || '').slice(0, 10) + 'T00:00:00Z');
+      if (!isFinite(t)) return;
+      var k = String(tx.symbol).toUpperCase() + '|' + (tx.portfolioId || 'default');
+      (groups[k] || (groups[k] = [])).push({ tx: tx, t: t });
+    });
+    var out = [];
+    Object.keys(groups).forEach(function (k) {
+      var list = groups[k].sort(function (a, b) { return a.t - b.t; });
+      var ids = [];
+      for (var i = 1; i < list.length; i++) {
+        if ((list[i].t - list[i - 1].t) / 86400000 < DIV_DUP_DAYS) {
+          [list[i - 1].tx.id, list[i].tx.id].forEach(function (id) { if (ids.indexOf(id) === -1) ids.push(id); });
+        }
+      }
+      if (!ids.length) return;
+      var first = list[0].tx;
+      out.push({ symbol: first.symbol, portfolioId: first.portfolioId || 'default', txIds: ids, code: CODES.divDuplicate,
+        action: { type: 'show-transactions', symbol: first.symbol, changesData: false } });
+    });
+    return out;
+  }
+
   function actionLabel(action) {
     switch (action && action.type) {
       case 'show-transactions': return __('dcShowTx', 'Show transactions');
@@ -113,7 +149,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
   }
 
-  var api = { CODES: CODES, classify: classify, misfiled: misfiled, cryptoPairs: cryptoPairs, actionLabel: actionLabel };
+  var api = { CODES: CODES, classify: classify, misfiled: misfiled, cryptoPairs: cryptoPairs, dividendDuplicates: dividendDuplicates, actionLabel: actionLabel };
   if (typeof window !== 'undefined') window.MaerminDataCheck = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

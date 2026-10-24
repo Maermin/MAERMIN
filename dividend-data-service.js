@@ -152,8 +152,11 @@ var DividendDataService = {
     var months = opts.months || 12;                          // forward window
     var back = opts.back != null ? opts.back : 12;           // trailing window (already-received payouts)
     var now = opts.now ? new Date(opts.now) : new Date();
-    var start = new Date(now); start.setMonth(start.getMonth() - back);
-    var horizon = new Date(now); horizon.setMonth(horizon.getMonth() + months);
+    // All date maths in UTC: dates are stored as UTC 'YYYY-MM-DD' and printed
+    // with toISOString (audit 2026-10-24 BUG-12: local month steps put summer
+    // pay dates one day early east of UTC).
+    var start = new Date(now); start.setUTCMonth(start.getUTCMonth() - back);
+    var horizon = new Date(now); horizon.setUTCMonth(horizon.getUTCMonth() + months);
     var stocks = (portfolio && portfolio.stocks) || [];
     var out = [];
     stocks.forEach(function (s) {
@@ -174,27 +177,27 @@ var DividendDataService = {
       var anchor = null;
       if (d.exDate) { var a = new Date(d.exDate); if (!isNaN(a.getTime())) anchor = a; }
       if (!anchor && Array.isArray(d.exMonths) && d.exMonths.length) {
-        anchor = new Date(now.getFullYear(), d.exMonths[0] - 1, 15);
+        anchor = new Date(Date.UTC(now.getUTCFullYear(), d.exMonths[0] - 1, 15));
       }
-      if (!anchor) { anchor = new Date(now); anchor.setMonth(anchor.getMonth() + 1); }
+      if (!anchor) { anchor = new Date(now); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
       // Pay lands ~14 days after the ex-date. Roll forward on the PAY date (not
       // the ex-date) so a payout whose ex just passed but whose pay date is still
       // upcoming is NOT skipped to the next period.
-      var pay = new Date(anchor); pay.setDate(pay.getDate() + 14);
-      while (pay.getTime() < now.getTime()) pay.setMonth(pay.getMonth() + monthsPerPay);
+      var pay = new Date(anchor); pay.setUTCDate(pay.getUTCDate() + 14);
+      while (pay.getTime() < now.getTime()) pay.setUTCMonth(pay.getUTCMonth() + monthsPerPay);
 
       // Walk BACK from the next upcoming pay to the earliest payout still inside
       // the trailing window, so already-received payments this year are included
       // (and the yearly total reconciles). Each row is flagged past vs upcoming.
       var first = new Date(pay);
       while (true) {
-        var prev = new Date(first); prev.setMonth(prev.getMonth() - monthsPerPay);
+        var prev = new Date(first); prev.setUTCMonth(prev.getUTCMonth() - monthsPerPay);
         if (prev.getTime() < start.getTime()) break;
         first = prev;
       }
 
-      for (var pd = new Date(first); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
-        var exd = new Date(pd); exd.setDate(exd.getDate() - 14); // inverse of the ~14-day pay lag
+      for (var pd = new Date(first); pd.getTime() <= horizon.getTime(); pd.setUTCMonth(pd.getUTCMonth() + monthsPerPay)) {
+        var exd = new Date(pd); exd.setUTCDate(exd.getUTCDate() - 14); // inverse of the ~14-day pay lag
         out.push({
           symbol: sym, date: pd.toISOString().split('T')[0],
           exDate: exd.toISOString().split('T')[0],

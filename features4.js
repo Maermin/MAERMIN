@@ -334,11 +334,41 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       amountCurrency: form.amountCurrency === 'USD' ? 'USD' : 'EUR'
     };
     if (editPlan === 'new') {
-      setPlans(prev => [...prev, { id: Date.now().toString(), ...fields, active: true, createdAt: new Date().toISOString() }]);
+      const plan = { id: Date.now().toString(), ...fields, active: true, createdAt: new Date().toISOString() };
+      askPastDates(plan, (next) => setPlans(prev => [...prev, next]));
     } else {
-      setPlans(prev => prev.map(p => p.id === editPlan.id ? { ...p, ...fields } : p));
+      const merged = { ...(plans.find(p => p.id === editPlan.id) || editPlan), ...fields };
+      const store = (next) => setPlans(prev => prev.map(p => p.id === editPlan.id ? next : p));
+      // A new start date is a fresh decision about the past; a new frequency
+      // keeps an earlier "from today". Other edits never book back-dated buys.
+      if (fields.startDate !== editPlan.startDate) { const fresh = { ...merged }; delete fresh.bookFrom; askPastDates(fresh, store); }
+      else if (fields.frequency !== (editPlan.frequency || 'monthly')) askPastDates(merged, store);
+      else store(merged);
     }
     setEditPlan(null);
+  };
+
+  // Audit 2026-10-24 BUG-3/BUG-4: creating a plan with a past start, changing
+  // its schedule or resuming it would book every past due date at once (also
+  // buys already imported from the broker). Ask first; "From today" is the
+  // safe answer and also what Escape gives. It sets plan.bookFrom.
+  const askPastDates = (plan, save) => {
+    const EX = window.MaerminSavingsExecutor;
+    const today = window.MaerminUtils.todayISO();
+    const n = EX && EX.pastCount ? EX.pastCount(plan, transactions, today) : 0;
+    const UI = window.MaerminUI;
+    if (!n) { save(plan); return; }
+    const fromToday = () => save({ ...plan, bookFrom: today });
+    if (!UI || typeof UI.confirm !== 'function') { fromToday(); return; }
+    UI.confirm({
+      danger: false,
+      title: __('spPastTitle', 'Book {n} past {n:execution|executions}?', { n }),
+      message: __('spPastMessage', 'This plan has {n} due {n:date|dates} before today. Book {n:it|them} now at the price of each day, or start from today? Choose "From today" if these buys are already in your transactions (for example from a broker import).', { n }),
+      confirmLabel: __('spPastBook', 'Book {n} past', { n }),
+      cancelLabel: __('spPastFromToday', 'From today')
+    }).then(yes => {
+      if (yes) { const all = { ...plan }; delete all.bookFrom; save(all); } else fromToday();
+    });
   };
 
   // For each plan: expected executions (CALENDAR-exact via the executor, which
@@ -436,7 +466,12 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           React.createElement('div', { className: ['ui-actions', 'ui-sp-actions'].join(' ') },
             React.createElement(UIC.Button, { size: 'sm', onClick: () => openEdit(plan) }, __('edit', 'Edit')),
             plan.status !== 'completed' && React.createElement(UIC.Button, { size: 'sm', variant: 'quiet',
-              onClick: () => setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, active: p.active === false } : p))
+              onClick: () => {
+                const cur = plans.find(p => p.id === plan.id);
+                if (!cur) return;
+                if (cur.active === false) askPastDates({ ...cur, active: true }, next => setPlans(prev => prev.map(p => p.id === cur.id ? next : p)));
+                else setPlans(prev => prev.map(p => p.id === cur.id ? { ...p, active: false } : p));
+              }
             }, plan.active === false ? __('resume', 'Resume') : __('pause', 'Pause')),
             React.createElement(UIC.Button, { size: 'sm', variant: 'quiet',
               onClick: () => window.MaerminUtils.confirmThen({

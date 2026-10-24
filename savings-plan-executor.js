@@ -149,6 +149,10 @@
 
   // ---- execution ------------------------------------------------------------------
   // Which due occurrences are not booked yet?
+  // plan.bookFrom (optional ISO date): occurrences before it are never booked.
+  // The app sets it when the user chooses "from today" for past dates (a new
+  // plan with a past start, an edit of frequency or start, a resume after a
+  // pause; audit 2026-10-24 BUG-3/BUG-4). Plans without it behave as before.
   function pendingExecutions(plans, transactions, asOfISO) {
     var done = executionSet(transactions);
     var out = [];
@@ -159,11 +163,24 @@
       (Array.isArray(plan.skippedDates) ? plan.skippedDates : []).forEach(function (d) {
         skipped[plan.id + '|' + d] = true; skipped[monthKey(plan.id, d)] = true;
       });
+      var from = typeof plan.bookFrom === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(plan.bookFrom) ? plan.bookFrom : '';
       occurrences(plan, asOfISO).forEach(function (occ) {
+        if (from && occ.date < from) return;
         if (!isDone(done, plan, occ.date) && !isDone(skipped, plan, occ.date)) out.push({ plan: plan, dueDate: occ.date });
       });
     });
     return out;
+  }
+
+  // How many due dates BEFORE asOf would be booked now (paused or not; an
+  // existing bookFrom is respected)? The number the app shows in its "book N
+  // past executions?" question. A caller that offers a fresh start (a new
+  // start date) passes the plan without bookFrom.
+  function pastCount(plan, transactions, asOfISO) {
+    if (!plan) return 0;
+    var asOf = asOfISO || todayISO();
+    var p = Object.assign({}, plan, { active: true });
+    return pendingExecutions([p], transactions, asOf).filter(function (x) { return x.dueDate < asOf; }).length;
   }
 
   // Build the real buy transaction for one due occurrence. price = EUR price
@@ -331,6 +348,7 @@
     planStatus: planStatus,
     isExecution: isExecution,
     pendingExecutions: pendingExecutions,
+    pastCount: pastCount,
     dedupeExecutions: dedupeExecutions,
     markSkipped: markSkipped,
     todayISO: todayISO,

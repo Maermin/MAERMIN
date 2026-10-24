@@ -326,7 +326,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       // otherwise it would be counted twice.
       var booked = {};
       dividends.forEach(function (d) { booked[d.symbol + '|' + d.date] = true; });
+      // "Auto-fetch dividends" entries (ids auto-*) are a projected schedule,
+      // and an entry dated after today has not been paid: neither is income
+      // (audit 2026-10-24 BUG-1). Today is the local date unless given.
+      var now = new Date();
+      var today = opts.today || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'));
       (events || []).forEach(function (e) {
+        if (!e || String(e.id || '').indexOf('auto-') === 0 || ymd(e.date) > today) return;
         if (inYear(e.date) && !booked[(e.symbol || '').toUpperCase() + '|' + ymd(e.date)]) dividends.push({ symbol: (e.symbol || '').toUpperCase(), date: ymd(e.date),
           gross: toBase(e.amount, e.currency, rate, e.date, fxAt), withholding: toBase(e.withholding, e.currency, rate, e.date, fxAt), currency: e.currency || base });
       });

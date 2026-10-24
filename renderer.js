@@ -547,9 +547,11 @@ function InvestmentTracker() {
       // close at/before each due date, so every buy is priced on its own day.
       const histEff = Object.assign({}, priceHistory, savingsHistory);
       const accurate = (sym, due) => EX.priceAtDate(histEff, fetchedPrices, sym, due);
-      const resolvePrice = (plan, dueDate) => EX.priceForBackfill
-        ? EX.priceForBackfill(histEff, fetchedPrices, plan.symbol, dueDate)
-        : EX.priceAtDate(histEff, fetchedPrices, plan.symbol, dueDate);
+      // Only a real recorded close (within 7 days of the due date, or today's
+      // live price for today's execution) books a buy; anything else stays
+      // pending and is reported. Never book at an invented price (audit
+      // 2026-10-24 BUG-5; earlier estimated rows are still repriced below).
+      const resolvePrice = (plan, dueDate) => EX.priceAtDate(histEff, fetchedPrices, plan.symbol, dueDate);
 
       let working = transactions;
       // 1) Re-price earlier ESTIMATED auto-executions now that real history exists.
@@ -560,8 +562,7 @@ function InvestmentTracker() {
           addToast(__('spRepriced', '{n} estimated savings {n:buy|buys} repriced to the historical close', { n: rep.repriced }), 'success');
         }
       }
-      // 2) Book any outstanding occurrences (real close when available, else a
-      //    flagged estimate from the current price).
+      // 2) Book any outstanding occurrences that have a real close.
       const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, fxAt || exchangeRate);
       if (out.created.length || out.removedDuplicates || working !== transactions) {
         setTransactions(out.transactions);
@@ -1743,6 +1744,7 @@ function InvestmentTracker() {
       // Exchange rate direction: USD->EUR means how many EUR for 1 USD
       // EUR is stronger than USD, so rate is ~0.91 (1 USD = 0.91 EUR)
       let usdToEur = exchangeRate || 0.91; // Default fallback
+      let fxFetched = false; // only a fetched rate is recorded as today's rate (audit 2026-10-24 BUG-6)
       try {
         // Use the open endpoint which is in the CSP
         const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -1750,6 +1752,7 @@ function InvestmentTracker() {
           const fxData = await fxRes.json();
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
+            fxFetched = true;
             setExchangeRate(usdToEur);
             // Keep the full USD-based table so GBp/CHF/JPY… quotes convert correctly.
             if (window.MaerminFxHistory && window.MaerminFxHistory.setUsdRates) window.MaerminFxHistory.setUsdRates(fxData.rates);
@@ -1780,7 +1783,7 @@ function InvestmentTracker() {
       try {
         const FXH = window.MaerminFxHistory;
         if (FXH) {
-          FXH.merge({ [window.MaerminUtils.todayISO()]: usdToEur });
+          if (fxFetched) FXH.merge({ [window.MaerminUtils.todayISO()]: usdToEur });
           const wBase = (marketWorker || '').trim().replace(/\/$/, '');
           if (wBase.length > 5 && !fxSeriesFetched.current) {
             fxSeriesFetched.current = true;
@@ -3138,21 +3141,23 @@ function InvestmentTracker() {
 
         // Anchor the FIRST upcoming pay date: roll the ex-date forward to the next
         // occurrence, then pay ~14 days after ex. Without an ex-date, start next month.
+        // UTC date maths throughout: the dates are printed with toISOString
+        // (audit 2026-10-24 BUG-12: local steps put summer dates a day early).
         let anchor;
         if (exDate) {
           anchor = new Date(exDate);
-          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setMonth(anchor.getMonth() + 1); }
+          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
           else {
-            while (anchor.getTime() < Date.now()) anchor.setMonth(anchor.getMonth() + monthsPerPay);
-            anchor.setDate(anchor.getDate() + 14); // ex → pay
+            while (anchor.getTime() < Date.now()) anchor.setUTCMonth(anchor.getUTCMonth() + monthsPerPay);
+            anchor.setUTCDate(anchor.getUTCDate() + 14); // ex → pay
           }
         } else {
-          anchor = new Date(); anchor.setMonth(anchor.getMonth() + 1);
+          anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
         }
 
         // One event per individual payment across the next 12 months.
-        const horizon = new Date(); horizon.setFullYear(horizon.getFullYear() + 1);
-        for (let pd = new Date(anchor); pd <= horizon; pd.setMonth(pd.getMonth() + monthsPerPay)) {
+        const horizon = new Date(); horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+        for (let pd = new Date(anchor); pd <= horizon; pd.setUTCMonth(pd.getUTCMonth() + monthsPerPay)) {
           const dateStr = pd.toISOString().split('T')[0];
           generated.push({
             id: `auto-${sym}-${dateStr}`,
@@ -4312,6 +4317,7 @@ function InvestmentTracker() {
       // CS2 skins filed as stocks (see renderMisfiledSkins)
       !demoMode && renderMisfiledSkins(),
       !demoMode && renderCryptoPairs(),
+      !demoMode && renderDividendDuplicates(),
 
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { role: 'status', className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix', 'ui-ov-banner'].join(' ') },
@@ -4639,6 +4645,23 @@ function InvestmentTracker() {
       React.createElement(window.MaerminComponents.Button, { variant: 'primary', onClick: () => setTxSearch(found[0].symbol) }, __('dcShowTx', 'Show transactions')));
   };
 
+  // DQ-DIV-DUPLICATE: one payout auto-booked twice under two dates (before the
+  // audit 2026-10-24 BUG-2 fix). Shown for the user to check; nothing is deleted.
+  const renderDividendDuplicates = () => {
+    const found = DC && DC.dividendDuplicates ? DC.dividendDuplicates(transactions) : [];
+    if (!found.length) return null;
+    return React.createElement('div', {
+      role: 'status', 'data-testid': 'div-duplicates', 'data-dq-code': DC.CODES.divDuplicate,
+      className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix'].join(' ')
+    },
+      React.createElement('div', { className: 'ui-dq-fix__text' },
+        React.createElement('code', null, DC.CODES.divDuplicate),
+        React.createElement('strong', null, __('dqDivDuplicate', '{n} {n:holding has|holdings have} dividends that may be booked twice', { n: found.length })),
+        React.createElement('span', { className: 'ui-dq-fix__hint' },
+          `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('dqDivDuplicateHint', 'automatic dividend booking may have booked the same payout under two dates. Check the rows and delete the extra one.')}`)),
+      React.createElement(window.MaerminComponents.Button, { variant: 'primary', onClick: () => setTxSearch(found[0].symbol) }, __('dcShowTx', 'Show transactions')));
+  };
+
   const renderTransactionsView = () => {
     // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
@@ -4724,6 +4747,7 @@ function InvestmentTracker() {
     return React.createElement('div', { className: 'ui-view ui-tx' },
       renderMisfiledSkins(),
       renderCryptoPairs(),
+      renderDividendDuplicates(),
       renderLedgerIssues(),
       // P5-3.7: what banks, depots and wallets report vs MAERMIN
       window.MaerminReconcile && !demoMode && React.createElement(window.MaerminReconcile.Panel, {
@@ -4896,6 +4920,7 @@ function InvestmentTracker() {
     return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-tax-report'].join(' ') },
       renderMisfiledSkins(),
       renderCryptoPairs(),
+      renderDividendDuplicates(),
       renderLedgerIssues(),
       h('div', { className: 'ui-tax-report__bar' },
         h(UIC.Select, { label: t.taxYear || 'Tax Year', value: currentYear, onChange: (e) => setTaxYear(parseInt(e.target.value, 10)),
