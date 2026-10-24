@@ -112,7 +112,11 @@
     if (!base || base.length < 12 || !fetchFn) return Promise.resolve(null);
     if (!opts.force && memo && memo.base === base && now - memo.at < FRESH_MS) return Promise.resolve(memo.index);
     if (pending && pending.base === base) return pending.promise;
-    var p = Promise.resolve(fetchFn(base + '?action=skinprices'))
+    // A Worker that never answers must not hold the price refresh forever
+    // (audit 2026-10-24 BUG-8): give up after the timeout, keep the last prices.
+    var timeoutMs = opts.timeoutMs || 15000;
+    var signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(timeoutMs) : undefined;
+    var p = Promise.resolve(fetchFn(base + '?action=skinprices', signal ? { signal: signal } : undefined))
       .then(function (r) { if (!r || !r.ok) throw new Error('HTTP ' + (r ? r.status : 0)); return r.json(); })
       .then(function (file) {
         if (!file || typeof file !== 'object' || Array.isArray(file) || file.error) throw new Error((file && file.error) || 'not a price file');

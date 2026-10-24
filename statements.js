@@ -366,7 +366,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
     var I = window.MaerminI18n;
     var year = props.year || new Date().getFullYear();
-    var today = new Date().toISOString().slice(0, 10);
+    var today = window.MaerminUtils.todayISO();
     var txs = props.transactions || [];
     var s0 = useState(today); var asOf = s0[0], setAsOf = s0[1];
     var s1 = useState(true); var withRf = s1[0], setWithRf = s1[1];

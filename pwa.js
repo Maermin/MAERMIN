@@ -45,12 +45,37 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (ev.data && ev.data.type === 'background-sync') emit('sync', ev.data.tag);
     });
 
-    // Reload once a new SW takes control (service-worker.js calls skipWaiting()
-    // on install, so an update applies on the next load).
+    // Reload once a NEW SW takes control (service-worker.js calls skipWaiting()
+    // on install, so an update applies on the next load). On the first visit
+    // there was no controller: the page already runs the current files, so it
+    // only hands them to the worker for the offline cache instead of reloading
+    // under the user's hands (audit 2026-10-24 BUG-13).
+    var hadController = !!navigator.serviceWorker.controller;
     var refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController) { hadController = true; warmCache(); return; }
       if (refreshing) return; refreshing = true; window.location.reload();
     });
+  }
+
+  // The files this page loaded (scripts, styles, fonts, data) for the worker's
+  // runtime cache, so the next start works offline. API calls are not files:
+  // the worker caches only its own origin and its allowlisted CDNs anyway.
+  function warmCache() {
+    try {
+      var ctrl = navigator.serviceWorker.controller;
+      if (!ctrl) return;
+      var urls = [];
+      var add = function (u) { if (u && urls.indexOf(u) === -1) urls.push(String(u)); };
+      [].slice.call(document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[rel="manifest"][href], link[rel="icon"][href]'))
+        .forEach(function (el) { add(el.src || el.href); });
+      if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+        performance.getEntriesByType('resource').forEach(function (e) {
+          if (e && e.name && e.name.indexOf(location.origin) === 0) add(e.name);
+        });
+      }
+      ctrl.postMessage({ type: 'warm-cache', urls: urls });
+    } catch (e) { /* best effort: the files are cached on their next fetch anyway */ }
   }
 
   // ---- install prompt -------------------------------------------------------

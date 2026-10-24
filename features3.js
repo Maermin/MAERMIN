@@ -219,7 +219,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
   const [reviewDraft, setReviewDraft] = useState('');
   const addReview = () => {
     if (!reviewDraft.trim()) return;
-    saveJournal({ reviews: [{ date: new Date().toISOString().slice(0, 10), text: reviewDraft.trim() }, ...(j.reviews || [])] });
+    saveJournal({ reviews: [{ date: window.MaerminUtils.todayISO(), text: reviewDraft.trim() }, ...(j.reviews || [])] });
     setReviewDraft('');
   };
   // R4.6: figures on Stat tiles, the history on the shared Table, the journal on the shared fields
@@ -503,9 +503,13 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
-    if (!q || q.length < 2) { setResults([]); setOpen(false); return; }
+    if (!q || q.length < 2) { setResults([]); setOpen(false); setLoading(false); return; }
     if (selected && q === (selected.name || selected.symbol)) return;
 
+    // A search answered after the query or the category changed is dropped
+    // (audit 2026-10-24 BUG-10: a late crypto answer reopened the list in the
+    // stock form and saved a CoinGecko id as a stock symbol).
+    let cancelled = false;
     debounceRef.current = setTimeout(async () => {
       setLoading(true); setError(null);
       try {
@@ -516,6 +520,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           // used up CoinGecko's per-minute limit, and the picker went blank.
           // Through the Worker (?action=cg), via the shared queue (the user is waiting).
           const data = await window.MaerminCoinGecko.get('search', { query: q }, { priority: 'high', skipWhileCooling: true, timeoutMs: 8000 });
+          if (cancelled) return;
           const coins = (data.coins || [])
             .filter(c => {
               // Filter out tokenized stocks (xStock, rStock, Ondo) and stablecoins
@@ -548,6 +553,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           );
           if (!res.ok) throw new Error(`Search failed: ${res.status}`);
           const data = await res.json();
+          if (cancelled) return;
 
           const items = (Array.isArray(data) ? data : [])
             // Strict: only stocks/ETFs/funds — explicitly no crypto allowed
@@ -572,14 +578,16 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           setOpen(items.length > 0);
         }
       } catch(e) {
+        if (cancelled) return;
         setResults([]); setOpen(false);
         setError(isCrypto
           ? __('spkCgBusy', 'CoinGecko search is busy right now. You can still save: type the ticker (e.g. QNT) or the CoinGecko id (e.g. quant-network).')
           : e.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 350);
+    return () => { cancelled = true; };
   }, [query, isCrypto, workerUrl]);
 
   const pick = (item) => {

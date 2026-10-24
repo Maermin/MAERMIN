@@ -748,7 +748,7 @@ function GoalPathCard(props) {
   var T = useT();
   var GP = window.MaerminGoalPath;
   var goal = GP.normalizeGoal(props.goal);
-  var asOf = new Date().toISOString().slice(0, 10);
+  var asOf = window.MaerminUtils.todayISO();
   var lv = GP.linkedValue(goal, props.ctx);
   var st = GP.status(goal, lv.value, { asOf: asOf });
   var path = GP.glidePath(goal);

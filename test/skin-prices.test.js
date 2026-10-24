@@ -61,6 +61,16 @@ const FILE = {
   ok('two loads at once share one request', calls.length === 1);
   SKP.reset();
   ok('an older Worker without the route -> null', (await SKP.load('https://w.example.workers.dev', { fetch: async () => json({ error: 'Unknown action' }, 400) })) === null);
+  // Audit 2026-10-24 BUG-8: a Worker that never answers must not leave the
+  // load (and with it the app's price refresh) waiting forever.
+  {
+    const hang = (url, init) => new Promise((resolve, reject) => {
+      if (init && init.signal) init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+    const t0 = Date.now();
+    const res = await Promise.race([SKP.load('https://hang.example.workers.dev', { fetch: hang, timeoutMs: 200 }), new Promise((r) => setTimeout(() => r('still waiting'), 2000))]);
+    ok('a Worker that never answers: load gives up after its timeout (null)', res === null && Date.now() - t0 < 1500, res);
+  }
   ok('an error object -> null', (await SKP.load('https://w.example.workers.dev', { fetch: async () => json({ error: 'Skin prices unavailable' }) })) === null);
   ok('no Worker URL -> null without a request', (await SKP.load('', { fetch: async () => { throw new Error('called'); } })) === null);
   SKP.reset();

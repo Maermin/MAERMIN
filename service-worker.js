@@ -9,7 +9,8 @@
  * Strategies
  *   - navigation (HTML)      → network-first, fall back to cached app shell
  *                              (this is what makes the app boot OFFLINE).
- *   - same-origin static     → stale-while-revalidate (fast + self-updating).
+ *   - same-origin static     → network-first, cached copy after 3 s or offline.
+ *   - first visit            → the page sends the files it loaded (warm-cache).
  *   - whitelisted CDNs       → cache-first (React, jsPDF rarely change).
  *   - market-data / API hosts→ bypass entirely (never cache volatile prices).
  *
@@ -63,6 +64,28 @@ self.addEventListener('activate', function (event) {
       }));
     }).then(function () { return self.clients.claim(); })
   );
+});
+
+// ---- warm the cache on the first visit (audit 2026-10-24 BUG-13) -----------
+// The page that installed this worker loaded its files before the worker could
+// see them; pwa.js sends their URLs once the worker takes control. Only this
+// origin and the allowlisted CDNs are cached, and only if not cached yet.
+var MAX_WARM_URLS = 400;
+self.addEventListener('message', function (event) {
+  var data = event && event.data;
+  if (!data || data.type !== 'warm-cache' || !Array.isArray(data.urls)) return;
+  event.waitUntil(caches.open(RUNTIME_CACHE).then(function (cache) {
+    return Promise.all(data.urls.slice(0, MAX_WARM_URLS).map(function (u) {
+      var url;
+      try { url = new URL(String(u), self.location.href); } catch (e) { return null; }
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      if (url.origin !== self.location.origin && !isCdnHost(url.hostname)) return null;
+      if (isBypassHost(url.hostname)) return null;
+      return cache.match(url.href).then(function (hit) {
+        return hit || cache.add(url.href).catch(function () { /* missing or offline: skip */ });
+      });
+    }));
+  }));
 });
 
 // ---- fetch routing ---------------------------------------------------------

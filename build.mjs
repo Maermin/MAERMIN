@@ -12,6 +12,7 @@
  */
 import { build } from 'esbuild';
 import { readFile, writeFile, mkdir, copyFile, rm, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -80,9 +81,10 @@ console.log('[build] dist/compute.worker.js  ' + (workerOut.outputFiles[0].text.
 
 // PWA assets ship as-is (service-worker.js must stay a standalone file served at
 // scope; pwa.js is already inside the bundle and registers it).
-for (const asset of ['manifest.webmanifest', 'service-worker.js', 'icon.svg']) {
+for (const asset of ['manifest.webmanifest', 'icon.svg']) {
   await copyFile(join(root, asset), join(dist, asset));
 }
+// service-worker.js is stamped further down, once every file it caches is written.
 // Self-hosted web fonts (styles.css @font-face) and their licence (OFL.txt):
 // no request to Google Fonts in dev or prod.
 await mkdir(join(dist, 'fonts'), { recursive: true });
@@ -173,6 +175,19 @@ ${cdnTags}
 </html>
 `;
 await writeFile(join(dist, 'index.html'), prodHtml);
+
+// The service worker's cache version names the build: a new bundle gets a fresh
+// cache, the old one is dropped on activate, and a slow connection can no
+// longer mix new HTML/CSS with an old cached bundle (audit 2026-10-24 BUG-14).
+{
+  const h = createHash('sha256');
+  for (const f of ['maermin.min.js', 'styles.css', 'boot.js', 'compute.worker.js', 'index.html']) h.update(await readFile(join(dist, f)));
+  const stamp = h.digest('hex').slice(0, 10);
+  const sw = await readFile(join(root, 'service-worker.js'), 'utf8');
+  if (!/var VERSION = '[^']*';/.test(sw)) throw new Error('service-worker.js: VERSION line not found');
+  await writeFile(join(dist, 'service-worker.js'), sw.replace(/var VERSION = '([^']*)';/, (m, v) => "var VERSION = '" + v + '-' + stamp + "';"));
+  console.log('[build] dist/service-worker.js  cache ' + stamp);
+}
 
 const kb = (bundle.length / 1024).toFixed(0);
 console.log(`[build] dist/maermin.min.js  ${kb} KB`);

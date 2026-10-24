@@ -746,7 +746,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var o = chart.getOverlays({ id: selected.id })[0];
       var price = o && o.points && o.points[0] ? o.points[0].value : null;
       var lastListing = data.bars.length ? data.bars[data.bars.length - 1].c : null;
-      var today = new Date().toISOString().slice(0, 10);
+      var today = window.MaerminUtils.todayISO();
       var rate = eurOn ? convertEUR(1, cur, today) : null;
       rate = rate && typeof rate === 'object' ? rate.value : rate;
       var rule = DR.alertRule(sym, price, lastListing, { toListing: eurOn && rate ? function (v) { return v / rate; } : null });

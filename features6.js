@@ -285,6 +285,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const svgRef = useRef(null);
   const cacheRef     = useRef({});
+  // Only the newest build may set state: switching portfolio or period while a
+  // slower build still fetches must not let the older result land last
+  // (audit 2026-10-24 BUG-9).
+  const buildSeqRef  = useRef(0);
 
   const usdToEur      = exchangeRate || 0.91;
   const workerUrl     = (apiKeys?.cs2Worker || '').trim();
@@ -349,6 +353,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
 
   const buildChart = useCallback(async () => {
+    const seq = ++buildSeqRef.current;
+    const current = () => seq === buildSeqRef.current;
     if (positions.length === 0) return;
     // Demo mode: the daily value path of the sample closes, no fetching.
     if (Array.isArray(pathPoints) && pathPoints.length > 1) {
@@ -558,12 +564,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         final = curve.filter((_, i) => i % step === 0 || i === curve.length - 1);
       }
 
-      setChartData(final);
+      if (current()) setChartData(final);
     } catch(e) {
       console.error('[CHART] Fatal:', e);
-      setError(e.message);
+      if (current()) setError(e.message);
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [positions, period, workerUrl, usdToEur, prices, currentPeriod, pathPoints]);
 
