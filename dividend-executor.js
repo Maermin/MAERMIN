@@ -73,6 +73,14 @@
   // pay date means this payout is already booked, whatever its source (typed
   // in, CSV/PDF import, auto). Brokers book a few days off the pay date.
   var BOOKED_WINDOW_DAYS = 3;
+  // Past pay dates are reconstructed from one anchor ex-date; when the anchor
+  // moves (next ex-date announced, cache fallback) every past date moves too.
+  // With a known frequency, any dividend row within half a payment period is
+  // the same payout (audit 2026-10-24 BUG-2): rather miss one than book twice.
+  var HALF_PERIOD_DAYS = { monthly: 15, quarterly: 45, 'semi-annual': 91, semiannual: 91, annual: 182 };
+  function windowDays(row) {
+    return HALF_PERIOD_DAYS[String((row && row.frequency) || '').toLowerCase()] || BOOKED_WINDOW_DAYS;
+  }
   function dayNum(iso) {
     var t = Date.parse(String(iso || '').slice(0, 10) + 'T00:00:00Z');
     return isFinite(t) ? Math.round(t / 86400000) : null;
@@ -88,11 +96,12 @@
     });
     return map;
   }
-  function bookedNear(days, symbol, date, portfolioId) {
+  function bookedNear(days, symbol, date, portfolioId, within) {
     var list = days[up(symbol) + '|' + (portfolioId || 'default')];
     var d = dayNum(date);
     if (!list || d == null) return false;
-    return list.some(function (x) { return Math.abs(x - d) <= BOOKED_WINDOW_DAYS; });
+    var w = within || BOOKED_WINDOW_DAYS;
+    return list.some(function (x) { return Math.abs(x - d) <= w; });
   }
 
   function pending(schedule, transactions, portfolioId, skipped) {
@@ -104,7 +113,7 @@
     return (schedule || []).filter(function (r) {
       if (!(r && r.past === true && num(r.amount) > 0 && r.symbol && r.date)) return false;
       var m = markerOf(r.symbol, r.date, portfolioId);
-      return !done[m] && !skip[m] && !bookedNear(days, r.symbol, r.date, portfolioId);
+      return !done[m] && !skip[m] && !bookedNear(days, r.symbol, r.date, portfolioId, windowDays(r));
     });
   }
 

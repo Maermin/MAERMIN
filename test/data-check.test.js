@@ -12,7 +12,8 @@ ok('the code list is exactly the documented one', JSON.stringify(DC.CODES) === J
   oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
   fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
   cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE',
-  priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF' }));
+  priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF',
+  divDuplicate: 'DQ-DIV-DUPLICATE' }));
 // P5-3.7: the reconciliation and health findings and their actions
 ok('P5-3.7: stale price -> load rates / add a Worker', DC.classify({ kind: 'price-stale' }, { hasWorker: true }).code === 'DQ-PRICE-STALE' && DC.classify({ kind: 'price-stale' }, { hasWorker: true }).action.type === 'refresh' && DC.classify({ kind: 'price-stale' }, {}).action.type === 'open-api-settings');
 ok('P5-3.7: broken transfer -> edit that row', DC.classify({ kind: 'transfer-broken', txId: 't9' }).code === 'DQ-TRANSFER-BROKEN' && DC.classify({ kind: 'transfer-broken', txId: 't9' }).action.txId === 't9');
@@ -66,6 +67,24 @@ console.log('classify:');
   ok('DQ-CASH-NEGATIVE: the action books the missing deposits of that portfolio and changes data', c.action.type === 'book-deposits' && c.action.portfolioId === 'p1' && c.action.changesData === true);
   ok('DQ-CASH-NEGATIVE: the action has a label', /deposit/i.test(DC.actionLabel(c.action)));
   ok('older codes keep their names', DC.CODES.oversold === 'DQ-OVERSOLD' && DC.CODES.cryptoPair === 'DQ-CRYPTO-PAIR');
+}
+
+// Audit 2026-10-24 BUG-2: auto-booked dividends of the same payout under two
+// dates. Flagged for the user to check; nothing is removed automatically.
+{
+  console.log('DQ-DIV-DUPLICATE:');
+  const auto = (id, symbol, date, pf) => ({ id, type: 'dividend', symbol, date, divDate: date, source: 'dividend-auto', portfolioId: pf || 'default', quantity: 100, price: 0.51 });
+  const rows = [
+    auto('a1', 'KO', '2026-03-12'), auto('a2', 'KO', '2026-03-29'),            // same quarter twice
+    auto('a3', 'KO', '2026-06-29'), auto('a4', 'KO', '2026-09-29'),            // regular quarters
+    auto('o1', 'O', '2026-07-15'), auto('o2', 'O', '2026-08-15'),              // a monthly payer
+    auto('b1', 'KO', '2026-03-14', 'other'),                                   // other portfolio
+    { id: 'm1', type: 'dividend', symbol: 'KO', date: '2026-06-20', portfolioId: 'default', quantity: 1, price: 50 } // typed in by hand
+  ];
+  const dup = DC.dividendDuplicates(rows);
+  ok('one finding: KO in the main portfolio, March booked twice', dup.length === 1 && dup[0].symbol === 'KO' && dup[0].portfolioId === 'default' && dup[0].txIds.join() === 'a1,a2', dup);
+  ok('code DQ-DIV-DUPLICATE, action shows the transactions, changes nothing', dup[0] && dup[0].code === 'DQ-DIV-DUPLICATE' && dup[0].action.type === 'show-transactions' && dup[0].action.changesData === false);
+  ok('regular quarters, a monthly payer and hand-typed rows are not flagged', DC.dividendDuplicates(rows.filter((r) => r.id !== 'a2')).length === 0);
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

@@ -97,6 +97,25 @@ const PLAN = { id: 'p1', symbol: 'BTC', category: 'crypto', amount: 100, frequen
   ok('manual transactions are never touched', dd.transactions.some((t) => t.id === 'manual'));
   ok('catch-up performs the dedupe pass too', E.runCatchUp([PLAN], merged, () => null, '2026-03-16').removedDuplicates === 1);
 
+  // ---- audit 2026-10-24 BUG-3 / BUG-4: bookFrom --------------------------------
+  // Occurrences before plan.bookFrom are never auto-booked. The app sets it when
+  // the user answers "from today" to the past-dates question (new plan with a
+  // past start, an edit of frequency or start, a resume after a pause).
+  console.log('bookFrom:');
+  const VW = { id: 'p9', symbol: 'VWCE', amount: 100, frequency: 'monthly', startDate: '2026-01-05', active: true };
+  const jm = ['2026-01-05', '2026-02-05', '2026-03-05'].map((d, i) => ({ id: 'j' + i, type: 'buy', symbol: 'VWCE', quantity: 1, price: 100, date: d, source: 'savings-plan', planId: 'p9', dueDate: d }));
+  const priced = () => 120;
+  ok('without bookFrom a resumed plan still books the paused months (unchanged)', E.runCatchUp([VW], jm, priced, '2026-10-24').created.length === 7);
+  ok('resume with bookFrom = today books nothing back-dated', E.runCatchUp([{ ...VW, bookFrom: '2026-10-24' }], jm, priced, '2026-10-24').created.length === 0);
+  ok('the next due date after bookFrom is booked', E.runCatchUp([{ ...VW, bookFrom: '2026-10-24' }], jm, priced, '2026-11-05').created.map((t) => t.dueDate).join() === '2026-11-05');
+  const weekly = { ...VW, frequency: 'weekly' };
+  ok('monthly → weekly edit with bookFrom = today books no back-dated weeks', E.runCatchUp([{ ...weekly, bookFrom: '2026-10-24' }], jm, priced, '2026-10-24').created.length === 0);
+  ok('pastCount: how many past dates would be booked (resume after pause)', E.pastCount(VW, jm, '2026-10-24') === 7);
+  ok('pastCount: 0 for a plan starting today', E.pastCount({ ...VW, startDate: '2026-10-24' }, [], '2026-10-24') === 0);
+  ok('pastCount respects bookFrom (dates the user chose to skip are not offered again)', E.pastCount({ ...VW, bookFrom: '2026-10-24' }, jm, '2026-10-24') === 0);
+  ok('pastCount counts a paused plan as if resumed', E.pastCount({ ...VW, active: false }, jm, '2026-10-24') === 7);
+  ok('pastCount does not count today\'s due date', E.pastCount({ ...VW, startDate: '2026-10-24' }, [], '2026-11-24') === 1);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

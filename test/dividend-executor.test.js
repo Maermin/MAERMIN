@@ -83,6 +83,22 @@ const schedule = [
   const pm = D.pending(schedule, withManual, 'default');
   ok('manual dividend suppresses the auto-booking of the same payout', pm.length === 1 && pm[0].symbol === 'SAP.DE');
 
+  // ---- audit 2026-10-24 BUG-2: the reconstructed pay dates move when the
+  // anchor ex-date changes; a payout booked under the old date must still
+  // count as booked (any dividend row within half a payment period).
+  console.log('moving anchor:');
+  const q = (date) => ({ symbol: 'KO', date, perShare: 0.51, shares: 100, amount: 51, currency: 'USD', frequency: 'quarterly', past: true });
+  let book = [{ id: 'kb', type: 'buy', category: 'stocks', symbol: 'KO', quantity: 100, price: 60, date: '2025-01-02', portfolioId: 'default' }];
+  const run1 = D.runCatchUp([q('2025-12-29'), q('2026-03-29'), q('2026-06-29'), q('2026-09-29')], book, 'default', 's1', []);
+  book = run1.transactions;
+  const run2 = D.runCatchUp([q('2026-03-12'), q('2026-06-11'), q('2026-09-11')], book, 'default', 's2', []);
+  ok('first run books the four quarters', run1.created.length === 4);
+  ok('the same quarters re-dated by 17 days are not booked again', run2.created.length === 0, run2.created.map((t) => t.date));
+  const m = (date) => ({ symbol: 'O', date, perShare: 0.26, shares: 10, amount: 2.6, currency: 'USD', frequency: 'monthly', past: true });
+  const monthly = D.runCatchUp([m('2026-07-15'), m('2026-08-15'), m('2026-09-15')], [{ id: 'ob', type: 'buy', category: 'stocks', symbol: 'O', quantity: 10, price: 50, date: '2025-01-02', portfolioId: 'default' }], 'default', 's3', []);
+  ok('a monthly payer still books every month', monthly.created.length === 3);
+  ok('a quarterly payout 3 months after a booked one is still booked', D.runCatchUp([q('2026-12-29')], book, 'default', 's4', []).created.length === 1);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

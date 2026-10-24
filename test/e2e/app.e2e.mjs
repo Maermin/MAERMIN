@@ -3504,6 +3504,86 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 (money PR): no savings-plan buy without a real price at its
+  // date (BUG-5); resuming a paused plan asks before booking past dates, and
+  // "From today" books none (BUG-3/4); a failed rate fetch is not saved as
+  // today's rate (BUG-6); dividends auto-booked twice are flagged (BUG-2); the
+  // FIRE assumptions can be edited in the Monte Carlo view (BUG-7).
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await page.route('https://open.er-api.com/**', (route) => route.fulfill({ status: 500, body: 'down' }));
+    const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const today = iso(new Date());
+    const ago = (days) => iso(new Date(Date.now() - days * 86400000));
+    const r = {}, errs = {};
+    const step = async (name, fn) => { try { await fn(); } catch (e) { errs[name] = e.message.split('\n')[0]; } };
+    const read = () => page.evaluate(() => ({ txs: JSON.parse(localStorage.getItem('transactions') || '[]'), plans: JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'), fx: JSON.parse(localStorage.getItem('maermin_fx_history') || '{}'), fire: localStorage.getItem('maermin_fire_settings') }));
+    await step('setup', async () => {
+      await createVault(page, base);
+      await page.evaluate(([cg, start, resumeStart]) => {
+        localStorage.setItem('transactions', JSON.stringify([
+          { id: 'e1', type: 'buy', category: 'crypto', symbol: 'eth', quantity: 1, price: 2000, currency: 'EUR', date: '2025-01-10', portfolioId: 'default' },
+          { id: 'k0', type: 'buy', category: 'stocks', symbol: 'KO', quantity: 100, price: 60, currency: 'USD', date: '2025-01-02', portfolioId: 'default' },
+          { id: 'kd1', type: 'dividend', category: 'stocks', symbol: 'KO', quantity: 100, price: 0.51, currency: 'USD', date: '2026-03-12', divDate: '2026-03-12', source: 'dividend-auto', auto: true, portfolioId: 'default' },
+          { id: 'kd2', type: 'dividend', category: 'stocks', symbol: 'KO', quantity: 100, price: 0.51, currency: 'USD', date: '2026-03-29', divDate: '2026-03-29', source: 'dividend-auto', auto: true, portfolioId: 'default' }]));
+        localStorage.setItem('apiKeys', JSON.stringify({ cs2Worker: cg }));
+        localStorage.setItem('maermin_ui_mode', 'advanced');
+        localStorage.setItem('maermin_savings_plans', JSON.stringify([
+          { id: 'spA', symbol: 'eth', category: 'crypto', amount: 50, frequency: 'monthly', startDate: start, active: true, portfolioId: 'default' },
+          { id: 'spB', symbol: 'eth', category: 'crypto', amount: 25, frequency: 'monthly', startDate: resumeStart, active: false, portfolioId: 'default' }]));
+      }, [CG_WORKER, ago(75), ago(100)]);
+      await page.waitForTimeout(1500);
+      await unlock(page, base);
+      // the live ETH quote arrives; the plan's past dates have no recorded close
+      await page.waitForFunction(() => /3,000|3\.000/.test(document.body.innerText), null, { timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      const s = await read();
+      r.bookedA = s.txs.filter((t) => t.planId === 'spA').length;
+      r.fxToday = Object.prototype.hasOwnProperty.call(s.fx, today);
+    });
+    await step('resume', async () => {
+      await openView(page, 'savings-plans');
+      await page.waitForTimeout(800);
+      await page.getByRole('button', { name: /^Resume$/ }).first().click();
+      const dlg = page.getByRole('dialog').filter({ hasText: /past execution/ });
+      await dlg.waitFor({ timeout: 5000 });
+      r.question = (await dlg.innerText()).replace(/\s+/g, ' ').slice(0, 160);
+      await dlg.getByRole('button', { name: 'From today' }).click();
+      await page.waitForTimeout(1500);
+      const s = await read();
+      const b = s.plans.find((p) => p.id === 'spB') || {};
+      r.resumed = { active: b.active, bookFrom: b.bookFrom };
+      r.bookedB = s.txs.filter((t) => t.planId === 'spB' && t.dueDate < today).length;
+    });
+    await step('dup', async () => {
+      await openView(page, 'transactions');
+      await page.waitForTimeout(800);
+      r.dup = await page.locator('[data-testid="div-duplicates"]').innerText({ timeout: 3000 });
+    });
+    await step('fire', async () => {
+      await openView(page, 'analytics');
+      await page.locator('[data-testid="risk-sections"] [role="radio"]', { hasText: /Monte Carlo/ }).first().click();
+      await page.locator('[data-testid="mc-fire-expenses"]').fill('24000', { timeout: 5000 });
+      await page.waitForTimeout(1200);
+      r.fire = (await read()).fire;
+      await page.locator('[data-testid="mc-run"]').click();
+      await page.locator('[data-testid="mc-fire"]').waitFor({ timeout: 20000 });
+      r.fireCard = (await page.locator('[data-testid="mc-fire"]').innerText()).replace(/\s+/g, ' ');
+    });
+    const why = (k) => (errs.setup || errs[k] || '') + ' ' + JSON.stringify(r);
+    ok('audit BUG-5: no savings-plan buy is booked for past dates without a real price', !errs.setup && r.bookedA === 0, why('setup'));
+    ok('audit BUG-6: a failed rate fetch does not save today\'s rate', !errs.setup && r.fxToday === false, why('setup'));
+    ok('audit BUG-3/4: resuming a paused plan asks before booking past dates', !errs.resume && /Book \d+ past executions?\?/.test(r.question || ''), why('resume'));
+    ok('audit BUG-3/4: "From today" resumes the plan with bookFrom = today and books nothing back-dated', !errs.resume && r.resumed && r.resumed.active === true && r.resumed.bookFrom === today && r.bookedB === 0, why('resume'));
+    ok('audit BUG-2: a dividend auto-booked twice is flagged (DQ-DIV-DUPLICATE)', !errs.dup && /DQ-DIV-DUPLICATE/.test(r.dup || '') && /KO/.test(r.dup || ''), why('dup'));
+    ok('audit BUG-7: FIRE assumptions are saved from the Monte Carlo view and used by the simulation', !errs.fire && /"annualExpenses":24000/.test(r.fire || '') && /Target/.test(r.fireCard || ''), why('fire'));
+    ok('no page errors in the money-fix session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
