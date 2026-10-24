@@ -66,9 +66,11 @@ Risk / Health views (no new tabs), plus a Settings card exposing
 
 ---
 
-## Shipped — v12 "Atlas" (PLAN.md Phase 5, released 2026-10-15) and the "Atlas Map" redesign (Phase 6, 2026-10-23)
+## Shipped — v12 "Atlas" (PLAN.md Phase 5, released 2026-10-15), the "Atlas Map" redesign (Phase 6, v12.1, 2026-10-23) and "Atlas Charts" (Phase 7, v12.2, 2026-10-24)
 
-The redesign (PLAN.md Phase 6) changed look and layout only: a rail and dock shell, one component library, five themes on one set of tokens, WCAG AA contrast in all of them. See RELEASE.md (Unreleased) and [docs/REDESIGN-R5-REPORT.md](docs/REDESIGN-R5-REPORT.md).
+**v12.2 "Atlas Charts"** (PLAN.md Phase 7, #231–#241): a Charts workspace in Insight (advanced mode): candles from the user's own Worker (OHLCV since Worker 2026.10.15), 1m … 1M, linear / log / percent, prices in EUR, 12 indicators and up to 3 compared symbols, the user's own trades and average cost on the chart, a technical rating with every vote shown, 9 drawing tools saved per symbol, price alerts from a horizontal line, keyboard and screen-reader support. One pinned third-party library (KLineChart 10.1.0, SRI). See RELEASE.md `[v12.2.0]`.
+
+The redesign (PLAN.md Phase 6, v12.1) changed look and layout only: a rail and dock shell, one component library, five themes on one set of tokens, WCAG AA contrast in all of them. See RELEASE.md `[v12.1.0]` and [docs/REDESIGN-R5-REPORT.md](docs/REDESIGN-R5-REPORT.md).
 
 v12 "Atlas":
 
