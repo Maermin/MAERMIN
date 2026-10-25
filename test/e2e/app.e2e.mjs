@@ -3603,7 +3603,7 @@ async function runBuild(browser, label, dir) {
       r.firstNotice = await p1.locator('[data-testid="tab-lock"]').count();
       const p2 = await context.newPage();
       await p2.goto(base + '/index.html');
-      await p2.locator('[data-testid="tab-lock"]').waitFor({ timeout: 10000 });
+      await p2.locator('[data-testid="tab-lock"]').waitFor({ timeout: 20000 }); // page load + up to 2 s waiting for the lock
       r.secondText = (await p2.locator('[data-testid="tab-lock"]').innerText()).replace(/\s+/g, ' ');
       await p1.evaluate(() => localStorage.setItem('maermin_watchlist', JSON.stringify([{ symbol: 'TAB1' }])));
       await p1.waitForTimeout(1200);
@@ -3623,6 +3623,27 @@ async function runBuild(browser, label, dir) {
     ok('E1: "Use here" moves the app: the first tab shows the notice, the second reloads without it', !err && /open in another tab/.test(r.firstAfter || '') && r.secondNoticeAfter === 0, err || JSON.stringify(r));
     ok('E1: what the first tab saved is there in the second tab', !err && /TAB1/.test(r.watchlist || ''), err || JSON.stringify(r));
     ok('no page errors in the two-tab session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // Audit 2026-10-24 UI-3: portfolio names on the Portfolios cards wrap
+  // instead of ending in "…" ("Savings plan broker" at 1366 px).
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let names = null, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await openView(page, 'portfolios');
+      await page.locator('.ui-pf-card__name').first().waitFor({ timeout: 10000 });
+      names = await page.locator('.ui-pf-card__name').evaluateAll((els) => els.map((e) => ({ t: e.textContent.trim(), cut: e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1 })));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('audit UI-3: portfolio names on the cards are shown in full at 1366 px', !err && names && names.length >= 3 && names.every((n) => !n.cut), err || JSON.stringify(names));
+    ok('no page errors in the portfolio-names session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 
