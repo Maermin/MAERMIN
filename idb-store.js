@@ -53,8 +53,11 @@
   }
 
   function get(key) { return run('readonly', function (s) { return s.get(key); }).then(function (v) { return v == null ? null : v; }); }
-  function set(key, value) { return run('readwrite', function (s) { s.put(value, key); return null; }); }
-  function del(key) { return run('readwrite', function (s) { s.delete(key); return null; }); }
+  // A tab that is not the writing tab (tab-lock.js) must not write: another
+  // tab owns the data and would be overwritten.
+  function mayWrite() { var T = typeof window !== 'undefined' && window.MaerminTabLock; return !T || T.canWrite(); }
+  function set(key, value) { if (!mayWrite()) return Promise.resolve(false); return run('readwrite', function (s) { s.put(value, key); return null; }); }
+  function del(key) { if (!mayWrite()) return Promise.resolve(false); return run('readwrite', function (s) { s.delete(key); return null; }); }
 
   var api = { isSupported: isSupported, get: get, set: set, del: del, DB: DB, STORE: STORE };
   if (typeof window !== 'undefined') window.MaerminIDB = api;
