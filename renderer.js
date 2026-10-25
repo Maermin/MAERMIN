@@ -1499,6 +1499,19 @@ function InvestmentTracker() {
     return off;
   }, []); // run once on mount
 
+  // Feature 2 (audit 2026-10-24): ask the browser to keep the data (Chromium
+  // grants it without a prompt; Firefox only from the Privacy page's button),
+  // and say so loudly when a save of the encrypted data fails.
+  useEffect(() => {
+    const H = window.MaerminStorageHealth;
+    if (!H || demoMode) return;
+    try { H.autoRequest(); } catch (e) { /* best effort */ }
+    if (!window.MaerminBus) return;
+    return window.MaerminBus.on('storage:save-failed', () => {
+      addToast(__('shSaveFailedToast', 'Your last change could not be saved: browser storage is full or blocked. Make a backup now (Settings → Backup vault).'), 'error', 20000);
+    });
+  }, [demoMode]);
+
   // Re-arm cloud sync from its saved config on reload (the transport itself is
   // not persisted). Zero-knowledge: the account id is derived from the vault.
   useEffect(() => {

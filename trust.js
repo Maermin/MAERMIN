@@ -66,6 +66,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // the page header has the title; the intro is the view's lead
     return e('div', { className: 'ui-view', 'data-testid': 'privacy-view' },
       e('p', { className: 'ui-view__lead' }, __('pvIntro', 'MAERMIN has no server of its own. Apart from loading the app itself (from GitHub Pages or wherever you host it), this page lists everything that leaves your device and where it goes.')),
+      // Feature 2 (audit 2026-10-24): where the data lives, and whether the
+      // browser keeps it
+      (typeof window !== 'undefined' && window.MaerminStorageHealth) ? e(window.MaerminStorageHealth.Card, null) : null,
       e(UIC.Card, { className: 'ui-pv' },
       privacySections().map(function (sec, i) {
         return e('section', { key: i, className: 'ui-pv-sec' },

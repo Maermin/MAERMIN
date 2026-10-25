@@ -218,8 +218,20 @@
       ? persistPerKey(IDB)                                   // v12: per-key records
       : Vault.encryptJSON(mem, CTX_BLOB).then(function (env) { return blobSet(env); }); // blob (LS)
     return p
-      .then(function () { persisting = false; return true; })
-      .catch(function () { persisting = false; return false; });
+      .then(function () { persisting = false; reportSave(true); return true; })
+      .catch(function (err) {
+        persisting = false;
+        // The batch was taken off the dirty list before it failed: mark every
+        // key again so the next save retries it, and tell the app (feature 2,
+        // audit 2026-10-24: a full or blocked store used to fail silently).
+        if (mem) Object.keys(mem).forEach(function (k) { dirty[k] = true; });
+        reportSave(false, err);
+        return false;
+      });
+  }
+  function reportSave(ok, err) {
+    var H = typeof window !== 'undefined' && window.MaerminStorageHealth;
+    if (H && typeof H.reportSave === 'function') { try { H.reportSave(ok, err); } catch (e) { /* reporting must not break saving */ } }
   }
   function flush() { return persist(); }
 

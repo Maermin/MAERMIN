@@ -3605,6 +3605,47 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E2): persistent storage + storage health. The
+  // Privacy page shows where the data lives and whether the browser keeps it;
+  // a failed save of the encrypted data raises an alert.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.locator('#rc-saved').check();
+      await page.locator('#auth-submit').click();
+      await page.waitForTimeout(2500);
+      await unlock(page, base);
+      await page.keyboard.press('Escape'); // the first-run setup wizard opens by itself in a fresh vault
+      await page.waitForTimeout(600);
+      await openView(page, 'privacy');
+      const card = page.locator('[data-testid="storage-health"]');
+      await card.waitFor({ timeout: 10000 });
+      r.level = await page.locator('[data-testid="storage-health-level"]').innerText();
+      r.usage = await page.locator('[data-testid="storage-health-usage"]').innerText().catch(() => '');
+      r.codes = await card.locator('li[data-code]').evaluateAll((els) => els.map((e) => e.getAttribute('data-code')));
+      r.protect = await page.locator('[data-testid="storage-health-protect"]').count();
+      if (r.protect) {
+        await page.locator('[data-testid="storage-health-protect"]').click();
+        await page.waitForTimeout(800);
+        r.afterProtect = (await card.innerText()).replace(/\s+/g, ' ');
+      }
+      await page.evaluate(() => window.MaerminStorageHealth.reportSave(false, { name: 'QuotaExceededError' }));
+      await page.waitForTimeout(500);
+      r.toast = await page.locator('body').innerText().then((t) => /could not be saved/.test(t));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E2: the Privacy page shows the storage card with a status and the usage', !err && /stored/.test(r.level || '') && /used of/.test(r.usage || '') && Array.isArray(r.codes) && r.codes.length >= 1, err || JSON.stringify(r));
+    ok('E2: "Protect" is offered while the data is not protected, and answers either way', !err && (r.codes.includes('persisted') ? r.protect === 0 : (r.protect === 1 && /Protected|did not allow/.test(r.afterProtect || ''))), err || JSON.stringify(r));
+    ok('E2: a failed save of the encrypted data raises an alert', !err && r.toast === true, err || JSON.stringify(r));
+    ok('no page errors in the storage-health session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
