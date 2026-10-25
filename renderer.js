@@ -1146,6 +1146,17 @@ function InvestmentTracker() {
 
   // Privacy mode — masks all monetary amounts (for screenshots / public viewing)
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('privacyMode') === '1');
+  // Audit 2026-10-24 feature 5: the previous visit day (since-last-visit.js),
+  // read once per session after unlock; null = first visit or same day.
+  const [lastVisitDay, setLastVisitDay] = useState(null);
+  const [sinceVisitClosed, setSinceVisitClosed] = useState(false);
+  const lastVisitRead = useRef(false);
+  useEffect(() => {
+    const SV = window.MaerminSinceVisit;
+    if (!SV || demoMode || !startupSynced || lastVisitRead.current) return;
+    lastVisitRead.current = true;
+    setLastVisitDay(SV.begin(localStorage, window.MaerminUtils.todayISO()));
+  }, [demoMode, startupSynced]);
 
   // Bumped when async equity metadata (sector/country) is backfilled, so the
   // Strategy tab recomputes even if the user is already on it.
@@ -4434,6 +4445,13 @@ function InvestmentTracker() {
       !demoMode && renderMisfiledSkins(),
       !demoMode && renderCryptoPairs(),
       !demoMode && renderDividendDuplicates(),
+
+      // Audit 2026-10-24 feature 5: what changed since the last visit day.
+      !demoMode && lastVisitDay && !sinceVisitClosed && window.MaerminSinceVisit && window.MaerminSnapshots && (() => {
+        const SV = window.MaerminSinceVisit;
+        const summary = SV.summarize({ since: lastVisitDay, today: window.MaerminUtils.todayISO(), snapshots: window.MaerminSnapshots, snapshotState: window.MaerminSnapshots.load(), transactions });
+        return summary && React.createElement(SV.Card, { summary, masked: privacyMode, formatValue: (v) => formatPrice(v) + ' ' + getCurrencySymbol(), onClose: () => setSinceVisitClosed(true) });
+      })(),
 
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { role: 'status', className: ['ui-callout', 'ui-callout--warn', 'ui-dq-fix', 'ui-ov-banner'].join(' ') },

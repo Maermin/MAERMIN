@@ -3827,6 +3827,53 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E5): "Since your last visit". The first open of
+  // a new day shows what was booked since the last visit day; the same day
+  // again shows nothing; the visit day is stored device-local and plain.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      r.days = await page.evaluate(() => {
+        const U = window.MaerminUtils;
+        const ago = (n) => U.todayISO(new Date(Date.now() - n * 86400000));
+        localStorage.setItem('maermin_onboarded', '1');
+        localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+        localStorage.setItem('transactions', JSON.stringify([
+          { id: 'v1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 1, price: 100, currency: 'EUR', date: ago(30), portfolioId: 'default' },
+          { id: 'v2', type: 'dividend', category: 'stocks', symbol: 'AAPL', quantity: 1, price: 0.25, currency: 'EUR', date: ago(1), portfolioId: 'default' }]));
+        localStorage.setItem('maermin_last_visit', ago(3));
+        return { last: ago(3), today: U.todayISO() };
+      });
+      await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      const card = page.locator('[data-testid="since-visit"]');
+      await card.waitFor({ timeout: 10000 });
+      r.text = (await card.innerText()).replace(/\s+/g, ' ');
+      r.stored = await page.evaluate(() => localStorage.getItem('maermin_last_visit'));
+      await page.locator('[data-testid="since-visit-close"]').click();
+      await page.waitForTimeout(300);
+      r.closed = await card.count() === 0;
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      await page.waitForTimeout(1500);
+      r.sameDay = await page.locator('[data-testid="since-visit"]').count();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E5: the first open of a new day lists what was booked since the last visit', !err && /Since your last visit/.test(r.text || '') && /1 dividend or interest payment booked/.test(r.text || ''), err || JSON.stringify(r));
+    ok('E5: the visit day is now today', !err && r.days && r.stored === r.days.today, err || JSON.stringify(r));
+    ok('E5: Dismiss hides it; the same day again shows nothing', !err && r.closed && r.sameDay === 0, err || JSON.stringify(r));
+    ok('no page errors in the since-last-visit session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
