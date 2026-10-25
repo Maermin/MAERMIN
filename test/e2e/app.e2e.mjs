@@ -3584,6 +3584,27 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Audit 2026-10-24 UI-3: portfolio names on the Portfolios cards wrap
+  // instead of ending in "…" ("Savings plan broker" at 1366 px).
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let names = null, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await openView(page, 'portfolios');
+      await page.locator('.ui-pf-card__name').first().waitFor({ timeout: 10000 });
+      names = await page.locator('.ui-pf-card__name').evaluateAll((els) => els.map((e) => ({ t: e.textContent.trim(), cut: e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1 })));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('audit UI-3: portfolio names on the cards are shown in full at 1366 px', !err && names && names.length >= 3 && names.every((n) => !n.cut), err || JSON.stringify(names));
+    ok('no page errors in the portfolio-names session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();

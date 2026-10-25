@@ -1015,14 +1015,23 @@ function HoldingsMap(props) {
   if (!cols.length) return props.empty || null;
   return h('div', { className: cx('ui-map', props.className), 'data-testid': props['data-testid'], role: 'group', 'aria-label': props.label },
     cols.map((c, ci) => h('div', { key: ci, className: 'ui-map__col', style: { flexGrow: c.sum } },
-      c.items.map((it) => h('button', {
+      c.items.map((it) => {
+        // A tile under 12 % of its column can be drawn under 24 px high on the
+        // smallest map (240 px; WCAG 2.5.8). It stays a picture and a mouse
+        // target, but Tab and screen readers skip it: the positions table under
+        // the map reaches every holding at full size (audit 2026-10-24 UI-1).
+        const tiny = c.sum > 0 && it.value / c.sum < MAP_MIN_SHARE;
+        return h('button', {
         key: it.key, type: 'button', className: 'ui-map__tile', 'data-map-key': it.key,
         style: { flexGrow: it.value, background: mapTint(it.pct) }, title: it.title,
-        'aria-label': it.title, onClick: props.onPick ? () => props.onPick(it) : undefined
+        'aria-label': it.title, onClick: props.onPick ? () => props.onPick(it) : undefined,
+        tabIndex: tiny ? -1 : undefined, 'aria-hidden': tiny ? 'true' : undefined
       },
       h('b', null, it.label),
-      it.pctText ? h('span', { className: 'num' }, (it.pct >= 0 ? '▲ ' : '▼ ') + it.pctText) : null)))));
+      it.pctText ? h('span', { className: 'num' }, (it.pct >= 0 ? '▲ ' : '▼ ') + it.pctText) : null);
+      }))));
 }
+const MAP_MIN_SHARE = 0.12; // 12 % of 240 px minus gaps stays above 24 px
 
 Object.assign(Components, { Rail, PageHeader, Dock, SectionSwitch, HoldingsMap, mapColumns, mapTint });
 

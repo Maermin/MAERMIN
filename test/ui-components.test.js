@@ -110,6 +110,18 @@ console.log('R3.1 components:');
   ok('mapTint: gain / loss tint by sign, neutral without a figure', /var\(--gain\)/.test(C.mapTint(12)) && /var\(--loss\)/.test(C.mapTint(-3)) && C.mapTint(null) === 'var(--surface-2)');
   ok('mapTint: stronger with a larger return, capped', parseInt(/(\d+)%/.exec(C.mapTint(5))[1], 10) < parseInt(/(\d+)%/.exec(C.mapTint(500))[1], 10) && /60%/.test(C.mapTint(1e6)));
   m = html(h(C.HoldingsMap, { label: 'Holdings map', items: [{ key: 's|A', label: 'AAA', title: 'A Corp', value: 10, pct: 5, pctText: '5.0 %' }, { key: 's|B', label: 'BBB', title: 'B Corp', value: 5, pct: -2, pctText: '2.0 %' }] }));
+  // Audit 2026-10-24 UI-1: a tile under 12 % of its column can be drawn under
+  // 24 px high on a 240 px map (WCAG 2.5.8). It stays as a picture and a mouse
+  // target, but Tab skips it and screen readers do not list it: the positions
+  // table under the map is the full-size way to every holding.
+  {
+    const tiny = html(h(C.HoldingsMap, { label: 'Holdings map', columns: 1, items: [
+      { key: 's|BIG', label: 'BIG', title: 'Big Corp', value: 95, pct: 1, pctText: '1.0 %' },
+      { key: 's|SML', label: 'SML', title: 'Small Corp', value: 5, pct: 1, pctText: '1.0 %' }] }));
+    const tag = (key) => (tiny.match(new RegExp('<button[^>]*data-map-key="' + key.replace('|', '\\|') + '"[^>]*>')) || [''])[0];
+    ok('HoldingsMap: a tile under 12 % of its column is skipped by Tab and hidden from screen readers', /tabindex="-1"/.test(tag('s|SML')) && /aria-hidden="true"/.test(tag('s|SML')), tag('s|SML'));
+    ok('HoldingsMap: a large tile stays a normal focusable button', !/tabindex/.test(tag('s|BIG')) && !/aria-hidden/.test(tag('s|BIG')), tag('s|BIG'));
+  }
   ok('HoldingsMap: a named group of buttons, ▲ / ▼ with every tinted figure', /role="group" aria-label="Holdings map"/.test(m) && /▲ 5\.0 %/.test(m) && /▼ 2\.0 %/.test(m) && (m.match(/<button/g) || []).length === 2, m);
   m = html(h(C.Table, { columns: COLS, rows: ROWS, layout: 'table', rowProps: (r) => ({ role: 'button', tabIndex: 0, 'data-k': r.id }) }));
   ok('Table: rowProps puts attributes on each data row (not on group rows)', (m.match(/data-k="/g) || []).length === 2 && /role="button"/.test(m) && /class="is-clickable"/.test(m), m);
