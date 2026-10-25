@@ -1062,8 +1062,8 @@ async function runBuild(browser, label, dir) {
       let a = '', b = '', c = '', said = '', focusOk = false, err = '';
       try {
         await openView(page, 'customize');
-        // B-4: seven sections (Allocation is last), so six steps to the top
-        for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
+        // B-4: seven sections plus First steps (audit E4) in the list, Allocation last: seven steps to the top
+        for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
         await page.waitForTimeout(150); // focus is restored after the re-render
         said = await page.locator('main [role="status"][aria-live="polite"]').last().innerText();
         focusOk = await page.evaluate(() => (document.activeElement && document.activeElement.getAttribute('data-dash-id')) === 'allocation');
@@ -1091,7 +1091,7 @@ async function runBuild(browser, label, dir) {
         await openView(page, 'customize');
         await page.getByRole('button', { name: 'Reset to default' }).click();
       } catch (e) { err = e.message.split('\n')[0]; }
-      ok('P4-7: "Move up" puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards,returnFigures' && focusOk && /position 1 of 7/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
+      ok('P4-7: "Move up" puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards,returnFigures' && focusOk && /position 1 of 8/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
       ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart,returnFigures', err || b);
       ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart,returnFigures', err || c);
     }
