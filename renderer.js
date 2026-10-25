@@ -1106,6 +1106,7 @@ function InvestmentTracker() {
   const [recoveryNudgeDismissed, setRecoveryNudgeDismissed] = useState(() => {
     try { return localStorage.getItem('maermin_recovery_nudge') === 'dismissed'; } catch (e) { return false; }
   });
+  const [, setFirstStepsRev] = useState(0); // re-render the First steps card after Hide or a backup
 
   // Transactions filter/search
   const [txSearch, setTxSearch] = useState('');
@@ -2326,6 +2327,25 @@ function InvestmentTracker() {
 
   // ========== BACKUP FUNCTIONS ==========
   
+  // Encrypted vault backup: disaster recovery (the vault has no password
+  // recovery, so an offline backup file is the only safety net). Counts as a
+  // backup for the reminder and the First steps card, like the plain one.
+  const downloadVaultBackup = () => {
+    if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast(__('backupUnavailable', 'Backup unavailable'), 'error'); return; }
+    window.MaerminStorage.exportEncryptedBackup().then((backup) => {
+      const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
+      try { if (window.MaerminBackupReminder) window.MaerminBackupReminder.recordBackup(transactions.length); } catch (e) {}
+      setFirstStepsRev(n => n + 1);
+      addToast(__('backupEncDownloaded', 'Encrypted backup downloaded — keep it safe'), 'success');
+    }).catch((e) => addToast(__('backupFailedMsg', 'Backup failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
+  };
+
   const createBackup = () => {
     if (!window.MaerminBackup) { addToast(__('backupEngineMissing', 'Backup engine not loaded'), 'error'); return; }
     // The full backup is PLAIN JSON (all transactions, net worth, taxpayer name
@@ -4028,6 +4048,26 @@ function InvestmentTracker() {
 
     // P4-7: the Overview sections as thunks, rendered in the saved order.
     const ovSections = {
+      // Audit 2026-10-24 feature 4: what a new vault still needs (first-steps.js).
+      firstSteps: () => {
+        const FS = window.MaerminFirstSteps;
+        if (!FS || demoMode) return null;
+        const state = FS.read(null, transactions.length, marketWorker);
+        if (!FS.shouldShow(state)) return null;
+        return React.createElement(FS.Card, {
+          state,
+          onAction: (id) => {
+            if (id === 'prices') setShowApiSettings(true);
+            else if (id === 'backup') downloadVaultBackup();
+            else if (id === 'tax') setActiveView('tax');
+          },
+          onHide: () => {
+            const D = window.MaerminDashboard;
+            if (D) D.save(D.toggle(D.load(), FS.WIDGET_ID));
+            setFirstStepsRev(n => n + 1);
+          }
+        });
+      },
       valueChart: () => (
       window.MaerminFeatures6 && stats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
@@ -6333,21 +6373,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             menuItem('data', t.apiSettings || 'API Settings', () => { setShowSettings(false); setShowApiSettings(true); }),
             menuItem('shield', __('securitySync', 'Security & sync'), () => { setShowSettings(false); setShowSecurity(true); }),
             React.createElement('div', { className: 'mx-divider' }),
-            // Encrypted vault backup — disaster recovery (the vault has no password
-            // recovery, so an offline backup file is the only safety net).
-            menuItem('download', t.backupVault || 'Backup vault (encrypted)', () => {
-                if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast(__('backupUnavailable', 'Backup unavailable'), 'error'); return; }
-                window.MaerminStorage.exportEncryptedBackup().then((backup) => {
-                  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-                  const a = document.createElement('a');
-                  a.href = URL.createObjectURL(blob);
-                  a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
-                  document.body.appendChild(a); a.click(); a.remove();
-                  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-                  if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
-                  addToast(__('backupEncDownloaded', 'Encrypted backup downloaded — keep it safe'), 'success');
-                }).catch((e) => addToast(__('backupFailedMsg', 'Backup failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
-              }),
+            // Encrypted vault backup (downloadVaultBackup).
+            menuItem('download', t.backupVault || 'Backup vault (encrypted)', downloadVaultBackup),
             // Restore from an encrypted backup file → reload → unlock with password.
             menuItem('upload', t.restoreVault || 'Restore vault backup', () => {
                 const input = document.createElement('input');

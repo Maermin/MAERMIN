@@ -29,6 +29,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // and 1:1 with real sections so every toggle in the Customize view does
   // something. The renderer may pass its own list to normalize().
   var DEFAULT_WIDGETS = [
+    // Audit 2026-10-24 feature 4: the "First steps" checklist (first-steps.js);
+    // it shows only while a step is open, "Hide" turns this widget off.
+    { id: 'firstSteps', key: 'dashWFirstSteps', label: function () { return __('dashWFirstSteps', 'First steps (checklist for a new vault)'); } },
     // label() resolves in the current language (P5-1.5: getters, like utils.txTypeInfo)
     { id: 'valueChart', key: 'dashWValueChart', label: function () { return __('dashWValueChart', 'Value History Chart'); } },
     // Phase 6 B-4: what the total is made of, the next events, the holdings map
