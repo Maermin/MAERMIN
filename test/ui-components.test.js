@@ -58,6 +58,12 @@ ok('Chip: aria-pressed and count', /aria-pressed="true"/.test(m) && /224/.test(m
 m = html(h(C.PageTabs, { label: 'Home views', value: 'b', tabs: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }, { id: 'c', label: 'C' }] }));
 ok('PageTabs: tablist with one selected tab, roving tabindex, data-tab', /role="tablist"/.test(m) && (m.match(/role="tab"/g) || []).length === 3 &&
   /data-tab="b"[^>]*aria-selected="true"[^>]*tabindex="0"/.test(m) && (m.match(/tabindex="-1"/g) || []).length === 2, m);
+// The phone strip scrolls sideways; the selected tab must be in view (audit 2026-10-24, "Not in this PR" of #254).
+const strip = { left: 16, right: 374, scrollLeft: 0 };
+ok('PageTabs: a tab off the right edge scrolls into view (+ 16 px room)', C.tabScrollLeft(strip, { left: 400, right: 470 }) === 112);
+ok('PageTabs: a tab off the left edge scrolls back', C.tabScrollLeft({ left: 16, right: 374, scrollLeft: 300 }, { left: -40, right: 30 }) === 228);
+ok('PageTabs: a visible tab leaves the strip alone', C.tabScrollLeft(strip, { left: 100, right: 180 }) === null);
+ok('PageTabs: never below 0', C.tabScrollLeft({ left: 16, right: 374, scrollLeft: 5 }, { left: 10, right: 60 }) === 0);
 m = html(h(C.Segmented, { label: 'Period', value: '1Y', options: [{ value: '1M', label: '1M' }, { value: '1Y', label: '1Y' }] }));
 ok('Segmented: radiogroup with aria-checked', /role="radiogroup"/.test(m) && /role="radio" aria-checked="true" tabindex="0"[^>]*>1Y/.test(m), m);
 

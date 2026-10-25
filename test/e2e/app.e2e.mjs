@@ -3655,6 +3655,39 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Phone page tabs (audit 2026-10-24, "Not in this PR" of #254): a view
+  // opened from elsewhere (command palette) whose tab sits right of the
+  // screen edge is scrolled into view in the tab strip.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let r = null, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-dock').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.locator('nav.ui-dock [data-area="transactions"]').click();
+      await page.waitForTimeout(500);
+      await page.evaluate(() => window.MaerminUI.openOverlay('commandPalette'));
+      await page.waitForTimeout(500);
+      await page.keyboard.type('Rebalanc');
+      await page.keyboard.press('Enter');
+      await page.locator('[role="tablist"] [data-tab="rebalancing"][aria-selected="true"]').waitFor({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      r = await page.evaluate(() => {
+        const row = document.querySelector('[role="tablist"]');
+        const tab = row.querySelector('[aria-selected="true"]');
+        const a = row.getBoundingClientRect(), b = tab.getBoundingClientRect();
+        return { overflow: row.scrollWidth > row.clientWidth, scrollLeft: row.scrollLeft, inView: b.left >= a.left - 1 && b.right <= a.right + 1 };
+      });
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('phone tabs: the selected tab is scrolled into view when a view opens from the command palette', !err && r && r.overflow && r.inView, err || JSON.stringify(r));
+    ok('no page errors in the phone-tabs session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // Feature (audit 2026-10-24 E2): persistent storage + storage health. The
   // Privacy page shows where the data lives and whether the browser keeps it;
   // a failed save of the encrypted data raises an alert.
