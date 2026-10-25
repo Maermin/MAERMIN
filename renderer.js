@@ -2638,6 +2638,34 @@ function InvestmentTracker() {
     TR.toastUndo(t.transactionDeleted || 'Transaction deleted', TR.put('transaction', label, pair ? [tx, pair] : tx));
   };
 
+  // Audit 2026-10-24 feature 3: every import run stamps its rows with one
+  // importId and is logged (import-runs.js), so Import / Export can undo the
+  // whole run: its rows that are still here go to the Trash as one entry.
+  const stampImport = (txs, source) => {
+    const IR = window.MaerminImportRuns;
+    if (!IR || !Array.isArray(txs) || !txs.length) return txs;
+    const s = IR.stamp(txs, source);
+    IR.save(IR.add(IR.load(), s.run));
+    return s.transactions;
+  };
+  const importSourceLabel = (src) => ({
+    paste: __('irSrcPaste', 'Pasted import'), manual: __('irSrcManual', 'Manual import'), broker: __('irSrcBroker', 'Broker import'),
+    exchange: __('irSrcExchange', 'Exchange sync'), bank: __('irSrcBank', 'Bank sync'), aggregator: __('irSrcAggregator', 'Aggregator'),
+    steam: __('irSrcSteam', 'Steam inventory')
+  }[src] || src);
+  const undoImport = (run) => {
+    const IR = window.MaerminImportRuns;
+    const rows = IR ? IR.rowsOf(transactions, run.id) : [];
+    if (!rows.length) return;
+    setTransactions(prev => prev.filter(x => x.importId !== run.id));
+    if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import.undo', `${rows.length} row(s) of an import moved to the Trash`);
+    const msg = __('irUndone', '{n} imported {n:row|rows} moved to the Trash', { n: rows.length });
+    const TR = window.MaerminTrash;
+    if (!TR) { addToast(msg, 'success'); return; }
+    const label = __('irTrashLabel', '{source} of {date} · {n} {n:row|rows}', { source: importSourceLabel(run.source), date: window.MaerminI18n.date(run.at, 'dateTime'), n: rows.length });
+    TR.toastUndo(msg, TR.put('transaction', label, rows));
+  };
+
   // Restore handlers for the records held in React state (trash.js).
   useEffect(() => {
     const TR = window.MaerminTrash;
@@ -2701,7 +2729,7 @@ function InvestmentTracker() {
         }
         const stamp = Date.now();
         // Into the portfolio the user is working in, like "+ Add Transaction".
-        const added = res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: writePortfolioId }));
+        const added = stampImport(res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: writePortfolioId })), 'paste');
         setTransactions(prev => [...prev, ...added]);
         const skipped = res.errors.length ? ' - ' + __('importRowsSkipped', '{n} {n:row|rows} skipped ({first})', { n: res.errors.length, first: firstErr }) : '';
         addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
@@ -2742,12 +2770,13 @@ function InvestmentTracker() {
           currency: item.currency || currency,
           portfolioId: item.portfolioId || writePortfolioId
         }));
-        
-        setTransactions(prev => [...prev, ...newTransactions]);
+        const stampedNew = stampImport(newTransactions, 'paste');
+        setTransactions(prev => [...prev, ...stampedNew]);
         addToast(`${newTransactions.length} ${t.transactionsImported || 'transactions imported'}`, 'success');
       } else if (imported.transactions) {
         // Backup format with transactions array
-        setTransactions(prev => [...prev, ...imported.transactions]);
+        const stampedRows = stampImport(imported.transactions, 'paste');
+        setTransactions(prev => [...prev, ...stampedRows]);
         addToast(t.importSuccess || 'Import successful', 'success');
       } else if (imported.portfolio) {
         // OLD BACKUP FORMAT - Convert portfolio items to transactions
@@ -2779,7 +2808,8 @@ function InvestmentTracker() {
         });
         
         if (newTransactions.length > 0) {
-          setTransactions(prev => [...prev, ...newTransactions]);
+          const stampedOld = stampImport(newTransactions, 'paste');
+          setTransactions(prev => [...prev, ...stampedOld]);
           
           // Restore priceHistory if present
           if (imported.priceHistory) {
@@ -2937,7 +2967,7 @@ function InvestmentTracker() {
           (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         }
         if (!imported.length) throw new Error(t.noTransactionsFound || 'No transactions found');
-        const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
+        const newTxs = stampImport(imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx })), 'manual');
         setTransactions(prev => [...prev, ...newTxs]);
         setImportText('');
         addToast(__('txImportedN', '{n} {n:transaction|transactions} imported', { n: newTxs.length }), 'success');
@@ -2982,7 +3012,8 @@ function InvestmentTracker() {
         theme, workerUrl: apiKeys.cs2Worker, transactions, exchangeRate, addToast,
         portfolioId: writePortfolioId,
         onImport: (txs) => {
-          setTransactions(prev => [...prev, ...txs]);
+          const rows = stampImport(txs, 'steam');
+          setTransactions(prev => [...prev, ...rows]);
           if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} Steam item transaction(s) imported`);
         }
       }),
@@ -3026,7 +3057,7 @@ function InvestmentTracker() {
               theme, t, addToast, workerUrl: apiKeys.cs2Worker, embedded: true,
               existing: transactions, // for duplicate detection in the mapping preview
               onImport: (txs) => {
-                const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
+                const newTxs = stampImport(txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx })), 'broker');
                 setTransactions(prev => [...prev, ...newTxs]);
                 if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${newTxs.length} transaction(s) imported`);
                 addToast(__('txImportedN', '{n} {n:transaction|transactions} imported', { n: newTxs.length }), 'success');
@@ -3043,7 +3074,8 @@ function InvestmentTracker() {
         React.createElement(window.MaerminExchangeSync.Panel, {
           theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId,
           onImport: (txs) => {
-            setTransactions(prev => window.MaerminExchangeSync.appendNew(prev, txs));
+            const rows = stampImport(txs, 'exchange');
+            setTransactions(prev => window.MaerminExchangeSync.appendNew(prev, rows));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
             addToast(__('exTradesImported', '{n} exchange {n:trade|trades} imported', { n: txs.length }), 'success');
           }
@@ -3060,7 +3092,7 @@ function InvestmentTracker() {
         React.createElement(window.MaerminBankSync.Panel, {
           theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId, addToast, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
-            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId }));
+            const withIds = stampImport(rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId })), 'bank');
             setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} bank booking(s) imported`);
             addToast(__('bsImported', '{n} bank {n:booking|bookings} imported', { n: rows.length }), 'success');
@@ -3074,12 +3106,27 @@ function InvestmentTracker() {
           theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId, addToast,
           formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
-            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId }));
+            const withIds = stampImport(rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId })), 'aggregator');
             setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} aggregator row(s) imported`);
             addToast(__('agImported', '{n} {n:row|rows} imported', { n: rows.length }), 'success');
           }
-        })
+        }),
+
+      // Recent imports with "Undo" (audit 2026-10-24 feature 3, import-runs.js).
+      section !== 'export' && window.MaerminImportRuns && (() => {
+        const IR = window.MaerminImportRuns;
+        const runs = IR.list(IR.load(), transactions).filter(r => r.left > 0).slice(0, 10);
+        if (!runs.length) return null;
+        return React.createElement(UIC.Card, { title: __('irTitle', 'Recent imports'), subtitle: __('irHint', 'Undo moves the rows of that import that are still here to the Trash, where you can restore them for 30 days.'), 'data-testid': 'import-runs' },
+          React.createElement('ul', { className: 'ui-import-runs' }, runs.map(r => React.createElement('li', { key: r.id, className: 'ui-import-runs__item', 'data-run': r.id },
+            React.createElement('span', { className: 'ui-import-runs__what' },
+              React.createElement('strong', null, importSourceLabel(r.source)), ' · ', window.MaerminI18n.date(r.at, 'dateTime')),
+            React.createElement('span', { className: 'ui-muted num' }, r.left === r.count
+              ? __('irRows', '{n} {n:row|rows}', { n: r.left })
+              : __('irRowsLeft', '{n} of {total} rows left', { n: r.left, total: r.count })),
+            React.createElement(UIC.Button, { size: 'sm', 'data-run-undo': r.id, onClick: () => undoImport(r) }, __('irUndo', 'Undo import'))))));
+      })()
     );
   };
 

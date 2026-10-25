@@ -99,6 +99,7 @@
     'maermin_bank_sync',          // FinTS bank connections: bank code, login name if kept, last balances and depot (bank-sync.js, P5-3.4); never PIN or TAN
     'maermin_custom_categories',
     'maermin_trash',              // deleted records (transactions, plans, accounts …) for 30 days
+    'maermin_import_log',         // import runs: source, time, row count (import-runs.js)
     'maermin_fsa',                // Freistellungsaufträge: broker names + amounts
     'maermin_ter_overrides',      // held fund symbols
     'maermin_fund_holdings',      // imported fund holdings files per held fund (fund-holdings-import.js, P5-2.3)

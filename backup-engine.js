@@ -121,6 +121,8 @@
     'maermin_shared_prices',
     // deleted records kept 30 days for restore (trash.js)
     'maermin_trash',
+    // import runs for 'Undo this import' (import-runs.js)
+    'maermin_import_log',
     // Freistellungsaufträge per broker (fsa.js)
     'maermin_fsa',
     // portfolios at brokers without German withholding (anlage-kap.js)
