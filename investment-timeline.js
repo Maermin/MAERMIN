@@ -94,7 +94,7 @@
     var txs = props.transactions || [];
     var fmt = props.formatPrice || function (x) { return I.num(x, 2); };
     var cur = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
-    var today = U && U.todayISO ? U.todayISO() : new Date().toISOString().slice(0, 10);
+    var today = U && U.todayISO ? U.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var toEUR = function (amount, tx) {
       if (FX && FX.txToEUR) return FX.txToEUR(amount, tx.currency || 'EUR', tx.date, props.exchangeRate, props.fxAt).value;
       return U ? U.toEUR(amount, tx.currency || 'EUR', props.exchangeRate) : amount;

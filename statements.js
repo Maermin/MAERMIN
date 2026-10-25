@@ -73,7 +73,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // ---- statement of assets ------------------------------------------------------
   function assetStatement(transactions, opts) {
     opts = opts || {};
-    var asOf = ymd(opts.asOf) || new Date().toISOString().slice(0, 10);
+    var asOf = ymd(opts.asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var rate = num(opts.exchangeRate) || 1;
     var txs = (transactions || []).filter(function (tx) { return tx && ymd(tx.date) && ymd(tx.date) <= asOf; });
     var names = {}, order = [];

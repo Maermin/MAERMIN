@@ -185,7 +185,7 @@
     opts = opts || {};
     var accounts = Array.isArray(opts.accounts) ? opts.accounts : [];
     var txs = Array.isArray(opts.transactions) ? opts.transactions : [];
-    var asOf = ymd(opts.asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10));
+    var asOf = ymd(opts.asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO());
     var portfolioId = opts.portfolioId || null;
     var res = accrueAll(accounts, asOf);
     var created = [];

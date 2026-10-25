@@ -103,7 +103,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     p = p || {}; opts = opts || {};
     var build = (deps && deps.build) || reportBuild();
     var GT = opts.germanTax || germanTax();
-    var date = ymd(p.date) || new Date().toISOString().slice(0, 10);
+    var date = ymd(p.date) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var year = parseInt(date.slice(0, 4), 10);
     var o = { fee: { fixed: Math.max(0, num(p.fee && p.fee.fixed)), pct: Math.max(0, num(p.fee && p.fee.pct)) } };
     var rate = num(opts.exchangeRate) || 1;
@@ -230,7 +230,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var I18N = window.MaerminI18n;
-    var today = props.today || new Date().toISOString().slice(0, 10);
+    var today = props.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var s0 = useState('1'); var feeFixed = s0[0], setFeeFixed = s0[1];
     var s1 = useState('0'); var feePct = s1[0], setFeePct = s1[1];
     function parse(v) { var U = window.MaerminUtils; var n = U && U.parseDecimal ? U.parseDecimal(v) : parseFloat(v); return isFinite(n) ? n : 0; }

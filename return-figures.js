@@ -51,7 +51,7 @@
       taxes: null, fees: null, invested: null, proceeds: null, netReturn: null, netReturnPct: null, cash: null };
     if (!txs.length || !L || !R) return out;
     var rate = num(opts.exchangeRate), fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
-    var today = opts.today || new Date().toISOString().slice(0, 10);
+    var today = opts.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var value = num(opts.securitiesValueEUR);
     var eur = function (amount, tx) {
       if (F && F.txToEUR) return F.txToEUR(num(amount), tx.currency, tx.date, rate, fxAt).value;

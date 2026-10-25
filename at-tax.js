@@ -85,7 +85,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     opts = opts || {};
     var year = parseInt(opts.year, 10) || new Date().getFullYear();
     var rate = num(opts.exchangeRate) || 1;
-    var today = ymd(opts.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(opts.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var funds = normalizeFunds(opts.funds || {});
     var txs = (transactions || []).filter(function (tx) { return tx && ymd(tx.date) && ymd(tx.date) <= year + '-12-31'; });
     var cryptoSyms = {};

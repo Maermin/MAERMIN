@@ -61,7 +61,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // opts:  { details, kinds, money(v) }
   function plan(input, opts) {
     input = input || {}; opts = opts || {};
-    var today = ymd(input.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(input.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var end = addDays(today, HORIZON_DAYS);
     var kinds = normalize({ kinds: opts.kinds }).kinds;
     var money = opts.money || function (v) { return (Math.round(v * 100) / 100).toFixed(2); };

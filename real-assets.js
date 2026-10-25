@@ -128,7 +128,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function fromTemplate(id, form, today) {
     var tpl = TEMPLATES.filter(function (t0) { return t0.id === id; })[0];
     form = form || {};
-    today = isoDate(today) || new Date().toISOString().slice(0, 10);
+    today = isoDate(today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     if (!tpl || !str(form.name)) return null;
     var n = function (k) { return amount(form[k]); }, d = function (k, dflt) { return isoDate(form[k]) || dflt; };
     var bad = tpl.fields.some(function (f) { return f.req && f.type === 'number' && !(n(f.key) > 0); });
@@ -251,7 +251,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var latest = asset.valuations[asset.valuations.length - 1];
     var dep = asset.details && num(asset.details.depreciationPct);
     if (dep > 0 && dep < 1) {
-      var day = isoDate(asOf) || new Date().toISOString().slice(0, 10);
+      var day = isoDate(asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
       var base = null;
       asset.valuations.forEach(function (v) { if (v.date <= day) base = v; });
       base = base || asset.valuations[0];
@@ -438,7 +438,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function setF(patch) { setForm(Object.assign({}, form, patch)); }
 
         function addCurrent() {
-          var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+          var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
           // P5-3.11: a template builds the asset from its own fields
           if (form.template) {
             var built = API.fromTemplate(form.template, form, today);

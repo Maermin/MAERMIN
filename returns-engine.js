@@ -235,7 +235,7 @@
       else return;
       if (amt) flows.push({ date: tx.date, amount: eur(amt, tx) });
     });
-    if (opts.currentValueEUR > 0) flows.push({ date: opts.today || new Date().toISOString().slice(0, 10), amount: opts.currentValueEUR });
+    if (opts.currentValueEUR > 0) flows.push({ date: opts.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(), amount: opts.currentValueEUR });
     return flows;
   }
 
@@ -246,7 +246,7 @@
   function clearingCashflows(clearing, securitiesValueEUR, today) {
     var flows = ((clearing && clearing.external) || []).map(function (e) { return { date: e.d, amount: -e.amount }; });
     var end = (Number(securitiesValueEUR) || 0) + ((clearing && clearing.balanceEUR) || 0);
-    if (end) flows.push({ date: today || new Date().toISOString().slice(0, 10), amount: end });
+    if (end) flows.push({ date: today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(), amount: end });
     return flows;
   }
 

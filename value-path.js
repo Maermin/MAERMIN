@@ -77,7 +77,7 @@
   function build(transactions, series, opts) {
     opts = opts || {};
     series = series || {};
-    var today = ymd(opts.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(opts.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var live = opts.live || {};
     var out = { twr: null, annualized: null, start: null, end: null, days: 0, points: [], covered: [], missing: [], carried: [] };
 

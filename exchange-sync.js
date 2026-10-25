@@ -575,7 +575,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             .finally(function () { API.endSync(c.id); setConnBusy(c.id, false); })
             .then(function (r) {
               if (props.onImport && r.added.length) props.onImport(r.added);
-              var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+              var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
               mutate(API.normalize({ version: API.SCHEMA, connections: API.normalize(st).connections.map(function (x) { return x.id === c.id ? Object.assign({}, x, { lastSync: today }) : x; }) }));
               setMsg(r.added.length + ' ' + (t.exImported || 'trade(s) imported') + (r.skipped ? ', ' + r.skipped + ' ' + (t.exSkipped || 'duplicate(s) skipped') : ''));
             })

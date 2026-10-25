@@ -277,7 +277,7 @@
   // ---- JSON import / export ------------------------------------------------------
   function exportJson(tax) {
     var c = cleanTaxonomy(tax);
-    return JSON.stringify({ format: FORMAT, version: 1, exported: new Date().toISOString().slice(0, 10),
+    return JSON.stringify({ format: FORMAT, version: 1, exported: (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(),
       taxonomy: { name: c.name, template: c.template, nodes: c.nodes, assign: c.assign } }, null, 2);
   }
   function importJson(text) {

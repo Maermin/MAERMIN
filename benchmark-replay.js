@@ -135,7 +135,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var money = function (v) { return I18N && I18N.money ? I18N.money(v) : (Math.round(v * 100) / 100).toFixed(2) + ' €'; };
     var pct = function (x) { return x == null ? '—' : I18N.pct(x * 100, 1); };
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
-    var today = props.today || (window.MaerminUtils && window.MaerminUtils.todayISO ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10));
+    var today = props.today || (window.MaerminUtils && window.MaerminUtils.todayISO ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO());
     var funds = props.funds || [];
 
     var sP = React.useState('MAX'), period = sP[0], setPeriod = sP[1];

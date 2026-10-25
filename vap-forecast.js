@@ -82,7 +82,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     opts = opts || {};
     var GT = opts.germanTax || germanTax();
     var TV = taxView();
-    var asOf = ymd(opts.asOf) || new Date().toISOString().slice(0, 10);
+    var asOf = ymd(opts.asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var year = opts.year || valueYear(asOf);
     var live = year === parseInt(asOf.slice(0, 4), 10);
     var basiszins = GT.basiszinsFor(year, opts.basiszinsOverrides || {});
@@ -196,7 +196,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var warn = th.warning || '#f59e0b';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var I18N = window.MaerminI18n;
-    var today = props.today || new Date().toISOString().slice(0, 10);
+    var today = props.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var fc = useMemo(function () {
       var TS = window.MaerminTaxSettings, s = null;
       try { s = TS ? TS.load() : null; } catch (err) { s = null; }

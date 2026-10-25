@@ -223,7 +223,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     function finish(c, cfg) {
       cancelRef.current = false;
-      var today = (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+      var today = (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
       var hooks = {
         sleep: function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); },
         cancelled: function () { return cancelRef.current; },
@@ -248,7 +248,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var fail = function (err) {
         setRun(null);
         setMsg(__('bsFailed', 'Bank sync failed: {msg}', { msg: errorText(err) }));
-        if (!(err && err.code === 'cancelled')) mutate(updateConnection(load(), c.id, { lastError: { date: new Date().toISOString().slice(0, 10), message: errorText(err) } }));
+        if (!(err && err.code === 'cancelled')) mutate(updateConnection(load(), c.id, { lastError: { date: (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(), message: errorText(err) } }));
       };
       setRun(Object.assign({}, run, { step: 'busy', status: __('bsConnecting', 'Connecting to the bank…') }));
       var ready = c.systemId && c.secFunc ? Promise.resolve(cfg) : FINTS.synchronize(cfg, transport).then(function (s) {
@@ -285,7 +285,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 mutate(updateConnection(st, c.id, { accounts: c.accounts.map(function (x) { return x.accountNo === a.accountNo ? Object.assign({}, x, { importBookings: ev.target.checked }) : x; }) }));
               } }),
               __('bsImportTick', 'Book this account\'s transactions as cash bookings')),
-            e('span', { className: 'ui-note' }, __('bsBookingsN', '{n} new {n:booking|bookings} since {date}', { n: fresh.length, date: sinceDate((c.lastSync || '').slice(0, 10) || new Date().toISOString().slice(0, 10)) }) +
+            e('span', { className: 'ui-note' }, __('bsBookingsN', '{n} new {n:booking|bookings} since {date}', { n: fresh.length, date: sinceDate((c.lastSync || '').slice(0, 10) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO()) }) +
               (book.skipped ? ' · ' + __('bsSkippedSec', '{n} securities {n:booking|bookings} left to the depot / PDF import', { n: book.skipped }) : '')),
             a.importBookings && fresh.length ? B(__('bsImportN', 'Import {n}', { n: fresh.length }), function () { if (props.onImport) props.onImport(fresh); }, true, { 'data-testid': 'bs-import' }) : null,
             // P5-5.3: every booking of the account (not only the cash ones) into the Budget

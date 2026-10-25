@@ -60,7 +60,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // -> [{ uid, date, kind, symbol, title, detail, watched, estimated }] sorted by date.
   function build(input, opts) {
     input = input || {}; opts = opts || {};
-    var today = isISO(input.today) ? input.today : new Date().toISOString().slice(0, 10);
+    var today = isISO(input.today) ? input.today : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var from = addDays(today, -(opts.back > 0 ? opts.back : 0));
     var to = addDays(today, opts.days > 0 ? opts.days : 120);
     var on = {}; KINDS.forEach(function (k) { on[k] = !(opts.kinds && opts.kinds[k] === false); });

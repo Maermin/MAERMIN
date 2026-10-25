@@ -125,7 +125,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function analyze(input, opts) {
     input = input || {};
     var o = Object.assign({}, DEFAULTS, opts || {});
-    var today = ymd(input.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10));
+    var today = ymd(input.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO());
     var findings = [];
 
     // ---- crypto Freigrenze countdown (per lot) ----
@@ -306,7 +306,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var cryptoLots = buildCryptoLots(transactions, priceEUR, { usdToEur: rate, fxAt: opts.fxAt, perWallet: perWallet });
     var taxData = opts.taxData || {};
     return {
-      today: (typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10),
+      today: (typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(),
       cryptoLots: cryptoLots,
       realizedCryptoGainsYTD: num(taxData.realizedCryptoGainsYTD),
       realizedStockGainsYTD: num(taxData.realizedStockGainsYTD),
