@@ -25,7 +25,9 @@ const FOUR = ['valueChart', 'statCards', 'returnFigures', 'allocation'];
 // Phase 6 B-4: "What it is made of" after the chart, "Next up" after the
 // stat cards, the holdings map before the allocation.
 const SEVEN = ['valueChart', 'composition', 'statCards', 'nextUp', 'returnFigures', 'holdingsMap', 'allocation'];
-ok('B-4: the built-in list adds composition, Next up and the holdings map around the four sections', D.DEFAULT_WIDGETS.map(w => w.id).join() === SEVEN.join());
+// Audit 2026-10-24 feature 4: the "First steps" card leads the list; the B-4 order of the sections below it is unchanged.
+ok('B-4: the built-in list adds composition, Next up and the holdings map around the four sections', D.DEFAULT_WIDGETS.map(w => w.id).filter(id => id !== 'firstSteps').join() === SEVEN.join());
+ok('E4: "First steps" is the first widget', D.DEFAULT_WIDGETS[0].id === 'firstSteps');
 ok('B-4: a layout saved before keeps its order; the three new sections are appended, visible', D.sectionOrder({ version: 1, widgets: FOUR.map(id => ({ id, visible: true })) }, SEVEN).join() === FOUR.concat(['composition', 'nextUp', 'holdingsMap']).join());
 ok('P5-1.5: a new user gets chart, stat cards, Returns, allocation', D.sectionOrder(null, FOUR).join() === FOUR.join());
 const old = { version: 1, widgets: [{ id: 'allocation', visible: true }, { id: 'valueChart', visible: true }, { id: 'statCards', visible: false }] };
