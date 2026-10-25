@@ -3608,19 +3608,27 @@ async function runBuild(browser, label, dir) {
       await p1.evaluate(() => localStorage.setItem('maermin_watchlist', JSON.stringify([{ symbol: 'TAB1' }])));
       await p1.waitForTimeout(1200);
       r.secondWriteDropped = await p2.evaluate(() => { localStorage.setItem('maermin_ui_probe', 'x'); return localStorage.getItem('maermin_ui_probe'); });
+      await p2.evaluate(() => { window.__sameDocument = true; });
       await p2.locator('[data-testid="tab-lock-use-here"]').click();
-      await p1.locator('[data-testid="tab-lock"]').waitFor({ timeout: 10000 });
-      r.firstAfter = (await p1.locator('[data-testid="tab-lock"]').innerText()).replace(/\s+/g, ' ');
-      await p2.waitForLoadState('load');
-      await p2.waitForTimeout(800);
+      await p1.locator('[data-testid="tab-lock"]').waitFor({ timeout: 20000 }); // save, lock vault, reload, up to 2 s for the lock
+      // Let tab 1's reload and lock wait run out: the lock must stay with tab 2
+      // (the old version reloaded tab 2, and tab 1 could take the lock back).
+      await p1.waitForTimeout(3500);
+      r.firstAfter = (await p1.locator('[data-testid="tab-lock"]').innerText().catch(() => '')).replace(/\s+/g, ' ');
       r.secondNoticeAfter = await p2.locator('[data-testid="tab-lock"]').count();
-      await unlock(p2, base);
+      r.secondSameDocument = await p2.evaluate(() => window.__sameDocument === true);
+      r.secondWrites = await p2.evaluate(() => { localStorage.setItem('maermin_ui_probe', 'y'); return localStorage.getItem('maermin_ui_probe'); });
+      // unlock in place (no reload) and read what tab 1 saved
+      await p2.locator('input[type=password]').first().fill(PASSWORD);
+      await p2.locator('#auth-submit').click();
+      await p2.locator('nav.ui-rail').waitFor({ timeout: 30000 });
       r.watchlist = await p2.evaluate(() => localStorage.getItem('maermin_watchlist'));
       await p2.close();
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('E1: the first tab writes and has no notice', !err && r.firstNotice === 0, err || JSON.stringify(r));
     ok('E1: a second tab of the same vault shows "open in another tab" and drops its writes', !err && /already open in another tab/.test(r.secondText || '') && r.secondWriteDropped === null, err || JSON.stringify(r));
-    ok('E1: "Use here" moves the app: the first tab shows the notice, the second reloads without it', !err && /open in another tab/.test(r.firstAfter || '') && r.secondNoticeAfter === 0, err || JSON.stringify(r));
+    ok('E1: "Use here" moves the app: the first tab shows the notice, the second goes on without it (no reload)', !err && /open in another tab/.test(r.firstAfter || '') && r.secondNoticeAfter === 0 && r.secondSameDocument === true, err || JSON.stringify(r));
+    ok('E1: the lock stays with the second tab: its writes stick after the first tab reloaded', !err && r.secondWrites === 'y', err || JSON.stringify(r));
     ok('E1: what the first tab saved is there in the second tab', !err && /TAB1/.test(r.watchlist || ''), err || JSON.stringify(r));
     ok('no page errors in the two-tab session', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -3644,6 +3652,47 @@ async function runBuild(browser, label, dir) {
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('audit UI-3: portfolio names on the cards are shown in full at 1366 px', !err && names && names.length >= 3 && names.every((n) => !n.cut), err || JSON.stringify(names));
     ok('no page errors in the portfolio-names session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // Feature (audit 2026-10-24 E2): persistent storage + storage health. The
+  // Privacy page shows where the data lives and whether the browser keeps it;
+  // a failed save of the encrypted data raises an alert.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.locator('#rc-saved').check();
+      await page.locator('#auth-submit').click();
+      await page.waitForTimeout(2500);
+      await unlock(page, base);
+      await page.keyboard.press('Escape'); // the first-run setup wizard opens by itself in a fresh vault
+      await page.waitForTimeout(600);
+      await openView(page, 'privacy');
+      const card = page.locator('[data-testid="storage-health"]');
+      await card.waitFor({ timeout: 10000 });
+      r.level = await page.locator('[data-testid="storage-health-level"]').innerText();
+      r.usage = await page.locator('[data-testid="storage-health-usage"]').innerText().catch(() => '');
+      r.codes = await card.locator('li[data-code]').evaluateAll((els) => els.map((e) => e.getAttribute('data-code')));
+      r.protect = await page.locator('[data-testid="storage-health-protect"]').count();
+      if (r.protect) {
+        await page.locator('[data-testid="storage-health-protect"]').click();
+        await page.waitForTimeout(800);
+        r.afterProtect = (await card.innerText()).replace(/\s+/g, ' ');
+      }
+      await page.evaluate(() => window.MaerminStorageHealth.reportSave(false, { name: 'QuotaExceededError' }));
+      await page.waitForTimeout(500);
+      r.toast = await page.locator('body').innerText().then((t) => /could not be saved/.test(t));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E2: the Privacy page shows the storage card with a status and the usage', !err && /stored/.test(r.level || '') && /used of/.test(r.usage || '') && Array.isArray(r.codes) && r.codes.length >= 1, err || JSON.stringify(r));
+    ok('E2: "Protect" is offered while the data is not protected, and answers either way', !err && (r.codes.includes('persisted') ? r.protect === 0 : (r.protect === 1 && /Protected|did not allow/.test(r.afterProtect || ''))), err || JSON.stringify(r));
+    ok('E2: a failed save of the encrypted data raises an alert', !err && r.toast === true, err || JSON.stringify(r));
+    ok('no page errors in the storage-health session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 
