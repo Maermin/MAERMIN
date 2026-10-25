@@ -3584,6 +3584,48 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E1): one writing tab at a time. A second tab
+  // of the same vault is covered by a notice and does not write; "Use here"
+  // moves the app over: the first tab saves, locks and shows the notice.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const p1 = await context.newPage();
+    const errors = watch(p1);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(p1, base);
+      await p1.locator('#rc-saved').check();
+      await p1.locator('#auth-submit').click();
+      await p1.waitForTimeout(2500);
+      await unlock(p1, base);
+      r.firstNotice = await p1.locator('[data-testid="tab-lock"]').count();
+      const p2 = await context.newPage();
+      await p2.goto(base + '/index.html');
+      await p2.locator('[data-testid="tab-lock"]').waitFor({ timeout: 10000 });
+      r.secondText = (await p2.locator('[data-testid="tab-lock"]').innerText()).replace(/\s+/g, ' ');
+      await p1.evaluate(() => localStorage.setItem('maermin_watchlist', JSON.stringify([{ symbol: 'TAB1' }])));
+      await p1.waitForTimeout(1200);
+      r.secondWriteDropped = await p2.evaluate(() => { localStorage.setItem('maermin_ui_probe', 'x'); return localStorage.getItem('maermin_ui_probe'); });
+      await p2.locator('[data-testid="tab-lock-use-here"]').click();
+      await p1.locator('[data-testid="tab-lock"]').waitFor({ timeout: 10000 });
+      r.firstAfter = (await p1.locator('[data-testid="tab-lock"]').innerText()).replace(/\s+/g, ' ');
+      await p2.waitForLoadState('load');
+      await p2.waitForTimeout(800);
+      r.secondNoticeAfter = await p2.locator('[data-testid="tab-lock"]').count();
+      await unlock(p2, base);
+      r.watchlist = await p2.evaluate(() => localStorage.getItem('maermin_watchlist'));
+      await p2.close();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E1: the first tab writes and has no notice', !err && r.firstNotice === 0, err || JSON.stringify(r));
+    ok('E1: a second tab of the same vault shows "open in another tab" and drops its writes', !err && /already open in another tab/.test(r.secondText || '') && r.secondWriteDropped === null, err || JSON.stringify(r));
+    ok('E1: "Use here" moves the app: the first tab shows the notice, the second reloads without it', !err && /open in another tab/.test(r.firstAfter || '') && r.secondNoticeAfter === 0, err || JSON.stringify(r));
+    ok('E1: what the first tab saved is there in the second tab', !err && /TAB1/.test(r.watchlist || ''), err || JSON.stringify(r));
+    ok('no page errors in the two-tab session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
