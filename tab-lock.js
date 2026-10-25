@@ -10,8 +10,10 @@
 // Now one tab holds the Web Lock "maermin-writer" and writes. Every other tab
 // is a reader: a notice covers it ("MAERMIN is open in another tab") and its
 // storage writes (localStorage, IndexedDB) are dropped. "Use here" asks the
-// writer over a BroadcastChannel to save and step back; the reader then gets
-// the lock and reloads, so it starts from the saved data.
+// writer over a BroadcastChannel to save, step back and lock its vault; the
+// reader then gets the lock and drops the notice. It does not reload: it never
+// unlocked (the notice covers the vault screen), so it has no stale data, and
+// a reload would free the lock for a moment for the other tab to take back.
 //
 // Loaded right after public-demo.js, BEFORE crypto-vault / idb-store /
 // storage, so the localStorage guard sits under every later wrapper. The
@@ -143,7 +145,15 @@
     btn.addEventListener('click', function () {
       btn.disabled = true;
       btn.textContent = __('tabLockMoving', 'Moving here…');
-      ctrl.takeOver().then(function () { window.location.reload(); });
+      // No reload: a reload would let go of the lock for a moment, and the
+      // other tab - reloading itself after it locked its vault - could take it
+      // back (seen in CI). A reader never unlocked (this notice covers the
+      // vault screen), so it holds no data that could be stale: it just goes on.
+      ctrl.takeOver().then(function () {
+        if (box.parentNode) box.parentNode.removeChild(box);
+        var pw = document.querySelector('input[type="password"]');
+        if (pw) { try { pw.focus(); } catch (e) { /* not focusable */ } }
+      });
     });
     card.appendChild(h); card.appendChild(p); card.appendChild(btn);
     box.appendChild(card);
