@@ -38,6 +38,23 @@ The two Critical bugs are both about dividends that never happened or were alrea
 projected schedule (BUG-1), and the opt-in auto-booking books the same payout twice when the ex-date anchor moves
 (BUG-2). No secret was found in the tree or in the history of any branch beyond the one already known and handled.
 
+## Status (2026-10-25)
+
+Owner decisions: BUG-4 option (a), BUG-5 "refuse to book without history", BUG-7 FIRE editor in the Monte Carlo
+view, the bugs split into a money PR and a runtime PR, and "auto approve recommendations" from PR 2 on.
+
+| PR | Contents | State |
+|---|---|---|
+| #250 | SEC-033, SEC-034 ("harden CSV exports and Worker parameter checks"; Worker version not bumped) | merged |
+| #251 | BUG-1, 2, 3, 4 (a), 5, 6, 7, 12; new Data check code `DQ-DIV-DUPLICATE`; optional plan field `bookFrom` | merged |
+| #252 | BUG-8, 9, 10, 11, 13, 14, 15, 16 | merged |
+| #253 | JUNK-1, 3, 4, 6, `priceForBackfill` (unused after #251), DOC-1 … 8 | merged |
+| #254 | UI-1, UI-3. **UI-2 needed no change:** every checkbox sits inside a label of at least 24 px; this audit's walk had measured only the 18 px box | open |
+
+Still open and waiting for the owner: JUNK-2, 5, 7, 8 (kept), and the feature proposals in E. The "Not in this PR"
+lists of #250 … #254 name the neighbouring issues found while fixing, for example the fixed 0.92 USD rate fallback
+in the savings-plan executor and about 50 more "today from the UTC date" fallbacks in engines.
+
 ---
 
 ## A · Bugs
