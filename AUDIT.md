@@ -49,9 +49,12 @@ view, the bugs split into a money PR and a runtime PR, and "auto approve recomme
 | #251 | BUG-1, 2, 3, 4 (a), 5, 6, 7, 12; new Data check code `DQ-DIV-DUPLICATE`; optional plan field `bookFrom` | merged |
 | #252 | BUG-8, 9, 10, 11, 13, 14, 15, 16 | merged |
 | #253 | JUNK-1, 3, 4, 6, `priceForBackfill` (unused after #251), DOC-1 … 8 | merged |
-| #254 | UI-1, UI-3. **UI-2 needed no change:** every checkbox sits inside a label of at least 24 px; this audit's walk had measured only the 18 px box | open |
+| #254 | UI-1, UI-3. **UI-2 needed no change:** every checkbox sits inside a label of at least 24 px; this audit's walk had measured only the 18 px box | merged |
+| #255 | Feature 1: one writing tab at a time (Web Lock; other tabs show a notice and do not write) | merged |
+| #257 | Follow-up to #255: "Use here" keeps the lock instead of reloading (fixed the red E1 e2e on `main`) | merged |
+| #256 | Feature 2: persistent storage request and a storage health card; a failed save shows a warning | merged |
 
-Still open and waiting for the owner: JUNK-2, 5, 7, 8 (kept), and the feature proposals in E. The "Not in this PR"
+Still open and waiting for the owner: JUNK-2, 5, 7, 8 (kept), and the feature proposals 3 … 10 in E. The "Not in this PR"
 lists of #250 … #254 name the neighbouring issues found while fixing, for example the fixed 0.92 USD rate fallback
 in the savings-plan executor and about 50 more "today from the UTC date" fallbacks in engines.
 
