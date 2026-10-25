@@ -238,6 +238,9 @@ function InvestmentTracker() {
   const [currency, setCurrency] = useState('EUR');
   // Exchange rate: USD->EUR (how many EUR for 1 USD). EUR is stronger, so ~0.91
   const [exchangeRate, setExchangeRate] = useState(0.91);
+  // True once this session fetched a live rate: until then 0.91 is only a
+  // start value, and savings plans never book with it.
+  const fxLiveFetched = useRef(false);
   // v11: per-date USD→EUR resolver. fetchPrices backfills a daily rate cache
   // (MaerminFxHistory); bumping fxHistVersion rebuilds the resolver so cost
   // basis re-prices each lot on its own day. Falls back to the live rate when
@@ -553,17 +556,21 @@ function InvestmentTracker() {
       // 2026-10-24 BUG-5; earlier estimated rows are still repriced below).
       const resolvePrice = (plan, dueDate) => EX.priceAtDate(histEff, fetchedPrices, plan.symbol, dueDate);
 
+      // USD amounts convert only at a real rate of the due date (daily history,
+      // or today's fetched rate); without one the date stays pending.
+      const fxBook = EX.bookingRate(fxAt, exchangeRate, fxLiveFetched.current);
+
       let working = transactions;
       // 1) Re-price earlier ESTIMATED auto-executions now that real history exists.
       if (EX.repriceEstimated) {
-        const rep = EX.repriceEstimated(working, accurate, fxAt || exchangeRate); // rate of each due date (M-16)
+        const rep = EX.repriceEstimated(working, accurate, fxBook); // rate of each due date (M-16)
         if (rep.repriced) {
           working = rep.transactions;
           addToast(__('spRepriced', '{n} estimated savings {n:buy|buys} repriced to the historical close', { n: rep.repriced }), 'success');
         }
       }
       // 2) Book any outstanding occurrences that have a real close.
-      const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, fxAt || exchangeRate);
+      const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, fxBook);
       if (out.created.length || out.removedDuplicates || working !== transactions) {
         setTransactions(out.transactions);
         if (out.created.length) addToast(__('spBooked', '{n} savings-plan {n:execution|executions} booked', { n: out.created.length }), 'success');
@@ -571,7 +578,10 @@ function InvestmentTracker() {
       }
       if (out.pending.length && havePrices && !savingsCatchUp.current.pendingToasted) {
         savingsCatchUp.current.pendingToasted = true;
-        addToast(__('spPending', '{n} savings-plan {n:execution|executions} pending - no price for the symbol yet', { n: out.pending.length }), 'warning');
+        const noFx = out.pending.some(p => p.reason === 'no-exchange-rate');
+        addToast(noFx
+          ? __('spPendingFx', '{n} savings-plan {n:execution|executions} pending - no exchange rate for the date yet', { n: out.pending.length })
+          : __('spPending', '{n} savings-plan {n:execution|executions} pending - no price for the symbol yet', { n: out.pending.length }), 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
   }, [fetchedPrices, transactions, priceHistory, savingsHistory, exchangeRate, fxAt, demoMode, startupSynced]);
@@ -766,6 +776,7 @@ function InvestmentTracker() {
 
     (async () => {
       const histAdd = {}, priceAdd = {};
+      let incomplete = false; // a USD day without a real rate was left out
       const nowSec = Math.floor(Date.now() / 1000);
       const workerBase = (marketWorker || '').trim().replace(/\/$/, '');
       for (const s of syms) {
@@ -795,12 +806,17 @@ function InvestmentTracker() {
               // book wildly wrong quantities - leave those occurrences pending.
               const cur = data.currency || 'USD';
               if (cur !== 'EUR' && cur !== 'USD') { console.warn('[SAVINGS] unsupported quote currency', cur, 'for', sym); continue; }
-              // USD closes convert at the rate OF THAT DAY (fxAt), not today's
-              // live rate - otherwise every back-dated quantity carries today's FX.
-              const rateAt = (d) => cur === 'EUR' ? 1 : ((fxAt && fxAt(d)) || exchangeRate || 0.92);
-              series = (data.prices || [])
-                .filter(r => r && typeof r.price === 'number' && r.price > 0)
-                .map(r => { const ts = r.date || r.timestamp; return { timestamp: ts, price: r.price * rateAt(ts) }; });
+              // USD closes convert at the rate OF THAT DAY, not today's live
+              // rate - otherwise every back-dated quantity carries today's FX.
+              // A day without a real rate is left out (no made-up EUR close);
+              // the symbol is then fetched again on a later refresh.
+              const fxDay = EX.bookingRate(fxAt, exchangeRate, fxLiveFetched.current);
+              const rateAt = (d) => cur === 'EUR' ? 1 : fxDay(String(d || '').slice(0, 10));
+              const usable = (data.prices || []).filter(r => r && typeof r.price === 'number' && r.price > 0);
+              series = usable
+                .map(r => { const ts = r.date || r.timestamp; const fx = rateAt(ts); return fx ? { timestamp: ts, price: r.price * fx } : null; })
+                .filter(Boolean);
+              if (series.length < usable.length) incomplete = true;
             }
           }
           if (series && series.length) {
@@ -813,7 +829,7 @@ function InvestmentTracker() {
       }
       // Allow a retry on the next price refresh if nothing could be fetched
       // (offline, rate-limited) instead of pinning the signature forever.
-      if (savingsHistFetch.current.sig === sig) savingsHistFetch.current.complete = Object.keys(histAdd).length >= syms.length;
+      if (savingsHistFetch.current.sig === sig) savingsHistFetch.current.complete = !incomplete && Object.keys(histAdd).length >= syms.length;
       if (Object.keys(histAdd).length) setSavingsHistory(prev => ({ ...prev, ...histAdd }));
       if (Object.keys(priceAdd).length) setPrices(prev => ({ ...prev, ...priceAdd }));
     })();
@@ -1768,6 +1784,7 @@ function InvestmentTracker() {
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
             fxFetched = true;
+            fxLiveFetched.current = true;
             setExchangeRate(usdToEur);
             // Keep the full USD-based table so GBp/CHF/JPY… quotes convert correctly.
             if (window.MaerminFxHistory && window.MaerminFxHistory.setUsdRates) window.MaerminFxHistory.setUsdRates(fxData.rates);

@@ -189,19 +189,38 @@
   // USD amount is converted with the (daily) USD->EUR rate before the quantity
   // is derived: quantity = amountEUR / priceEUR. The original amount + currency
   // travel on the transaction for transparency.
-  var DEFAULT_USD_EUR = 0.92;
   // `fxUsdToEur` is a rate, or a resolver (dateISO) => rate. With a resolver a
   // back-dated execution converts at the rate of ITS due date, not today's
   // (FINDINGS M-16: a catch-up booked every missed month at the live rate).
+  // No rate -> null: the occurrence stays pending. There is no default rate
+  // any more (it was a fixed 0.92 that booked made-up quantities).
   function usdRateOn(fxUsdToEur, dateISO) {
     var fx = typeof fxUsdToEur === 'function' ? num(fxUsdToEur(dateISO)) : num(fxUsdToEur);
-    return fx && fx > 0 ? fx : DEFAULT_USD_EUR;
+    return fx && fx > 0 ? fx : null;
   }
   function amountToEUR(plan, fxUsdToEur, dateISO) {
     var amount = num(plan && plan.amount) || 0;
     var cur = (plan && plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
     if (cur !== 'USD') return amount;
-    return amount * usdRateOn(fxUsdToEur, dateISO);
+    var fx = usdRateOn(fxUsdToEur, dateISO);
+    return fx == null ? null : amount * fx;
+  }
+
+  // The USD->EUR rates the app may book with, as a resolver (dateISO) => rate
+  // or null. Same rule as for prices: a real daily rate near the date (the
+  // FxHistory resolver, when it `covers` the date), or the rate fetched in this
+  // session for today's execution. The app's start value (0.91 until the
+  // first fetch) is not a rate.
+  function bookingRate(fxAt, liveRate, liveFetched, today) {
+    var day = today || todayISO();
+    return function (dateISO) {
+      if (fxAt && typeof fxAt.covers === 'function' && fxAt.covers(dateISO)) {
+        var r = num(fxAt(dateISO));
+        if (r && r > 0) return r;
+      }
+      var live = num(liveRate);
+      return liveFetched && dateISO === day && live && live > 0 ? live : null;
+    };
   }
 
   function buildTransaction(plan, dueDate, priceEUR, estimated, fxUsdToEur) {
@@ -210,6 +229,7 @@
     if (!(amount > 0) || !(price > 0)) return null;
     var cur = (plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
     var amountEUR = amountToEUR(plan, fxUsdToEur, dueDate);
+    if (!(amountEUR > 0)) return null;
     return {
       type: 'buy',
       category: plan.category || 'crypto',
@@ -291,7 +311,8 @@
         created.push(tx);
         txs = txs.concat([tx]);
       } else {
-        pending.push({ planId: item.plan.id, symbol: item.plan.symbol, dueDate: item.dueDate, reason: 'no price for due date' });
+        var noRate = num(price) > 0 && amountToEUR(item.plan, fxUsdToEur, item.dueDate) === null;
+        pending.push({ planId: item.plan.id, symbol: item.plan.symbol, dueDate: item.dueDate, reason: noRate ? 'no-exchange-rate' : 'no price for due date' });
       }
     });
     return { transactions: txs, created: created, pending: pending, removedDuplicates: deduped.removed };
@@ -310,8 +331,9 @@
       if (!(price > 0)) return tx;
       var amountEUR;
       if (num(tx.planAmount) != null) {
+        var fx = usdRateOn(fxUsdToEur, tx.dueDate);
         amountEUR = (tx.planAmountCurrency === 'USD')
-          ? num(tx.planAmount) * usdRateOn(fxUsdToEur, tx.dueDate)
+          ? (fx == null ? null : num(tx.planAmount) * fx)
           : num(tx.planAmount);
       } else {
         // Older auto rows without planAmount: the EUR invested is quantity*price.
@@ -341,6 +363,7 @@
     todayISO: todayISO,
     buildTransaction: buildTransaction,
     amountToEUR: amountToEUR,
+    bookingRate: bookingRate,
     priceAtDate: priceAtDate,
     repriceEstimated: repriceEstimated,
     runCatchUp: runCatchUp
