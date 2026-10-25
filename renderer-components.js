@@ -697,14 +697,36 @@ function rovingKeys(e, index, count, select) {
   if (btn && btn.focus) btn.focus();
 }
 
+// The strip's new scrollLeft that brings a tab fully into view with `room`
+// px to spare, or null when it is already visible. Rects as from
+// getBoundingClientRect (left / right), plus the strip's scrollLeft.
+function tabScrollLeft(strip, tab, room) {
+  const pad = room == null ? 16 : room;
+  let delta = 0;
+  if (tab.left < strip.left) delta = tab.left - strip.left - pad;
+  else if (tab.right > strip.right) delta = tab.right - strip.right + pad;
+  return delta ? Math.max(0, strip.scrollLeft + delta) : null;
+}
+
 // PageTabs: the views of an area (underline). One row only, never nested.
 // A tab may carry extra attributes (the shell puts data-view / data-views on them).
+// On a phone the row scrolls sideways; the selected tab is kept in view (a
+// view opened from elsewhere, e.g. the command palette, can sit off-screen).
 const tabAttrs = (tab) => tab.attrs || {};
 function PageTabs(props) {
   const tabs = props.tabs || [];
   const idx = Math.max(0, tabs.findIndex((t) => t.id === props.value));
   const rest = omit(props, ['tabs', 'value', 'onChange', 'label', 'className']);
-  return h('div', Object.assign(rest, { role: 'tablist', 'aria-label': props.label, className: cx('ui-tabs', props.className) }),
+  const rowRef = useRef(null);
+  useEffect(() => {
+    const row = rowRef.current;
+    const tab = row && row.children[idx];
+    if (!tab || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const next = tabScrollLeft({ left: r.left, right: r.right, scrollLeft: row.scrollLeft }, tab.getBoundingClientRect());
+    if (next != null) row.scrollLeft = next;
+  }, [idx, tabs.length]);
+  return h('div', Object.assign(rest, { ref: rowRef, role: 'tablist', 'aria-label': props.label, className: cx('ui-tabs', props.className) }),
     tabs.map((t, i) => h('button', {
       key: t.id, type: 'button', role: 'tab', id: t.tabId, 'data-tab': t.id,
       'aria-selected': i === idx, 'aria-controls': t.panelId, tabIndex: i === idx ? 0 : -1,
@@ -770,7 +792,7 @@ function Mask(props) {
   return h('span', Object.assign(rest, { className: cx('ui-mask', 'is-masked', props.className), 'aria-label': __('uiHiddenAmount', 'Amount hidden') }), '••••••');
 }
 
-const Components = { toneOf, Button, IconButton, Card, Heading, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
+const Components = { toneOf, Button, IconButton, Card, Heading, Stat, Badge, Chip, ToneChip, PageTabs, tabScrollLeft, Segmented, Input, Select, Mask, Spinner };
 
 // ---- R1.3: Table, Modal / Sheet, EmptyState, Skeleton, ChartFrame ---------
 

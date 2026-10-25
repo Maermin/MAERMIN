@@ -210,22 +210,6 @@ var DividendDataService = {
     return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
   },
 
-  // Return EXACTLY `count` ex-dividend month numbers. Uses the stored months
-  // when they already cover the frequency; otherwise spreads `count` payments
-  // evenly across the year (so a monthly payer gets 12, not the default 4).
-  buildPaymentMonths: function(exMonths, count) {
-    count = count || 4;
-    if (Array.isArray(exMonths) && exMonths.length >= count) return exMonths.slice(0, count);
-    var months = [];
-    var step = 12 / count;
-    for (var i = 0; i < count; i++) {
-      var m = Math.round(step * (i + 1)); // 1 → [12]; 2 → [6,12]; 4 → [3,6,9,12]; 12 → [1..12]
-      if (m < 1) m = 1; if (m > 12) m = 12;
-      months.push(m);
-    }
-    return months;
-  },
-
   // Warm the cache for a whole portfolio so the synchronous getDividendData()
   // resolves far more than the ~31 built-in tickers. Resolves via the user's
   // Worker (Yahoo fundamentals) when a Worker URL is supplied. Without one it
@@ -408,75 +392,6 @@ var DividendDataService = {
     });
     
     return dividendData;
-  },
-  
-  // Forecast dividends
-  forecastDividends: function(portfolio, dividendData, years) {
-    years = years || 3;
-    var self = this;
-    var stocks = portfolio.stocks || [];
-    var currentYear = new Date().getFullYear();
-    var forecasts = {};
-    
-    for (var y = currentYear; y < currentYear + years; y++) {
-      forecasts[y] = {
-        year: y,
-        totalProjected: 0,
-        byStock: {},
-        byQuarter: { Q1: 0, Q2: 0, Q3: 0, Q4: 0 },
-        byMonth: {}
-      };
-      
-      for (var m = 1; m <= 12; m++) {
-        forecasts[y].byMonth[m] = { total: 0, stocks: [] };
-      }
-    }
-    
-    stocks.forEach(function(stock) {
-      var symbol = (stock.symbol || stock.name || '').toUpperCase();
-      var shares = stock.amount || 0;
-      var divData = dividendData[symbol];
-      
-      if (!divData || shares === 0) return;
-      
-      var baseAnnualDiv = divData.annualDividend || 0;
-      var growthRate = divData.growthRate || 0;
-      var paymentsPerYear = self.getPaymentsPerYear(divData.frequency);
-      // Build a payment-month schedule of EXACTLY paymentsPerYear entries.
-      // Bug fix: monthly payers (12/yr) used to be capped at the 4 default
-      // ex-months, under-counting income by ~66%. When the stored exMonths
-      // don't cover the frequency, spread payments evenly across the year.
-      var exMonths = self.buildPaymentMonths(divData.exMonths, paymentsPerYear);
-      
-      for (var y = currentYear; y < currentYear + years; y++) {
-        var yearsOut = y - currentYear;
-        var projectedAnnualDiv = baseAnnualDiv * Math.pow(1 + growthRate, yearsOut);
-        var yearlyIncome = shares * projectedAnnualDiv;
-        
-        forecasts[y].totalProjected += yearlyIncome;
-        forecasts[y].byStock[symbol] = {
-          symbol: symbol,
-          shares: shares,
-          annualDividend: projectedAnnualDiv,
-          totalExpected: yearlyIncome,
-          growthFromCurrent: yearsOut > 0 ? ((projectedAnnualDiv / baseAnnualDiv) - 1) * 100 : 0
-        };
-        
-        var perPayment = yearlyIncome / paymentsPerYear;
-        exMonths.forEach(function(month) {
-          // Pay date lands ~1 month after the ex-date month.
-          var payMonth = (month % 12) + 1;
-
-          forecasts[y].byMonth[payMonth].total += perPayment;
-          forecasts[y].byMonth[payMonth].stocks.push({ symbol: symbol, amount: perPayment });
-          
-          var quarter = Math.ceil(payMonth / 3);
-          forecasts[y].byQuarter['Q' + quarter] += perPayment;
-        });
-      }
-    });
-    
-    return forecasts;
   }
 };
 
