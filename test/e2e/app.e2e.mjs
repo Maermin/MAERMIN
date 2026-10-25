@@ -3696,6 +3696,55 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E4): "First steps" on the Overview of a vault
+  // with a first transaction. The encrypted backup ticks its step; Hide turns
+  // the card off in the Overview layout; the demo never shows it.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 }, acceptDownloads: true });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.evaluate(() => {
+        localStorage.setItem('maermin_onboarded', '1');
+        localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+        localStorage.setItem('transactions', JSON.stringify([{ id: 'f1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+      });
+      await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      const card = page.locator('[data-testid="first-steps"]');
+      await card.waitFor({ timeout: 10000 });
+      const done = () => card.locator('li[data-done="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-step')).join());
+      r.before = await done();
+      r.progress = await page.locator('[data-testid="first-steps-progress"]').innerText();
+      const dl = page.waitForEvent('download', { timeout: 10000 });
+      await card.locator('[data-step-action="backup"]').click();
+      r.file = (await dl).suggestedFilename();
+      await page.waitForTimeout(500);
+      r.after = await done();
+      await page.locator('[data-testid="first-steps-hide"]').click();
+      await page.waitForTimeout(400);
+      r.hidden = await card.count() === 0;
+      r.layout = await page.evaluate(() => (JSON.parse(localStorage.getItem('maermin_dashboard_layout') || '{}').widgets || []).find((w) => w.id === 'firstSteps') || null);
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+      r.demo = await page.locator('[data-testid="first-steps"]').count();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E4: a vault with one transaction shows First steps with that step done', !err && /^transaction(,|$)/.test(r.before || '') && /of 4 done/.test(r.progress || ''), err || JSON.stringify(r));
+    ok('E4: "Download encrypted backup" downloads the vault backup and ticks the step', !err && /^maermin-vault-backup-/.test(r.file || '') && /backup/.test(r.after || ''), err || JSON.stringify(r));
+    ok('E4: Hide removes the card and stores it in the Overview layout', !err && r.hidden && r.layout && r.layout.visible === false, err || JSON.stringify(r));
+    ok('E4: the demo shows no First steps', !err && r.demo === 0, err || JSON.stringify(r));
+    ok('no page errors in the first-steps session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
