@@ -1977,6 +1977,10 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 .ui-muted { margin: 0; color: var(--text-dim); font-size: var(--type-body); line-height: 1.5; }
 .ui-muted.is-error { color: var(--loss); }
 .ui-note--flush { margin: 0; }
+/* Audit 2026-10-24 feature 3: recent imports with "Undo" (import-runs.js). */
+.ui-import-runs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-import-runs__item { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-height: 32px; }
+.ui-import-runs__what { flex: 1 1 14em; min-width: 0; }
 .ui-sublabel { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-caption); font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 .ui-panel-tools { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4); }
 .ui-check.is-disabled { opacity: 0.6; cursor: default; }

@@ -3655,6 +3655,55 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E3): "Undo this import". A manual import is
+  // listed under Recent imports; Undo moves its rows (and only those) to the
+  // Trash, and the toast's Undo brings them back.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.evaluate(() => {
+        localStorage.setItem('maermin_onboarded', '1');
+        localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+        localStorage.setItem('transactions', JSON.stringify([{ id: 'own1', type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+      });
+      await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'data');
+      await page.getByRole('radio', { name: /Manual Import/ }).click();
+      await page.getByRole('textbox', { name: 'Manual Import' }).fill(JSON.stringify([
+        { type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 2, price: 100, date: '2026-02-02' },
+        { type: 'buy', category: 'stocks', symbol: 'MSFT', quantity: 1, price: 300, date: '2026-02-03' }]));
+      await page.locator('main').getByRole('button', { name: /^↑ Import$/ }).click();
+      const card = page.locator('[data-testid="import-runs"]');
+      await card.waitFor({ timeout: 10000 });
+      const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]'));
+      const after = await stored();
+      r.stamped = after.filter((t) => t.importId).map((t) => t.symbol).sort().join();
+      r.row = (await card.locator('li[data-run]').first().innerText()).replace(/\s+/g, ' ');
+      r.log = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_import_log') || '[]').length);
+      await card.locator('[data-run-undo]').first().click();
+      await page.waitForTimeout(500);
+      r.afterUndo = (await stored()).map((t) => t.symbol).sort().join();
+      r.cardGone = await card.count() === 0;
+      r.trash = await page.evaluate(() => (window.MaerminTrash.list() || []).filter((e) => e.kind === 'transaction').map((e) => (Array.isArray(e.payload) ? e.payload.length : 1)));
+      await page.locator('[data-testid="toast-action"]', { hasText: 'Undo' }).first().click();
+      await page.waitForTimeout(500);
+      r.restored = (await stored()).map((t) => t.symbol).sort().join();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E3: a manual import stamps its rows and lists the run', !err && r.stamped === 'AAPL,MSFT' && /Manual import/.test(r.row || '') && /2 rows/.test(r.row || '') && r.log === 1, err || JSON.stringify(r));
+    ok('E3: "Undo import" removes exactly that run\'s rows into one Trash entry', !err && r.afterUndo === 'SAP' && r.cardGone && JSON.stringify(r.trash) === '[2]', err || JSON.stringify(r));
+    ok('E3: the toast\'s Undo brings the rows back', !err && r.restored === 'AAPL,MSFT,SAP', err || JSON.stringify(r));
+    ok('no page errors in the import-undo session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // Phone page tabs (audit 2026-10-24, "Not in this PR" of #254): a view
   // opened from elsewhere (command palette) whose tab sits right of the
   // screen edge is scrolled into view in the tab strip.
