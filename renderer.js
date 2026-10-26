@@ -5042,6 +5042,8 @@ function InvestmentTracker() {
         React.createElement('ul', { className: 'ui-txd__list' }, sameDayTax.map((x) => React.createElement('li', { key: x.id },
           React.createElement('button', { type: 'button', className: 'ui-link', onClick: () => setTxSelected(x.id) }, window.MaerminUtils.txTypeInfo(x.type, t).label + (x.notes ? ' · ' + x.notes : '')),
           React.createElement('span', { className: 'num' }, h.totalText(x)))))),
+      // Audit 2026-10-24 feature 10: source documents, encrypted on this device only.
+      !demoMode && window.MaerminAttachments && React.createElement(window.MaerminAttachments.Panel, { key: 'att-' + tx.id, txId: tx.id }),
       React.createElement('div', { className: 'ui-txd__actions' },
         React.createElement(UIC.Button, { variant: 'primary', 'data-tx-action': 'edit', onClick: () => editTransaction(tx) }, t.edit || 'Edit'),
         React.createElement(UIC.Button, { 'data-tx-action': 'duplicate', onClick: () => duplicateTransaction(tx) }, __('txDuplicate', 'Duplicate')),
