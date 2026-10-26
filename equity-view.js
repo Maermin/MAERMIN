@@ -126,7 +126,11 @@
       preset: g0.id && !g0.schedule ? 'manual' : (s0.custom ? 'custom' : s0.preset || '4y_cliff_quarterly'),
       start: s0.start || '', years: s0.years != null ? String(s0.years) : '', cliffMonths: s0.cliffMonths != null ? String(s0.cliffMonths) : '', freqMonths: s0.freqMonths != null ? String(s0.freqMonths) : '',
       custom: (s0.custom || [{ date: '', pct: '' }]).map(function (c) { return { date: c.date || '', pct: c.pct != null ? String(c.pct) : '' }; }),
-      rounding: g0.rounding || 'floor_trueup', fmvSource: s0.fmvSource || 'close', dividendEquivalents: !!g0.dividendEquivalents
+      rounding: g0.rounding || 'floor_trueup', fmvSource: s0.fmvSource || 'close', dividendEquivalents: !!g0.dividendEquivalents,
+      // PSU (Package 3): performance period, multiplier range, vesting afterwards
+      perfStart: (g0.psu || {}).perfStart || '', perfEnd: (g0.psu || {}).perfEnd || '', settleDate: (g0.psu || {}).settleDate || '',
+      multMin: String((g0.psu || {}).min != null ? g0.psu.min : 0), multTarget: String((g0.psu || {}).target != null ? g0.psu.target : 100), multMax: String((g0.psu || {}).max != null ? g0.psu.max : 200),
+      post: ((g0.psu || {}).post || {}).preset || 'manual'
     });
     var f = _s[0], set = _s[1];
     var put = function (k, v) { set(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); };
@@ -151,7 +155,9 @@
     var units = num(f.units);
     var alloc = steps.length && units > 0 ? V().allocate(units, steps.map(function (x) { return x.pct; }), f.rounding) : [];
     var customBad = f.preset === 'custom' && Math.abs(pct - 100) > 1e-6;
-    var can = f.grantDate && (!needsUnits || units > 0) && !customBad && (!schedule || steps.length);
+    var isPsu = f.type === 'PSU';
+    var psuBad = isPsu && (!f.perfEnd || (f.perfStart && f.perfEnd < f.perfStart) || !(num(f.multMax) >= num(f.multTarget) && num(f.multTarget) >= num(f.multMin) && num(f.multMin) >= 0));
+    var can = f.grantDate && (!needsUnits || units > 0) && !customBad && !psuBad && (!schedule || steps.length);
     var norm = schedule ? V().normalizeSchedule(schedule) : null;
     var save = function () {
       if (!can) return;
@@ -159,7 +165,12 @@
         id: g0.id || E().newId('grant'), planId: props.planId, type: f.type, name: f.name, grantDate: f.grantDate,
         units: needsUnits ? units : null, withholding: f.withholding,
         withholdingRate: num(f.withholdingRate) != null ? num(f.withholdingRate) / 100 : null,
-        schedule: schedule, rounding: f.rounding, dividendEquivalents: f.dividendEquivalents
+        schedule: schedule, rounding: f.rounding, dividendEquivalents: f.dividendEquivalents,
+        psu: isPsu ? Object.assign({}, g0.psu || {}, {
+          perfStart: f.perfStart || f.grantDate, perfEnd: f.perfEnd, settleDate: f.settleDate || null,
+          min: num(f.multMin), target: num(f.multTarget), max: num(f.multMax),
+          post: f.post !== 'manual' ? { preset: f.post } : null
+        }) : null
       }));
     };
     var editRow = function (i, k) {
@@ -206,6 +217,15 @@
         h('div', { className: 'ui-view__bar' },
           h(UIC.Button, { size: 'sm', onClick: function () { put('custom', f.custom.concat([{ date: '', pct: '' }])); } }, __('eqAddTranche', '+ Tranche')),
           h('span', { className: customBad ? 'tone-loss' : 'num', role: customBad ? 'alert' : undefined }, __('eqPctSum', 'Sum: {pct}', { pct: I.pct(pct, 2) })))) : null,
+      isPsu ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-psu-fields' },
+        h(UIC.Input, { label: __('eqPerfStart', 'Performance period from'), type: 'date', value: f.perfStart, onChange: upd('perfStart'), hint: __('eqVestStartHint', 'Empty = grant date') }),
+        h(UIC.Input, { label: __('eqPerfEnd', 'Performance period to'), type: 'date', value: f.perfEnd, onChange: upd('perfEnd'), error: psuBad && !f.perfEnd ? __('eqPerfEndNeeded', 'Needed for the settlement date') : null }),
+        h(UIC.Input, { label: __('eqSettleDate', 'Settlement date (optional)'), type: 'date', value: f.settleDate, onChange: upd('settleDate'), hint: __('eqSettleDateHint', 'Empty = end of the period') }),
+        h(UIC.Input, { label: __('eqMultMin', 'Minimum (%)'), inputMode: 'decimal', value: f.multMin, onChange: upd('multMin') }),
+        h(UIC.Input, { label: __('eqMultTarget', 'Target (%)'), inputMode: 'decimal', value: f.multTarget, onChange: upd('multTarget') }),
+        h(UIC.Input, { label: __('eqMultMax', 'Maximum (%)'), inputMode: 'decimal', value: f.multMax, onChange: upd('multMax') }),
+        h(UIC.Select, { label: __('eqPostVest', 'Vesting after the period'), value: f.post, onChange: upd('post'),
+          options: PRESET_IDS.filter(function (p) { return p !== 'custom'; }).map(function (p) { return { value: p, label: p === 'manual' ? __('eqPostNone', 'None: all at settlement') : presetLabel(p) }; }) })) : null,
       vesting ? h('label', { className: 'ui-check' },
         h('input', { type: 'checkbox', checked: f.dividendEquivalents, onChange: function (e) { put('dividendEquivalents', e.target.checked); } }),
         ' ', __('eqDivEq', 'Dividend equivalents on unvested units')) : null,
@@ -314,6 +334,39 @@
           n: de.length, amount: props.privacy ? '••••••' : I.moneyAuto(deSum, (W.MaerminEquityVesting.dividendsFromTransactions(props.transactions, props.plan.ticker)[0] || {}).currency || props.plan.shareCurrency) })) : null);
   }
 
+  // ---- PSU: scenarios and settlement (Package 3) ----------------------------------------
+  function PsuPanel(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n, EV = W.MaerminEquityVesting;
+    var g = props.grant, p = EV.psuInfo(g);
+    var _f = React.useState(null), form = _f[0], setForm = _f[1];   // null | { actual, date }
+    var px = props.priceEUR(props.plan);
+    var sc = EV.psuScenarios(g, px);
+    var settled = p.actual != null;
+    var label = { low: __('eqScenLow', 'Low'), target: __('eqScenTarget', 'Target'), high: __('eqScenHigh', 'High') };
+    var units = function (u) { return I.num(u, { min: 0, max: 4 }); };
+    return h('div', { className: 'ui-card', 'data-testid': 'eq-psu-' + g.id },
+      h('b', null, typeLabel(g.type) + (g.name ? ' · ' + g.name : '')),
+      h('p', { className: 'ui-note' },
+        __('eqPsuPeriod', 'Performance period {from} – {to}; settlement {date}.', { from: p.perfStart ? I.date(p.perfStart) : '–', to: p.perfEnd ? I.date(p.perfEnd) : '–', date: p.vestDate ? I.date(p.vestDate) : '–' })),
+      settled
+        ? h('p', { 'data-testid': 'eq-psu-settled' }, __('eqPsuSettled', 'Settled at {pct}: {units} units instead of {target} target units.', { pct: I.pct(p.actual, 0), units: units(EV.psuSettledUnits(g)), target: units(g.units) }))
+        : h('div', { className: 'ui-ov-tiles', 'data-testid': 'eq-psu-scenarios' }, sc.map(function (x) {
+          return h(UIC.Stat, { key: x.key, label: label[x.key] + ' (' + I.pct(x.pct, 0) + ')', value: units(x.units) + ' ' + __('eqUnitsShort', 'units'),
+            sub: x.value != null ? (props.privacy ? '••••••' : props.money(x.value)) + ' · ' + __('eqAtToday', 'at the current price') : __('eqNoPrice', 'no price') });
+        })),
+      form ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-psu-settle' },
+        h(UIC.Input, { label: __('eqActualMult', 'Actual multiplier (%)'), inputMode: 'decimal', value: form.actual, onChange: function (e) { setForm(Object.assign({}, form, { actual: e.target.value })); },
+          hint: __('eqActualMultHint', 'From the settlement letter, e.g. 120') }),
+        h(UIC.Input, { label: __('eqSettleDate', 'Settlement date (optional)'), type: 'date', value: form.date, onChange: function (e) { setForm(Object.assign({}, form, { date: e.target.value })); } }),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'primary', disabled: !(num(form.actual) >= 0) || !form.date, 'data-testid': 'eq-psu-settle-save',
+          onClick: function () { props.onSettle(g, num(form.actual), form.date); setForm(null); } }, __('eqSettle', 'Settle'))),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'quiet', onClick: function () { setForm(null); } }, __('eqCancel', 'Cancel')))) : null,
+      !form ? h('div', { className: 'ui-view__bar' },
+        h(UIC.Button, { size: 'sm', 'data-testid': 'eq-psu-settle-open', onClick: function () { setForm({ actual: settled ? String(p.actual) : '', date: p.vestDate || today() }); } },
+          settled ? __('eqSettleEdit', 'Change settlement') : __('eqSettleOpen', 'Enter settlement')),
+        settled ? h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { props.onSettle(g, null, null); } }, __('eqSettleUndo', 'Undo settlement')) : null) : null);
+  }
+
   // ---- plan card -------------------------------------------------------------------
   function PlanCard(props) {
     var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
@@ -381,6 +434,9 @@
         rows: events,
         rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteEvent(r); } }]; }
       }) : null,
+      grants.filter(function (g) { return g.type === 'PSU' && g.psu; }).map(function (g) {
+        return h(PsuPanel, { key: g.id, grant: g, plan: plan, priceEUR: props.priceEUR, money: money, privacy: props.privacy, onSettle: props.onSettlePsu });
+      }),
       openGrant ? h(TrancheList, { state: st, plan: plan, grant: M.byId(st.grants, openGrant), transactions: props.transactions, privacy: props.privacy, onSetStatus: props.onSetTrancheStatus }) : null,
       editGrant ? h(GrantForm, { key: editGrant.id, planId: plan.id, grant: editGrant, onCancel: function () { setEditGrant(null); },
         onSave: function (g) { props.onEditGrant(g); setEditGrant(null); } }) : null,
@@ -469,6 +525,14 @@
             commit(Object.assign({}, st, { grants: st.grants.map(function (x) { return x.id === g.id ? g : x; }),
               events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto'; }),
               tranches: st.tranches.filter(function (t) { return t.grantId !== g.id || t.status === 'forfeited' || st.events.some(function (e) { return e.trancheId === t.id && e.source !== 'auto'; }); }) }));
+          },
+          // PSU settlement: the actual multiplier (null = undo) and its date; the
+          // auto vests of the grant are re-created from it
+          onSettlePsu: function (g, actual, date) {
+            var psu = Object.assign({}, g.psu, { actual: actual, settleDate: date || g.psu.settleDate || null });
+            commit(Object.assign({}, st, { grants: st.grants.map(function (x) { return x.id === g.id ? Object.assign({}, x, { psu: psu }) : x; }),
+              events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto'; }),
+              tranches: st.tranches.filter(function (t) { return t.grantId !== g.id || st.events.some(function (e) { return e.trancheId === t.id && e.source !== 'auto'; }); }) }));
           },
           onSetTrancheStatus: function (t, status) {
             commit(withList('tranches', st.tranches.map(function (x) { return x.id === t.id ? Object.assign({}, x, { status: status }) : x; })));

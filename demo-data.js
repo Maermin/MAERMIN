@@ -73,14 +73,19 @@
     grants: [
       { id: 'demo-eq-rsu', planId: 'demo-eq-contoso', type: 'RSU', name: 'New hire 2023', grantDate: '2023-03-01', units: 400, withholding: 'sell_to_cover', withholdingRate: 0.45,
         schedule: { preset: '4y_cliff_quarterly' }, rounding: 'floor_trueup', dividendEquivalents: true },
-      { id: 'demo-eq-psu', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2024-2026', grantDate: '2024-03-01', units: 120, withholding: 'payroll' },
+      // PSU (Package 3): one open (scenarios), one settled at 120 % whose vest the
+      // app derives from the sample closes and rates
+      { id: 'demo-eq-psu', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2024-2026', grantDate: '2024-03-01', units: 120, withholding: 'payroll',
+        psu: { perfStart: '2024-01-01', perfEnd: '2026-12-31', settleDate: '2027-03-01', min: 0, target: 100, max: 200 } },
+      { id: 'demo-eq-psu23', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2023-2025', grantDate: '2023-03-01', units: 100, withholding: 'sell_to_cover', withholdingRate: 0.45,
+        psu: { perfStart: '2023-01-01', perfEnd: '2025-12-31', settleDate: '2026-03-02', min: 0, target: 100, max: 200, actual: 120 } },
       { id: 'demo-eq-espp-fab', planId: 'demo-eq-fabrikam', type: 'ESPP', name: 'Sharesave', grantDate: '2021-01-01' }
     ],
     // tranche ids as equity-vesting.js names them (<grant>-t<n>), so the
     // schedule finds its past vests and only adds the projected ones
     tranches: EQ_VESTS.map((v, i) => ({ id: 'demo-eq-rsu-t' + (i + 1), grantId: 'demo-eq-rsu', date: v[0], units: v[4], status: 'vested' }))
       .concat(EQ_UPCOMING.map((d, i) => ({ id: 'demo-eq-rsu-t' + (EQ_VESTS.length + i + 1), grantId: 'demo-eq-rsu', date: d, units: 25, status: 'unvested', projected: true })))
-      .concat([{ id: 'demo-eq-tpsu', grantId: 'demo-eq-psu', date: '2027-03-01', units: 120, status: 'unvested', projected: true }]),
+      .concat([{ id: 'demo-eq-psu-t1', grantId: 'demo-eq-psu', date: '2027-03-01', units: 120, status: 'unvested', projected: true }]),
     events: EQ_VESTS.map((v, i) => {
       const withheld = Math.ceil(v[4] * 0.45);
       return { id: 'demo-eq-v' + i, kind: 'vest', grantId: 'demo-eq-rsu', trancheId: 'demo-eq-rsu-t' + (i + 1), date: v[0], fmv: v[1], fmvSource: 'close', shareCurrency: 'USD',
