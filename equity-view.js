@@ -67,7 +67,6 @@
     var f = _s[0], set = _s[1];
     var upd = function (k) { return function (e) { var v = e.target.value; set(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); }; };
     var RC = W.MaerminReporting;
-    var list = (RC && RC.all && RC.all()) || [];
     var share = String(f.quoteCurrency || '').trim();
     var major = FX() ? FX().majorOf(share).cur : share;
     var shareOk = !!major && (!RC || RC.isValid(major));
@@ -78,7 +77,6 @@
       props.onSave(Object.assign({}, p0, f, { id: p0.id || E().newId('plan'), ticker: f.ticker.trim(), shareCurrency: share, quoteCurrency: share, salaryCurrency: String(f.salaryCurrency).toUpperCase() }));
     };
     return h(UIC.Card, { title: p0.id ? __('eqPlanEdit', 'Edit plan') : __('eqPlanNew', 'New plan'), 'data-testid': 'eq-plan-form' },
-      h('datalist', { id: 'eq-cur-list' }, list.map(function (c) { return h('option', { key: c, value: c }); })),
       h('div', { className: 'ui-form-grid' },
         h(UIC.Input, { label: __('eqEmployer', 'Employer'), value: f.employer, onChange: upd('employer'), autoComplete: 'off' }),
         h(UIC.Input, { label: __('eqTicker', 'Ticker'), value: f.ticker, onChange: upd('ticker'), autoComplete: 'off', hint: __('eqTickerHint', 'As listed, e.g. MSFT, SAP.DE, AZN.L') }),
@@ -130,7 +128,18 @@
       // PSU (Package 3): performance period, multiplier range, vesting afterwards
       perfStart: (g0.psu || {}).perfStart || '', perfEnd: (g0.psu || {}).perfEnd || '', settleDate: (g0.psu || {}).settleDate || '',
       multMin: String((g0.psu || {}).min != null ? g0.psu.min : 0), multTarget: String((g0.psu || {}).target != null ? g0.psu.target : 100), multMax: String((g0.psu || {}).max != null ? g0.psu.max : 200),
-      post: ((g0.psu || {}).post || {}).preset || 'manual'
+      post: ((g0.psu || {}).post || {}).preset || 'manual',
+      // ESPP (Package 4)
+      espp: (function () {
+        var c = g0.contribution || {}, caps = c.caps || {}, k = c.customKinds || {};
+        var str = function (v) { return v != null ? String(v) : ''; };
+        return { anchor: c.anchor || '', periodMonths: str(c.periodMonths || 6), endDate: c.endDate || '', discountPct: str(c.discountPct != null ? c.discountPct : 15),
+          lookback: c.lookback !== false, pct: str(((c.pctHistory || [])[0] || {}).pct != null ? c.pctHistory[0].pct : 10), eligible: c.eligible || 'base',
+          kBonus: !!k.bonus, k13: !!k['13th'], kOther: !!k.other, midPeriodDecrease: !!c.midPeriodDecrease,
+          capCurrency: caps.currency || '', capPeriod: str(caps.periodAmount), capYear: str(caps.yearAmount), capPeriodShares: str(caps.periodShares),
+          capYearShares: str(caps.yearShares), capFmvYear: str(caps.offeringFmvYearAmount), capExcess: caps.excess || 'refund',
+          fxMode: c.fxMode || 'purchase', leftover: c.leftover || 'carry', fractional: !!c.fractional, sellImmediately: !!c.sellImmediately };
+      })()
     });
     var f = _s[0], set = _s[1];
     var put = function (k, v) { set(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); };
@@ -159,13 +168,29 @@
     var psuBad = isPsu && (!f.perfEnd || (f.perfStart && f.perfEnd < f.perfStart) || !(num(f.multMax) >= num(f.multTarget) && num(f.multTarget) >= num(f.multMin) && num(f.multMin) >= 0));
     var can = f.grantDate && (!needsUnits || units > 0) && !customBad && !psuBad && (!schedule || steps.length);
     var norm = schedule ? V().normalizeSchedule(schedule) : null;
+    var e = f.espp;
+    var putE = function (k, v) { put('espp', Object.assign({}, f.espp, (function () { var o = {}; o[k] = v; return o; })())); };
+    var updE = function (k) { return function (ev) { putE(k, ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value); }; };
+    var esppContribution = function () {
+      var c0 = g0.contribution || {}, hist = (c0.pctHistory || []).slice(), anchor = e.anchor || f.grantDate;
+      if (hist.length) hist[0] = { from: hist[0].from, pct: num(e.pct) }; else hist = [{ from: anchor, pct: num(e.pct) }];
+      return Object.assign({}, c0, {
+        anchor: anchor, periodMonths: num(e.periodMonths), endDate: e.endDate || null, discountPct: num(e.discountPct), lookback: !!e.lookback,
+        pctHistory: hist, eligible: e.eligible, customKinds: { base: true, bonus: e.kBonus, '13th': e.k13, other: e.kOther }, midPeriodDecrease: !!e.midPeriodDecrease,
+        caps: { currency: String(e.capCurrency || '').toUpperCase() || null, periodAmount: num(e.capPeriod), yearAmount: num(e.capYear), periodShares: num(e.capPeriodShares),
+          yearShares: num(e.capYearShares), offeringFmvYearAmount: num(e.capFmvYear), excess: e.capExcess },
+        fxMode: e.fxMode, leftover: e.leftover, fractional: !!e.fractional, sellImmediately: !!e.sellImmediately
+      });
+    };
+    var esppBad = f.type === 'ESPP' && (!(num(e.periodMonths) > 0) || !(num(e.discountPct) >= 0 && num(e.discountPct) < 100) || !(num(e.pct) >= 0 && num(e.pct) <= 100));
     var save = function () {
-      if (!can) return;
+      if (!can || esppBad) return;
       props.onSave(Object.assign({}, g0, {
         id: g0.id || E().newId('grant'), planId: props.planId, type: f.type, name: f.name, grantDate: f.grantDate,
         units: needsUnits ? units : null, withholding: f.withholding,
         withholdingRate: num(f.withholdingRate) != null ? num(f.withholdingRate) / 100 : null,
         schedule: schedule, rounding: f.rounding, dividendEquivalents: f.dividendEquivalents,
+        contribution: f.type === 'ESPP' ? esppContribution() : (g0.contribution || null),
         psu: isPsu ? Object.assign({}, g0.psu || {}, {
           perfStart: f.perfStart || f.grantDate, perfEnd: f.perfEnd, settleDate: f.settleDate || null,
           min: num(f.multMin), target: num(f.multTarget), max: num(f.multMax),
@@ -217,6 +242,39 @@
         h('div', { className: 'ui-view__bar' },
           h(UIC.Button, { size: 'sm', onClick: function () { put('custom', f.custom.concat([{ date: '', pct: '' }])); } }, __('eqAddTranche', '+ Tranche')),
           h('span', { className: customBad ? 'tone-loss' : 'num', role: customBad ? 'alert' : undefined }, __('eqPctSum', 'Sum: {pct}', { pct: I.pct(pct, 2) })))) : null,
+      f.type === 'ESPP' ? h('div', { 'data-testid': 'eq-espp-fields' },
+        h('div', { className: 'ui-form-grid' },
+          h(UIC.Input, { label: __('eqOfferingStart', 'First offering starts'), type: 'date', value: e.anchor, onChange: updE('anchor'), hint: __('eqVestStartHint', 'Empty = grant date') }),
+          h(UIC.Input, { label: __('eqPeriodMonths', 'Offering length (months)'), inputMode: 'numeric', value: e.periodMonths, onChange: updE('periodMonths') }),
+          h(UIC.Input, { label: __('eqEndDate', 'Enrolment ends (optional)'), type: 'date', value: e.endDate, onChange: updE('endDate') }),
+          h(UIC.Input, { label: __('eqDiscount', 'Discount (%)'), inputMode: 'decimal', value: e.discountPct, onChange: updE('discountPct') }),
+          h(UIC.Input, { label: __('eqContribPct', 'Contribution (% of pay)'), inputMode: 'decimal', value: e.pct, onChange: updE('pct') }),
+          h(UIC.Select, { label: __('eqEligible', 'Eligible pay'), value: e.eligible, onChange: updE('eligible'), options: [
+            { value: 'base', label: __('eqEligBase', 'Base salary only') }, { value: 'base_bonus', label: __('eqEligBaseBonus', 'Base salary + bonus') },
+            { value: 'custom', label: __('eqEligCustom', 'Chosen pay types') }] }),
+          h(UIC.Select, { label: __('eqFxMode', 'Converted to the share currency'), value: e.fxMode, onChange: updE('fxMode'), options: [
+            { value: 'purchase', label: __('eqFxAtPurchase', 'at the purchase date') }, { value: 'monthly', label: __('eqFxMonthly', 'each month') }] }),
+          h(UIC.Select, { label: __('eqLeftover', 'Cash left after the purchase'), value: e.leftover, onChange: updE('leftover'), options: [
+            { value: 'carry', label: __('eqCarry', 'carried to the next offering') }, { value: 'refund', label: __('eqRefund', 'refunded') }] })),
+        e.eligible === 'custom' ? h('div', { className: 'ui-view__bar' },
+          [['kBonus', __('eqIncBonus', 'Bonus')], ['k13', __('eqInc13th', '13th salary')], ['kOther', __('eqIncOther', 'Other pay')]].map(function (x) {
+            return h('label', { key: x[0], className: 'ui-check' }, h('input', { type: 'checkbox', checked: e[x[0]], onChange: updE(x[0]) }), ' ', x[1]);
+          })) : null,
+        h('div', { className: 'ui-view__bar' },
+          [['lookback', __('eqLookback', 'Lookback (lower of start and purchase price)')], ['midPeriodDecrease', __('eqMidDecrease', 'Decrease allowed during an offering')],
+            ['fractional', __('eqFractional', 'Fractional shares')], ['sellImmediately', __('eqSellImmediately', 'Sell right after each purchase')]].map(function (x) {
+            return h('label', { key: x[0], className: 'ui-check' }, h('input', { type: 'checkbox', checked: e[x[0]], onChange: updE(x[0]) }), ' ', x[1]);
+          })),
+        h('div', { className: 'ui-form-grid' },
+          h(UIC.Input, { label: __('eqCapPeriod', 'Cap per offering (amount)'), inputMode: 'decimal', value: e.capPeriod, onChange: updE('capPeriod') }),
+          h(UIC.Input, { label: __('eqCapYear', 'Cap per year (amount)'), inputMode: 'decimal', value: e.capYear, onChange: updE('capYear') }),
+          h(UIC.Input, { label: __('eqCapCurrency', 'Cap currency'), value: e.capCurrency, onChange: updE('capCurrency'), list: 'eq-cur-list', hint: __('eqCapCurrencyHint', 'Empty = salary currency') }),
+          h(UIC.Input, { label: __('eqCapPeriodShares', 'Max shares per offering'), inputMode: 'decimal', value: e.capPeriodShares, onChange: updE('capPeriodShares') }),
+          h(UIC.Input, { label: __('eqCapYearShares', 'Max shares per year'), inputMode: 'decimal', value: e.capYearShares, onChange: updE('capYearShares') }),
+          h(UIC.Input, { label: __('eqCapFmv', 'Yearly limit at the offering-start price (optional)'), inputMode: 'decimal', value: e.capFmvYear, onChange: updE('capFmvYear'),
+            hint: __('eqCapFmvHint', 'e.g. 25,000 for US plans under § 423, in the share currency') }),
+          h(UIC.Select, { label: __('eqCapExcess', 'Pay over the cap'), value: e.capExcess, onChange: updE('capExcess'), options: [
+            { value: 'refund', label: __('eqRefund', 'refunded') }, { value: 'carry', label: __('eqCarry', 'carried to the next offering') }] }))) : null,
       isPsu ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-psu-fields' },
         h(UIC.Input, { label: __('eqPerfStart', 'Performance period from'), type: 'date', value: f.perfStart, onChange: upd('perfStart'), hint: __('eqVestStartHint', 'Empty = grant date') }),
         h(UIC.Input, { label: __('eqPerfEnd', 'Performance period to'), type: 'date', value: f.perfEnd, onChange: upd('perfEnd'), error: psuBad && !f.perfEnd ? __('eqPerfEndNeeded', 'Needed for the settlement date') : null }),
@@ -241,7 +299,7 @@
         rows: steps.map(function (s, i) { return { id: i, n: i + 1, date: s.date, pct: s.pct, units: alloc[i] }; })
       }) : null,
       h('div', { className: 'ui-view__bar' },
-        h(UIC.Button, { variant: 'primary', disabled: !can, 'data-testid': 'eq-grant-save', onClick: save }, g0.id ? __('eqSave', 'Save') : __('eqAddGrant', 'Add grant')),
+        h(UIC.Button, { variant: 'primary', disabled: !can || esppBad, 'data-testid': 'eq-grant-save', onClick: save }, g0.id ? __('eqSave', 'Save') : __('eqAddGrant', 'Add grant')),
         props.onCancel ? h(UIC.Button, { variant: 'quiet', onClick: props.onCancel }, __('eqCancel', 'Cancel')) : null));
   }
 
@@ -367,6 +425,152 @@
         settled ? h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { props.onSettle(g, null, null); } }, __('eqSettleUndo', 'Undo settlement')) : null) : null);
   }
 
+  // ---- income timeline (Package 4) ---------------------------------------------------
+  // Salary, bonus, 13th salary: what ESPP contributions are calculated from.
+  function incomeKindLabel(k) {
+    return k === 'base' ? __('eqIncBase', 'Base salary') : k === 'bonus' ? __('eqIncBonus', 'Bonus')
+      : k === '13th' ? __('eqInc13th', '13th salary') : __('eqIncOther', 'Other pay');
+  }
+  function IncomeCard(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
+    var entries = (props.income && props.income.entries) || [];
+    var blank = { id: null, from: today(), to: '', kind: 'base', period: 'year', amount: '', currency: props.defaultCurrency || 'EUR', ftePct: '100', note: '' };
+    var _f = React.useState(null), form = _f[0], setForm = _f[1];
+    var upd = function (k) { return function (e) { var v = e.target.value; setForm(function (o) { var n = Object.assign({}, o); n[k] = v; if (k === 'kind') n.period = v === 'base' ? 'year' : 'once'; return n; }); }; };
+    var RC = W.MaerminReporting;
+    var save = function () {
+      var e = { id: form.id || E().newId('inc'), from: form.from, to: form.to || null, kind: form.kind, period: form.period, amount: num(form.amount),
+        currency: String(form.currency || '').toUpperCase(), ftePct: num(form.ftePct), note: form.note };
+      var list = form.id ? entries.map(function (x) { return x.id === form.id ? e : x; }) : entries.concat([e]);
+      props.onChange({ entries: list });
+      setForm(null);
+    };
+    var can = form && form.from && num(form.amount) != null && num(form.amount) >= 0 && (!RC || RC.isValid(String(form.currency || '').toUpperCase()));
+    var amountText = function (x) { return props.privacy ? '••••••' : I.moneyAuto(x.amount, x.currency) + (x.period === 'year' ? ' / ' + __('eqPerYear', 'year') : x.period === 'month' ? ' / ' + __('eqPerMonth', 'month') : ''); };
+    return h(UIC.Card, { title: __('eqIncome', 'Income for ESPP'), subtitle: __('eqIncomeSub', 'Contributions are a % of this pay. Stays encrypted on your device.'), 'data-testid': 'eq-income',
+      action: !form ? h(UIC.Button, { size: 'sm', onClick: function () { setForm(blank); }, 'data-testid': 'eq-income-add' }, __('eqIncomeAdd', '+ Pay')) : null },
+      h(UIC.Table, {
+        caption: __('eqIncome', 'Income for ESPP'),
+        columns: [
+          { key: 'from', label: __('eqFrom', 'From'), phone: 'title', render: function (x) { return I.date(x.from) + (x.to ? ' – ' + I.date(x.to) : ''); } },
+          { key: 'kind', label: __('eqGrantType', 'Type'), phone: 'meta', render: function (x) { return incomeKindLabel(x.kind) + (x.ftePct !== 100 ? ' · ' + I.pct(x.ftePct, 0) : '') + (x.note ? ' · ' + x.note : ''); } },
+          { key: 'amount', label: __('eqAmount', 'Amount'), align: 'right', phone: 'value', render: amountText }
+        ],
+        rows: entries,
+        rowActions: function (x) {
+          return [{ label: __('eqEdit', 'Edit'), onClick: function () { setForm(Object.assign({}, x, { to: x.to || '', amount: String(x.amount), ftePct: String(x.ftePct) })); } },
+            { label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onChange({ entries: entries.filter(function (y) { return y.id !== x.id; }) }); } }];
+        },
+        empty: h('p', { className: 'ui-note' }, __('eqIncomeEmpty', 'No pay entered yet: ESPP contributions need it (or enter each payslip deduction).'))
+      }),
+      form ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-income-form' },
+        h(UIC.Select, { label: __('eqGrantType', 'Type'), value: form.kind, onChange: upd('kind'),
+          options: E().INCOME_KINDS.map(function (k) { return { value: k, label: incomeKindLabel(k) }; }) }),
+        h(UIC.Input, { label: form.period === 'once' ? __('eqPaidOn', 'Paid on') : __('eqFrom', 'From'), type: 'date', value: form.from, onChange: upd('from') }),
+        form.period !== 'once' ? h(UIC.Input, { label: __('eqTo', 'Until (optional)'), type: 'date', value: form.to, onChange: upd('to') }) : null,
+        h(UIC.Select, { label: __('eqPeriod', 'Amount per'), value: form.period, onChange: upd('period'),
+          options: [{ value: 'year', label: __('eqPerYear', 'year') }, { value: 'month', label: __('eqPerMonth', 'month') }, { value: 'once', label: __('eqOnce', 'once') }] }),
+        h(UIC.Input, { label: __('eqAmountGross', 'Gross amount'), inputMode: 'decimal', value: form.amount, onChange: upd('amount'), hint: form.kind === 'base' ? __('eqLeaveHint', 'Parental leave or unpaid time: an entry of 0 for that period') : null }),
+        h(UIC.Input, { label: __('eqSalaryCurrency', 'Salary currency'), value: form.currency, onChange: upd('currency'), list: 'eq-cur-list' }),
+        form.kind === 'base' ? h(UIC.Input, { label: __('eqFte', 'Working time (%)'), inputMode: 'decimal', value: form.ftePct, onChange: upd('ftePct') }) : null,
+        h(UIC.Input, { label: __('eqNote', 'Note'), value: form.note, onChange: upd('note') }),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'primary', disabled: !can, onClick: save, 'data-testid': 'eq-income-save' }, __('eqSave', 'Save'))),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'quiet', onClick: function () { setForm(null); } }, __('eqCancel', 'Cancel')))) : null);
+  }
+
+  // ---- ESPP panel (Package 4) ----------------------------------------------------------
+  function warnText(w, I) {
+    var amt = I.moneyAuto(w.excess, w.currency);
+    return w.kind === 'bonusOverCap' ? __('eqWarnBonusCap', '{month}: the bonus month passes the cap by {amount}', { month: w.month, amount: amt })
+      : w.kind === 'overCap' ? __('eqWarnCap', '{month}: over the cap by {amount}', { month: w.month, amount: amt })
+        : __('eqWarnShares', '{month}: share limit reached, {amount} not invested', { month: w.month, amount: amt });
+  }
+  function EsppPanel(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n, ES = W.MaerminEquityEspp;
+    var g = props.grant, plan = props.plan;
+    var sc = ES.schedule(props.state, g, props.equityOpts);
+    var s = sc.settings;
+    var _p = React.useState(null), pctForm = _p[0], setPctForm = _p[1];
+    var hide = function (t) { return props.privacy ? '••••••' : t; };
+    var money = function (v, c) { return hide(I.moneyAuto(v, c)); };
+    var open = sc.open;
+    var setContribution = function (patch) { props.onUpdateGrant(Object.assign({}, g, { contribution: Object.assign({}, g.contribution, patch) })); };
+    var setActual = function (m, v) {
+      var a = Object.assign({}, (g.contribution || {}).actuals || {});
+      var n = num(v);
+      if (n == null) delete a[m]; else a[m] = n;
+      setContribution({ actuals: a });
+    };
+    var done = sc.offerings.filter(function (r) { return r.purchase; });
+    var rc = done.length ? ES.returnOnCash(sc, plan, props.baseCurrency, props.equityOpts.fxCtx) : null;
+    // lookback: the highest price the current offering can cost, and the gain it locks in
+    var series = props.equityOpts.closes(plan.ticker);
+    var startPx = open && W.MaerminEquityVesting.fmvOn(series, open.start, 'close');
+    var maxPrice = open && s.lookback && startPx ? startPx.fmv * (1 - s.discountPct / 100) : null;
+    var minGain = open && maxPrice && open.cash > 0 ? open.cash * s.discountPct / (100 - s.discountPct) : null;
+    return h('div', { className: 'ui-card', 'data-testid': 'eq-espp-' + g.id },
+      h('b', null, typeLabel(g.type) + (g.name ? ' · ' + g.name : '')),
+      h('p', { className: 'ui-note' }, __('eqEsppTerms', '{pct} of pay · {disc} discount{lookback} · offerings of {months} months · cash {cur}', {
+        pct: I.pct((s.pctHistory[s.pctHistory.length - 1] || { pct: 0 }).pct, 1), disc: I.pct(s.discountPct, 1),
+        lookback: s.lookback ? ' ' + __('eqWithLookback', 'with lookback') : '', months: s.periodMonths, cur: sc.cashCurrency })),
+      h('div', { className: 'ui-ov-tiles' },
+        h(UIC.Stat, { label: __('nwEsppCash', 'ESPP cash'), value: money(sc.cash, sc.cashCurrency), sub: open ? __('eqOfferingRuns', 'Offering {from} – {to}', { from: I.date(open.start), to: I.date(open.end) }) : __('eqNoOpenOffering', 'No open offering') }),
+        maxPrice ? h(UIC.Stat, { label: __('eqMaxPrice', 'Highest purchase price'), value: hide(I.moneyAuto(maxPrice, plan.shareCurrency)),
+          sub: minGain ? __('eqMinGain', 'locks in at least {amount} if the price stays above the start', { amount: money(minGain, sc.cashCurrency) }) : null }) : null,
+        rc && rc.salary != null ? h(UIC.Stat, { label: __('eqReturnOnCash', 'Return on contributed cash'), value: I.pct(rc.salary * 100, 1) + ' ' + __('eqPa', 'p.a.'),
+          sub: (rc.base != null && props.baseCurrency !== sc.cashCurrency ? __('eqInBase', 'in {cur}: {pct} p.a.', { cur: props.baseCurrency, pct: I.pct(rc.base * 100, 1) }) + ' · ' : '')
+            + __('eqReturnNote', 'annualised: each deduction is in the plan for a few months only') }) : null),
+      open ? h(UIC.Table, {
+        caption: __('eqOpenMonths', 'This offering'), 'data-testid': 'eq-espp-months', layout: 'table',
+        columns: [
+          { key: 'm', label: __('eqMonth', 'Month'), render: function (x) { return x.month; } },
+          { key: 'el', label: __('eqEligiblePay', 'Eligible pay'), align: 'right', priority: 2, render: function (x) { return money(x.eligible, x.currency); } },
+          { key: 'calc', label: __('eqCalculated', 'Calculated'), align: 'right', render: function (x) { return money(x.calculated, x.currency); } },
+          { key: 'act', label: __('eqPayslip', 'Payslip'), align: 'right', render: function (x) {
+            return h('input', { className: ['ui-input', 'num'].join(' '), inputMode: 'decimal', 'aria-label': __('eqPayslipFor', 'Deduction on the payslip for {month}', { month: x.month }),
+              defaultValue: x.actual != null ? String(x.actual) : '', placeholder: String(x.calculated), size: 8,
+              onBlur: function (e) { if (String(e.target.value) !== (x.actual != null ? String(x.actual) : '')) setActual(x.month, e.target.value); } });
+          } },
+          { key: 'st', label: __('eqStatus', 'Status'), render: function (x) { return x.withdrawn ? __('eqWithdrawn', 'Withdrawn') : x.confirmed ? __('eqConfirmed', 'Confirmed') : __('eqCalculatedShort', 'Calculated'); } }
+        ],
+        rows: open.months.map(function (x) { return Object.assign({ id: x.month }, x); }),
+        empty: h('p', { className: 'ui-note' }, __('eqNoMonthYet', 'No payroll month in this offering yet.'))
+      }) : null,
+      open && (open.headroom.period != null || open.headroom.year != null) ? h('p', { className: 'ui-note', 'data-testid': 'eq-espp-headroom' },
+        __('eqHeadroom', 'Room left under the cap: {period} this offering, {year} this year', {
+          period: open.headroom.period != null ? money(open.headroom.period, open.headroom.currency) : '–', year: open.headroom.year != null ? money(open.headroom.year, open.headroom.currency) : '–' })) : null,
+      sc.offerings.some(function (r) { return r.warnings.length; }) ? h('ul', { className: 'ui-note', 'data-testid': 'eq-espp-warnings' },
+        sc.offerings.reduce(function (a, r) { return a.concat(r.warnings); }, []).map(function (w, i) { return h('li', { key: i, className: 'tone-warning' }, warnText(w, I) + (s.caps.excess === 'carry' ? ' · ' + __('eqCarried', 'carried over') : ' · ' + __('eqRefunded', 'refunded'))); })) : null,
+      done.length ? h(UIC.Table, {
+        caption: __('eqPurchases', 'Purchases'), 'data-testid': 'eq-espp-purchases',
+        columns: [
+          { key: 'end', label: __('eqPurchaseDate', 'Purchase date'), phone: 'title', render: function (r) { return I.date(r.end); } },
+          { key: 'paid', label: __('eqContributed', 'Contributed'), align: 'right', priority: 2, render: function (r) { return money(r.contributed + r.carryIn, r.currency); } },
+          { key: 'units', label: __('eqUnitsShort', 'units'), align: 'right', phone: 'value', render: function (r) { return I.num(r.purchase.units, { min: 0, max: 4 }); } },
+          { key: 'price', label: __('eqPrice', 'Price'), align: 'right', phone: 'meta', render: function (r) { return hide(I.moneyAuto(r.purchase.price, plan.shareCurrency)) + ' / ' + hide(I.moneyAuto(r.purchase.fmvEnd, plan.shareCurrency)); } },
+          { key: 'gain', label: __('eqDiscountGain', 'Discount + lookback'), align: 'right', priority: 2, render: function (r) {
+            return r.purchase.manual ? '–' : hide(I.moneyAuto(r.purchase.discountAmount, plan.shareCurrency)) + ' + ' + hide(I.moneyAuto(r.purchase.lookbackGain, plan.shareCurrency)); } },
+          { key: 'eff', label: __('eqEffDiscount', 'Eff. discount'), align: 'right', phone: 'sub', render: function (r) { return r.purchase.manual ? '–' : I.pct(r.purchase.effectiveDiscountPct, 1); } },
+          { key: 'rest', label: __('eqRefundCarry', 'Refund / carry'), align: 'right', priority: 3, render: function (r) { return money(r.refund, r.currency) + ' / ' + money(r.carryOut, r.currency); } }
+        ],
+        rows: done.slice().reverse().map(function (r) { return Object.assign({ id: r.start }, r); })
+      }) : null,
+      sc.missing.length ? h('p', { className: 'ui-note tone-warning' }, __('eqEsppMissing', '{n} {n:purchase waits|purchases wait} for price or rate history.', { n: sc.missing.length })) : null,
+      pctForm ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-espp-pct' },
+        h(UIC.Input, { label: __('eqNewPct', 'New contribution (%)'), inputMode: 'decimal', value: pctForm.pct, onChange: function (e) { setPctForm(Object.assign({}, pctForm, { pct: e.target.value })); } }),
+        h(UIC.Input, { label: __('eqFrom', 'From'), type: 'date', value: pctForm.from, onChange: function (e) { setPctForm(Object.assign({}, pctForm, { from: e.target.value })); },
+          hint: s.midPeriodDecrease ? __('eqPctHintDecrease', 'A decrease counts from this month; an increase from the next offering') : __('eqPctHintOffering', 'Counts from the next offering start') }),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'primary', disabled: !(num(pctForm.pct) >= 0) || !pctForm.from,
+          onClick: function () { setContribution({ pctHistory: ((g.contribution || {}).pctHistory || []).concat([{ from: pctForm.from, pct: num(pctForm.pct) }]) }); setPctForm(null); } }, __('eqSave', 'Save'))),
+        h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { variant: 'quiet', onClick: function () { setPctForm(null); } }, __('eqCancel', 'Cancel')))) : null,
+      h('div', { className: 'ui-view__bar' },
+        !pctForm ? h(UIC.Button, { size: 'sm', onClick: function () { setPctForm({ pct: '', from: today() }); } }, __('eqChangePct', 'Change contribution %')) : null,
+        open && !s.withdrawals.length ? h(UIC.Button, { size: 'sm', variant: 'danger', onClick: function () {
+          W.MaerminUtils.confirmThen({ title: __('eqWithdrawConfirm', 'Withdraw from the ESPP? Contributions stop and this offering\'s cash is refunded.'), confirmLabel: __('eqWithdraw', 'Withdraw'), cancelLabel: __('cancel', 'Cancel') },
+            function () { setContribution({ withdrawals: [{ date: today() }] }); });
+        } }, __('eqWithdraw', 'Withdraw')) : null));
+  }
+
   // ---- plan card -------------------------------------------------------------------
   function PlanCard(props) {
     var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
@@ -434,6 +638,9 @@
         rows: events,
         rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteEvent(r); } }]; }
       }) : null,
+      grants.filter(function (g) { return g.type === 'ESPP' && g.contribution && W.MaerminEquityEspp && props.equityOpts; }).map(function (g) {
+        return h(EsppPanel, { key: g.id, grant: g, plan: plan, state: st, equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy, onUpdateGrant: props.onEditGrantKeep });
+      }),
       grants.filter(function (g) { return g.type === 'PSU' && g.psu; }).map(function (g) {
         return h(PsuPanel, { key: g.id, grant: g, plan: plan, priceEUR: props.priceEUR, money: money, privacy: props.privacy, onSettle: props.onSettlePsu });
       }),
@@ -503,7 +710,9 @@
       h(UIC.Stat, { key: 'plans', label: __('eqPlans', 'Plans'), value: String(st.plans.length) })
     ];
 
+    var curList = (W.MaerminReporting && W.MaerminReporting.all && W.MaerminReporting.all()) || [];
     return h('div', { className: 'ui-view', 'data-testid': 'equity-view' },
+      h('datalist', { id: 'eq-cur-list' }, curList.map(function (c) { return h('option', { key: c, value: c }); })),
       h('div', { className: 'ui-view__bar' },
         h('p', { className: 'ui-view__lead' }, __('eqLead', 'RSU, PSU, ESPP and match shares from your employer. Every vest and purchase becomes a normal lot with its market value as cost basis.')),
         !form ? h(UIC.Button, { variant: 'primary', onClick: function () { setForm({}); }, 'data-testid': 'eq-add-plan' }, __('eqAddPlan', '+ Add plan')) : null),
@@ -534,12 +743,21 @@
               events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto'; }),
               tranches: st.tranches.filter(function (t) { return t.grantId !== g.id || st.events.some(function (e) { return e.trancheId === t.id && e.source !== 'auto'; }); }) }));
           },
+          // ESPP settings changed (contribution %, payslip amounts, withdrawal):
+          // the auto purchases follow on the next regenerate; nothing else is dropped
+          onEditGrantKeep: function (g) {
+            commit(Object.assign({}, st, { grants: st.grants.map(function (x) { return x.id === g.id ? g : x; }),
+              events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto' || e.kind !== 'purchase'; }) }));
+          },
+          equityOpts: props.equityOpts,
           onSetTrancheStatus: function (t, status) {
             commit(withList('tranches', st.tranches.map(function (x) { return x.id === t.id ? Object.assign({}, x, { status: status }) : x; })));
           },
           transactions: props.transactions,
           onAddEvent: function (ev) { commit(withList('events', st.events.concat([ev]))); if (props.addToast) props.addToast(__('eqEventBooked', 'Event booked: its lot is in your transactions.'), 'success'); } });
       }),
+      st.plans.length && W.MaerminEquityEspp ? h(IncomeCard, { income: props.income, onChange: props.onIncomeChange, privacy: props.privacy,
+        defaultCurrency: (st.plans[0] || {}).salaryCurrency }) : null,
       st.plans.length ? h(UIC.Card, { title: __('eqSettings', 'Settings'), 'data-testid': 'eq-settings' },
         h('label', { className: 'ui-check' },
           h('input', { type: 'checkbox', checked: st.settings.includeUnvested, onChange: function (e) { setSetting('includeUnvested', e.target.checked); }, 'data-testid': 'eq-include-unvested' }),
