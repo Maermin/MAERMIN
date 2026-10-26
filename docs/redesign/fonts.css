@@ -1,8 +1,0 @@
-/* PROTOTYPE — the app's own self-hosted fonts (OFL, ../../fonts). No remote fonts. */
-@font-face { font-family: 'Geist'; src: url('../../fonts/geist-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
-@font-face { font-family: 'Geist'; src: url('../../fonts/geist-latin-ext-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF; }
-@font-face { font-family: 'Geist Mono'; src: url('../../fonts/geist-mono-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
-/* privacy mode: every amount is wrapped in .m */
-[data-mask="1"] .m { color: transparent !important; position: relative; }
-[data-mask="1"] .m::after { content: '••••••'; position: absolute; left: 0; right: 0; color: var(--dim, #888); letter-spacing: .08em; text-align: inherit; }
-[data-mask="1"] .m * { color: transparent !important; }

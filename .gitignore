@@ -46,5 +46,22 @@ desktop.ini
 # Local, unreleased security audit findings
 docs/AUDIT.security.local.md
 
+# Internal working docs: plans, audits, milestone reports, agent briefs,
+# reviews, design prototypes and PR screenshots. They stay on the developer's
+# machine and are not published. The README pictures (atlas-map) stay public.
+/PLAN.md
+/AUDIT.md
+/FINDINGS.md
+/docs/AUDIT.md
+/docs/*-REPORT.md
+/docs/*-AGENT-PROMPT.md
+/docs/COMPETITOR-REVIEW-*.md
+/docs/REDESIGN-AUDIT.md
+/docs/REVIEW-*.md
+/docs/USABILITY.md
+/docs/redesign/
+/docs/screenshots/*
+!/docs/screenshots/atlas-map/
+
 # P5-5.2: vendored app modules of the maermin-mcp package (npm pack)
 mcp/app/

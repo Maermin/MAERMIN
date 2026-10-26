@@ -29,7 +29,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **v10 Dashboard** | `dashboard-layout.js` | Reorder/hide Overview cards, build-safe layout reconciliation, in backup | `test/dashboard-layout.test.js` |
 | **Corporate actions** | `corporate-actions.js`, `metrics.js`, `tax-report-builder.js`, `cf-worker/worker.js` (`?action=yf` splits) | Stock/reverse splits applied as a centralised overlay in `MaerminMetrics.buildPositions` + the tax FIFO (identity until a split is recorded, cash-amount-invariant) · manual entry + best-effort Worker auto-detect · managed in the position detail modal + a global Settings list · key `maermin_corporate_actions`, in backup | `test/corporate-actions.test.js` |
 
-### Phase 4 — Competitive features (PLAN.md, from 2026-10-09)
+### Phase 4 — Competitive features (from 2026-10-09)
 
 | Package | Module(s) | Status | Tests |
 |---|---|---|---|
@@ -66,15 +66,15 @@ Risk / Health views (no new tabs), plus a Settings card exposing
 
 ---
 
-## Shipped — v12 "Atlas" (PLAN.md Phase 5, released 2026-10-15), the "Atlas Map" redesign (Phase 6, v12.1, 2026-10-23) and "Atlas Charts" (Phase 7, v12.2, 2026-10-24)
+## Shipped — v12 "Atlas" (Phase 5, released 2026-10-15), the "Atlas Map" redesign (Phase 6, v12.1, 2026-10-23) and "Atlas Charts" (Phase 7, v12.2, 2026-10-24)
 
-**v12.2 "Atlas Charts"** (PLAN.md Phase 7, #231–#241): a Charts workspace in Insight (advanced mode): candles from the user's own Worker (OHLCV since Worker 2026.10.15), 1m … 1M, linear / log / percent, prices in EUR, 12 indicators and up to 3 compared symbols, the user's own trades and average cost on the chart, a technical rating with every vote shown, 9 drawing tools saved per symbol, price alerts from a horizontal line, keyboard and screen-reader support. One pinned third-party library (KLineChart 10.1.0, SRI). See RELEASE.md `[v12.2.0]`.
+**v12.2 "Atlas Charts"** (Phase 7, #231–#241): a Charts workspace in Insight (advanced mode): candles from the user's own Worker (OHLCV since Worker 2026.10.15), 1m … 1M, linear / log / percent, prices in EUR, 12 indicators and up to 3 compared symbols, the user's own trades and average cost on the chart, a technical rating with every vote shown, 9 drawing tools saved per symbol, price alerts from a horizontal line, keyboard and screen-reader support. One pinned third-party library (KLineChart 10.1.0, SRI). See RELEASE.md `[v12.2.0]`.
 
-The redesign (PLAN.md Phase 6, v12.1) changed look and layout only: a rail and dock shell, one component library, five themes on one set of tokens, WCAG AA contrast in all of them. See RELEASE.md `[v12.1.0]` and [docs/REDESIGN-R5-REPORT.md](docs/REDESIGN-R5-REPORT.md).
+The redesign (Phase 6, v12.1) changed look and layout only: a rail and dock shell, one component library, five themes on one set of tokens, WCAG AA contrast in all of them. See RELEASE.md `[v12.1.0]` and [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md).
 
 v12 "Atlas":
 
-*Atlas — the whole map of your wealth.* One major release in five milestones, built from the October 2026 competitor review ([docs/COMPETITOR-REVIEW-2026-10.md](docs/COMPETITOR-REVIEW-2026-10.md)). Packages, order and decisions live in [PLAN.md](PLAN.md) → Phase 5; the agent brief is [docs/ATLAS-AGENT-PROMPT.md](docs/ATLAS-AGENT-PROMPT.md).
+*Atlas — the whole map of your wealth.* One major release in five milestones, built from a review of competing portfolio trackers in October 2026.
 
 | Milestone | Highlights |
 |---|---|
@@ -93,7 +93,7 @@ The V7 rule (no new tabs) has exactly two owner-approved exceptions. Anything el
 | Surface | Decided | Why it is a tab of its own |
 |---|---|---|
 | **Discovery** | Phase 5 (v12 "Atlas") | Screens assets you don't own; no existing view holds a market universe. |
-| **Charts** | 2026-10-23, Phase 7 (v12.2 "Atlas Charts") | A full-height interactive chart workspace (candles, timeframes, indicators, drawings, compare, your own trades) does not fit inside Research. Insight area, advanced mode, placed right after Research; Research keeps its own price chart and links to Charts. Scope: `PLAN.md` Phase 7, brief `docs/CHARTS-AGENT-PROMPT.md`. |
+| **Charts** | 2026-10-23, Phase 7 (v12.2 "Atlas Charts") | A full-height interactive chart workspace (candles, timeframes, indicators, drawings, compare, your own trades) does not fit inside Research. Insight area, advanced mode, placed right after Research; Research keeps its own price chart and links to Charts. |
 
 ---
 
