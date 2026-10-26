@@ -100,29 +100,129 @@
         h(UIC.Button, { variant: 'quiet', onClick: props.onCancel }, __('eqCancel', 'Cancel'))));
   }
 
-  // ---- grant form ----------------------------------------------------------------
+  // ---- grant form (Package 2: RSU schedule) ------------------------------------------
+  // A grant with a schedule gets its tranches from equity-vesting.js; past ones
+  // become vests from the price and FX history, future ones stay projected.
+  function V() { return W.MaerminEquityVesting; }
+  var PRESET_IDS = ['4y_cliff_quarterly', '4y_cliff_monthly', '3y_yearly', '25_25_25_25', 'custom', 'manual'];
+  function presetLabel(id) {
+    return id === '4y_cliff_quarterly' ? __('eqPreset4yQ', '4 years, 1-year cliff, then quarterly')
+      : id === '4y_cliff_monthly' ? __('eqPreset4yM', '4 years, 1-year cliff, then monthly')
+        : id === '3y_yearly' ? __('eqPreset3y', '3 years, yearly')
+          : id === '25_25_25_25' ? __('eqPreset25', '25 / 25 / 25 / 25 (yearly)')
+            : id === 'custom' ? __('eqPresetCustom', 'Own tranches (uneven %)') : __('eqPresetManual', 'No schedule (book vests by hand)');
+  }
+  function roundingLabel(r) {
+    return r === 'floor_trueup' ? __('eqRoundFloor', 'Round down per tranche, rest on the last')
+      : r === 'floor_cumulative' ? __('eqRoundCumulative', 'Round down cumulatively (spreads the rest)')
+        : r === 'round' ? __('eqRoundRound', 'Round per tranche, rest on the last') : __('eqRoundNone', 'Fractional units');
+  }
   function GrantForm(props) {
-    var React = W.React, h = React.createElement, UIC = W.MaerminComponents;
-    var _s = React.useState({ type: 'RSU', name: '', grantDate: today(), units: '', withholding: 'sell_to_cover' });
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
+    var g0 = props.grant || {}, s0 = g0.schedule || {};
+    var _s = React.useState({
+      type: g0.type || 'RSU', name: g0.name || '', grantDate: g0.grantDate || today(), units: g0.units != null ? String(g0.units) : '',
+      withholding: g0.withholding || 'sell_to_cover', withholdingRate: g0.withholdingRate != null ? String(Math.round(g0.withholdingRate * 1000) / 10) : '',
+      preset: g0.id && !g0.schedule ? 'manual' : (s0.custom ? 'custom' : s0.preset || '4y_cliff_quarterly'),
+      start: s0.start || '', years: s0.years != null ? String(s0.years) : '', cliffMonths: s0.cliffMonths != null ? String(s0.cliffMonths) : '', freqMonths: s0.freqMonths != null ? String(s0.freqMonths) : '',
+      custom: (s0.custom || [{ date: '', pct: '' }]).map(function (c) { return { date: c.date || '', pct: c.pct != null ? String(c.pct) : '' }; }),
+      rounding: g0.rounding || 'floor_trueup', fmvSource: s0.fmvSource || 'close', dividendEquivalents: !!g0.dividendEquivalents
+    });
     var f = _s[0], set = _s[1];
-    var upd = function (k) { return function (e) { var v = e.target.value; set(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); }; };
-    var needsUnits = f.type === 'RSU' || f.type === 'PSU';
-    var can = f.grantDate && (!needsUnits || num(f.units) > 0);
-    return h('div', { className: 'ui-form-grid', 'data-testid': 'eq-grant-form' },
-      h(UIC.Select, { label: __('eqGrantType', 'Type'), value: f.type, onChange: upd('type'),
-        options: E().GRANT_TYPES.map(function (t) { return { value: t, label: typeLabel(t) }; }) }),
-      h(UIC.Input, { label: __('eqGrantName', 'Name (optional)'), value: f.name, onChange: upd('name') }),
-      h(UIC.Input, { label: __('eqGrantDate', 'Grant date'), type: 'date', value: f.grantDate, onChange: upd('grantDate') }),
-      needsUnits ? h(UIC.Input, { label: f.type === 'PSU' ? __('eqTargetUnits', 'Target units') : __('eqUnits', 'Units'), inputMode: 'decimal', value: f.units, onChange: upd('units') }) : null,
-      needsUnits ? h(UIC.Select, { label: __('eqWithholding', 'Tax withholding'), value: f.withholding, onChange: upd('withholding'),
-        options: [
-          { value: 'sell_to_cover', label: __('eqWhSellToCover', 'Sell-to-cover (shares sold)') },
-          { value: 'payroll', label: __('eqWhPayroll', 'Through payroll (no shares withheld)') },
-          { value: 'none', label: __('eqWhNone', 'None') }] }) : null,
-      h('div', { className: 'ui-form-grid__action' },
-        h(UIC.Button, { variant: 'primary', disabled: !can, 'data-testid': 'eq-grant-save', onClick: function () {
-          props.onSave({ id: E().newId('grant'), planId: props.planId, type: f.type, name: f.name, grantDate: f.grantDate, units: needsUnits ? num(f.units) : null, withholding: f.withholding });
-        } }, __('eqAddGrant', 'Add grant'))));
+    var put = function (k, v) { set(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); };
+    var upd = function (k) { return function (e) { put(k, e.target.value); }; };
+    var vesting = f.type === 'RSU' || f.type === 'MATCH';
+    var needsUnits = f.type === 'RSU' || f.type === 'PSU' || f.type === 'MATCH';
+    var schedule = null;
+    if (vesting && f.preset !== 'manual') {
+      schedule = f.preset === 'custom'
+        ? { custom: f.custom.map(function (c) { return { date: c.date, pct: num(c.pct) }; }).filter(function (c) { return c.date && c.pct > 0; }) }
+        : { preset: f.preset };
+      if (f.preset !== 'custom') {
+        if (num(f.years) > 0) schedule.years = num(f.years);
+        if (num(f.cliffMonths) != null) schedule.cliffMonths = num(f.cliffMonths);
+        if (num(f.freqMonths) > 0) schedule.freqMonths = num(f.freqMonths);
+      }
+      if (f.start) schedule.start = f.start;
+      schedule.fmvSource = f.fmvSource;
+    }
+    var steps = schedule ? V().steps(schedule, f.grantDate) : [];
+    var pct = V().pctSum(steps);
+    var units = num(f.units);
+    var alloc = steps.length && units > 0 ? V().allocate(units, steps.map(function (x) { return x.pct; }), f.rounding) : [];
+    var customBad = f.preset === 'custom' && Math.abs(pct - 100) > 1e-6;
+    var can = f.grantDate && (!needsUnits || units > 0) && !customBad && (!schedule || steps.length);
+    var norm = schedule ? V().normalizeSchedule(schedule) : null;
+    var save = function () {
+      if (!can) return;
+      props.onSave(Object.assign({}, g0, {
+        id: g0.id || E().newId('grant'), planId: props.planId, type: f.type, name: f.name, grantDate: f.grantDate,
+        units: needsUnits ? units : null, withholding: f.withholding,
+        withholdingRate: num(f.withholdingRate) != null ? num(f.withholdingRate) / 100 : null,
+        schedule: schedule, rounding: f.rounding, dividendEquivalents: f.dividendEquivalents
+      }));
+    };
+    var editRow = function (i, k) {
+      return function (e) {
+        var v = e.target.value;
+        put('custom', f.custom.map(function (x, j) { if (j !== i) return x; var o = Object.assign({}, x); o[k] = v; return o; }));
+      };
+    };
+    var showFields = vesting && f.preset !== 'manual';
+    var showPeriods = showFields && f.preset !== 'custom';
+    return h('div', { 'data-testid': 'eq-grant-form' },
+      h('div', { className: 'ui-form-grid' },
+        h(UIC.Select, { label: __('eqGrantType', 'Type'), value: f.type, onChange: upd('type'), disabled: !!g0.id,
+          options: E().GRANT_TYPES.map(function (t) { return { value: t, label: typeLabel(t) }; }) }),
+        h(UIC.Input, { label: __('eqGrantName', 'Name (optional)'), value: f.name, onChange: upd('name') }),
+        h(UIC.Input, { label: __('eqGrantDate', 'Grant date'), type: 'date', value: f.grantDate, onChange: upd('grantDate') }),
+        needsUnits ? h(UIC.Input, { label: f.type === 'PSU' ? __('eqTargetUnits', 'Target units') : __('eqUnits', 'Units'), inputMode: 'decimal', value: f.units, onChange: upd('units') }) : null,
+        needsUnits ? h(UIC.Select, { label: __('eqWithholding', 'Tax withholding'), value: f.withholding, onChange: upd('withholding'),
+          options: [
+            { value: 'sell_to_cover', label: __('eqWhSellToCover', 'Sell-to-cover (shares sold)') },
+            { value: 'payroll', label: __('eqWhPayroll', 'Through payroll (no shares withheld)') },
+            { value: 'none', label: __('eqWhNone', 'None') }] }) : null,
+        needsUnits && f.withholding === 'sell_to_cover' ? h(UIC.Input, { label: __('eqWhRate', 'Shares withheld (%)'), inputMode: 'decimal', value: f.withholdingRate, onChange: upd('withholdingRate'),
+          hint: __('eqWhRateHint', 'Estimate for auto vests; enter the real number per vest from the statement') }) : null),
+      vesting ? h('div', { className: 'ui-form-grid', 'data-testid': 'eq-schedule' },
+        h(UIC.Select, { label: __('eqSchedule', 'Vesting schedule'), value: f.preset, onChange: upd('preset'),
+          options: PRESET_IDS.map(function (p) { return { value: p, label: presetLabel(p) }; }) }),
+        showFields ? h(UIC.Input, { label: __('eqVestStart', 'Vesting start (optional)'), type: 'date', value: f.start, onChange: upd('start'), hint: __('eqVestStartHint', 'Empty = grant date') }) : null,
+        showPeriods ? h(UIC.Input, { label: __('eqYears', 'Years'), inputMode: 'decimal', value: f.years, placeholder: norm ? String(norm.years) : '', onChange: upd('years') }) : null,
+        showPeriods ? h(UIC.Input, { label: __('eqCliff', 'Cliff (months)'), inputMode: 'numeric', value: f.cliffMonths, placeholder: norm ? String(norm.cliffMonths) : '', onChange: upd('cliffMonths') }) : null,
+        showPeriods ? h(UIC.Input, { label: __('eqFreq', 'Then every (months)'), inputMode: 'numeric', value: f.freqMonths, placeholder: norm ? String(norm.freqMonths) : '', onChange: upd('freqMonths') }) : null,
+        showFields ? h(UIC.Select, { label: __('eqRounding', 'Fractional units'), value: f.rounding, onChange: upd('rounding'),
+          options: E().ROUNDING.map(function (r) { return { value: r, label: roundingLabel(r) }; }) }) : null,
+        showFields ? h(UIC.Select, { label: __('eqFmvSource', 'Market value at vest'), value: f.fmvSource, onChange: upd('fmvSource'),
+          options: [{ value: 'close', label: __('eqFmvClose', 'Close of the vest day') }, { value: 'prevClose', label: __('eqFmvPrevClose', 'Close of the day before') }] }) : null) : null,
+      vesting && f.preset === 'custom' ? h('div', { 'data-testid': 'eq-custom-tranches' },
+        f.custom.map(function (c, i) {
+          return h('div', { key: i, className: 'ui-form-grid' },
+            h(UIC.Input, { label: __('eqTrancheDate', 'Tranche {n}: date', { n: i + 1 }), type: 'date', value: c.date, onChange: editRow(i, 'date') }),
+            h(UIC.Input, { label: __('eqTranchePct', 'Share of the grant (%)'), inputMode: 'decimal', value: c.pct, onChange: editRow(i, 'pct') }),
+            h('div', { className: 'ui-form-grid__action' }, h(UIC.Button, { size: 'sm', variant: 'quiet', disabled: f.custom.length < 2,
+              onClick: function () { put('custom', f.custom.filter(function (x, j) { return j !== i; })); } }, __('eqRemove', 'Remove'))));
+        }),
+        h('div', { className: 'ui-view__bar' },
+          h(UIC.Button, { size: 'sm', onClick: function () { put('custom', f.custom.concat([{ date: '', pct: '' }])); } }, __('eqAddTranche', '+ Tranche')),
+          h('span', { className: customBad ? 'tone-loss' : 'num', role: customBad ? 'alert' : undefined }, __('eqPctSum', 'Sum: {pct}', { pct: I.pct(pct, 2) })))) : null,
+      vesting ? h('label', { className: 'ui-check' },
+        h('input', { type: 'checkbox', checked: f.dividendEquivalents, onChange: function (e) { put('dividendEquivalents', e.target.checked); } }),
+        ' ', __('eqDivEq', 'Dividend equivalents on unvested units')) : null,
+      alloc.length ? h(UIC.Table, {
+        caption: __('eqPreview', 'Preview'), 'data-testid': 'eq-schedule-preview', layout: 'table',
+        columns: [
+          { key: 'n', label: '#', render: function (r) { return String(r.n); } },
+          { key: 'date', label: __('eqDate', 'Date'), render: function (r) { return I.date(r.date); } },
+          { key: 'pct', label: '%', align: 'right', render: function (r) { return I.pct(r.pct, 2); } },
+          { key: 'units', label: __('eqUnits', 'Units'), align: 'right', render: function (r) { return I.num(r.units, { min: 0, max: 4 }); } },
+          { key: 'state', label: __('eqStatus', 'Status'), render: function (r) { return r.date <= today() ? __('eqVested', 'Vested') : __('eqProjected', 'Projected'); } }
+        ],
+        rows: steps.map(function (s, i) { return { id: i, n: i + 1, date: s.date, pct: s.pct, units: alloc[i] }; })
+      }) : null,
+      h('div', { className: 'ui-view__bar' },
+        h(UIC.Button, { variant: 'primary', disabled: !can, 'data-testid': 'eq-grant-save', onClick: save }, g0.id ? __('eqSave', 'Save') : __('eqAddGrant', 'Add grant')),
+        props.onCancel ? h(UIC.Button, { variant: 'quiet', onClick: props.onCancel }, __('eqCancel', 'Cancel')) : null));
   }
 
   // ---- event form (manual vest / purchase / delivery) ----------------------------
@@ -175,12 +275,53 @@
         h(UIC.Button, { variant: 'quiet', onClick: props.onCancel }, __('eqCancel', 'Cancel'))));
   }
 
+  // ---- tranches of one grant (Package 2) ------------------------------------------------
+  function TrancheList(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n, M = E();
+    var g = props.grant;
+    if (!g) return null;
+    var tr = M.tranchesOf(props.state, g.id), evs = M.eventsOf(props.state, g.id);
+    var evOf = function (t) { return evs.filter(function (e) { return e.trancheId === t.id; })[0]; };
+    var status = function (t) {
+      return t.status === 'forfeited' ? __('eqForfeited', 'Forfeited') : t.status === 'settled' ? __('eqSettled', 'Settled')
+        : t.status === 'vested' ? __('eqVested', 'Vested') : t.projected ? __('eqProjected', 'Projected') : __('eqUnvested', 'Unvested');
+    };
+    var de = g.dividendEquivalents && W.MaerminEquityVesting
+      ? W.MaerminEquityVesting.dividendEquivalents(tr, W.MaerminEquityVesting.dividendsFromTransactions(props.transactions, props.plan.ticker), today(), g.grantDate) : [];
+    var deSum = de.reduce(function (a, x) { return a + x.amount; }, 0);
+    return h('div', { 'data-testid': 'eq-tranches-' + g.id },
+      h(UIC.Table, {
+        caption: __('eqTranches', 'Tranches'),
+        columns: [
+          { key: 'date', label: __('eqDate', 'Date'), phone: 'title', render: function (t) { return I.date(t.date); } },
+          { key: 'units', label: __('eqUnits', 'Units'), align: 'right', phone: 'value', render: function (t) { return I.num(t.units, { min: 0, max: 4 }); } },
+          { key: 'status', label: __('eqStatus', 'Status'), phone: 'meta', render: function (t) { return status(t); } },
+          { key: 'ev', label: __('eqFmvShort', 'FMV'), align: 'right', phone: 'sub', render: function (t) {
+            var e = evOf(t);
+            if (e) return props.privacy ? '••••••' : I.moneyAuto(e.fmv, e.shareCurrency) + (e.fmvDate && e.fmvDate !== e.date ? ' (' + I.date(e.fmvDate) + ')' : '');
+            return t.status === 'vested' ? h('span', { className: 'tone-warning' }, __('eqNoPriceYet', 'no price yet - loads with the history, or book it by hand')) : '–';
+          } }
+        ],
+        rows: tr,
+        rowActions: function (t) {
+          if (t.status === 'unvested') return [{ label: __('eqMarkForfeited', 'Mark as forfeited'), danger: true, onClick: function () { props.onSetStatus(t, 'forfeited'); } }];
+          if (t.status === 'forfeited') return [{ label: __('eqUnforfeit', 'Not forfeited'), onClick: function () { props.onSetStatus(t, 'unvested'); } }];
+          return [];
+        }
+      }),
+      de.length ? h('p', { className: 'ui-note', 'data-testid': 'eq-div-eq' },
+        __('eqDivEqSum', 'Dividend equivalents on unvested units: {n} {n:payout|payouts}, {amount} in total. Taxed as wage (not as a dividend); shown, not booked.', {
+          n: de.length, amount: props.privacy ? '••••••' : I.moneyAuto(deSum, (W.MaerminEquityVesting.dividendsFromTransactions(props.transactions, props.plan.ticker)[0] || {}).currency || props.plan.shareCurrency) })) : null);
+  }
+
   // ---- plan card -------------------------------------------------------------------
   function PlanCard(props) {
     var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
     var st = props.state, plan = props.plan, M = E();
     var _g = React.useState(false), addGrant = _g[0], setAddGrant = _g[1];
     var _e = React.useState(false), addEvent = _e[0], setAddEvent = _e[1];
+    var _x = React.useState(null), editGrant = _x[0], setEditGrant = _x[1];
+    var _o = React.useState(null), openGrant = _o[0], setOpenGrant = _o[1];
     var grants = M.grantsOf(st, plan.id);
     var taxCur = FX().taxCurrency(plan.taxCountry) || 'EUR';
     var money = function (v) { return props.privacy ? '••••••' : props.formatPrice(v) + ' ' + props.getCurrencySymbol(); };
@@ -216,7 +357,13 @@
           { key: 'unvested', label: __('eqUnvested', 'Unvested'), align: 'right', phone: 'sub', render: function (r) { return I.num(r.unvested, { min: 0, max: 4 }); } }
         ],
         rows: rows,
-        rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteGrant(r.grant); } }]; },
+        rowActions: function (r) {
+          return [
+            { label: openGrant === r.id ? __('eqHideTranches', 'Hide tranches') : __('eqShowTranches', 'Show tranches'), onClick: function () { setOpenGrant(openGrant === r.id ? null : r.id); } },
+            { label: __('eqEdit', 'Edit'), onClick: function () { setEditGrant(r.grant); setAddGrant(false); } },
+            { label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteGrant(r.grant); } }
+          ];
+        },
         empty: h('p', { className: 'ui-note' }, __('eqNoGrants', 'No grants yet.'))
       }),
       events.length ? h(UIC.Table, {
@@ -234,7 +381,10 @@
         rows: events,
         rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteEvent(r); } }]; }
       }) : null,
-      addGrant ? h(GrantForm, { planId: plan.id, onSave: function (g) { props.onAddGrant(g); setAddGrant(false); } }) : null,
+      openGrant ? h(TrancheList, { state: st, plan: plan, grant: M.byId(st.grants, openGrant), transactions: props.transactions, privacy: props.privacy, onSetStatus: props.onSetTrancheStatus }) : null,
+      editGrant ? h(GrantForm, { key: editGrant.id, planId: plan.id, grant: editGrant, onCancel: function () { setEditGrant(null); },
+        onSave: function (g) { props.onEditGrant(g); setEditGrant(null); } }) : null,
+      addGrant ? h(GrantForm, { planId: plan.id, onCancel: function () { setAddGrant(false); }, onSave: function (g) { props.onAddGrant(g); setAddGrant(false); } }) : null,
       addEvent && grants.length ? h(EventForm, { plan: plan, grants: grants, baseCurrency: props.baseCurrency, usdHistory: props.usdHistory, onCancel: function () { setAddEvent(false); },
         onSave: function (ev) { props.onAddEvent(ev); setAddEvent(false); } }) : null,
       h('div', { className: 'ui-view__bar' },
@@ -313,6 +463,17 @@
           formatPrice: props.formatPrice, getCurrencySymbol: props.getCurrencySymbol,
           onEdit: function (x) { setForm(x); }, onDelete: deletePlan, onDeleteGrant: deleteGrant, onDeleteEvent: deleteEvent,
           onAddGrant: function (g) { commit(withList('grants', st.grants.concat([g]))); },
+          // a changed schedule or unit count re-creates the AUTO vests of the grant;
+          // manual ones stay as entered
+          onEditGrant: function (g) {
+            commit(Object.assign({}, st, { grants: st.grants.map(function (x) { return x.id === g.id ? g : x; }),
+              events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto'; }),
+              tranches: st.tranches.filter(function (t) { return t.grantId !== g.id || t.status === 'forfeited' || st.events.some(function (e) { return e.trancheId === t.id && e.source !== 'auto'; }); }) }));
+          },
+          onSetTrancheStatus: function (t, status) {
+            commit(withList('tranches', st.tranches.map(function (x) { return x.id === t.id ? Object.assign({}, x, { status: status }) : x; })));
+          },
+          transactions: props.transactions,
           onAddEvent: function (ev) { commit(withList('events', st.events.concat([ev]))); if (props.addToast) props.addToast(__('eqEventBooked', 'Event booked: its lot is in your transactions.'), 'success'); } });
       }),
       st.plans.length ? h(UIC.Card, { title: __('eqSettings', 'Settings'), 'data-testid': 'eq-settings' },

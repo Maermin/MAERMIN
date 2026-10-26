@@ -853,12 +853,15 @@ function InvestmentTracker() {
   // then converts such a trade at the rate of ITS date in every view. Runs when
   // a new currency / an earlier trade appears and after a price refresh (the
   // plan itself re-requests a currency at most every 12 h). Not in demo mode.
+  // PLAN-EQUITY: the plans' tickers and salary / tax currencies load their
+  // history too, before any lot exists (rows only for the loaders).
+  const historyTx = useMemo(() => (window.MaerminEquity && equityState) ? transactions.concat(window.MaerminEquity.historyRows(equityState)) : transactions, [transactions, equityState]);
   const curSyncRef = useRef({ sig: '', at: 0, busy: false });
   const [curTick, setCurTick] = useState(0); // re-check after a run (a currency may have been added meanwhile)
   useEffect(() => {
     const FXH = window.MaerminFxHistory;
     if (!FXH || !FXH.syncCurrencies || demoMode) return;
-    const needed = FXH.currenciesNeeded(transactions);
+    const needed = FXH.currenciesNeeded(historyTx);
     const curs = Object.keys(needed);
     const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
     if (!curs.length || rawBase.length <= 5) return;
@@ -866,7 +869,7 @@ function InvestmentTracker() {
     const st = curSyncRef.current;
     if (st.busy || (st.sig === sig && Date.now() - st.at < 10 * 60 * 1000)) return;
     curSyncRef.current = { sig, at: Date.now(), busy: true };
-    FXH.syncCurrencies({ transactions, workerBase: rawBase }).then((res) => {
+    FXH.syncCurrencies({ transactions: historyTx, workerBase: rawBase }).then((res) => {
       curSyncRef.current.busy = false;
       setCurTick(n => n + 1);
       if (res.failed.length) dbg('[FX] no rate history for', res.failed.map(f => f.cur + ' (' + f.reason + ')').join(', '));
@@ -874,7 +877,7 @@ function InvestmentTracker() {
       if (!FXH.saveCurrencies(res.store)) console.warn('[FX] could not persist the currency history - kept for this session');
       setFxHistVersion(v => v + 1); // new resolver identity -> positions, ledger, tax report recompute
     }).catch(() => { curSyncRef.current.busy = false; });
-  }, [transactions, marketWorker, demoMode, lastRefresh, curTick]);
+  }, [historyTx, marketWorker, demoMode, lastRefresh, curTick]);
   // ── Daily close history → value path (TWR from day one) ───────────────────
   // priceHistory only has one point per refresh, so TWR, rolling volatility and
   // correlation stayed empty for days after an import. MaerminCloseHistory keeps
@@ -897,7 +900,7 @@ function InvestmentTracker() {
     // suffixes (EUNL -> EUNL.DE) the history needs, and it gets the first go at
     // the Worker's and CoinGecko's request limits.
     if (!CH || demoMode || !lastRefresh) return;
-    const need = CH.need(transactions);
+    const need = CH.need(historyTx);
     const keys = Object.keys(need);
     if (!keys.length) return;
     const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
@@ -912,7 +915,7 @@ function InvestmentTracker() {
     let suffixCache = {};
     try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
     CH.sync({
-      transactions, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
+      transactions: historyTx, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
       // live EUR price: a Yahoo coin pair far off it is another coin
       priceOf: (sym) => { const s = String(sym || ''); return prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0; }
     }).then((res) => {
@@ -936,7 +939,26 @@ function InvestmentTracker() {
       closeStoreRef.current = res.store;
       setCloseHistory(res.store);
     }).catch(() => { closeSyncRef.current.busy = false; });
-  }, [transactions, marketWorker, demoMode, lastRefresh, closeTick]);
+  }, [historyTx, marketWorker, demoMode, lastRefresh, closeTick]);
+
+  // PLAN-EQUITY Package 2: past tranches of a schedule become vest events from
+  // the close and FX history (FMV and rates of the day); future ones stay
+  // projected. Runs again when history arrives; saves only when something changed.
+  useEffect(() => {
+    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting;
+    if (!EQ || !EV || !equityState) return;
+    const series = (closeHistory && closeHistory.series) || {};
+    const r = EV.regenerate(equityState, {
+      today: window.MaerminUtils.todayISO(),
+      closes: (ticker) => series['stocks|' + String(ticker).toUpperCase()] || null,
+      fxCtx: demoMode && DFX ? { usdHistory: DFX.fxHistory() } : {},
+      targets: ['EUR', currency]
+    });
+    const next = EQ.normalize(r.state);
+    if (JSON.stringify(next) === JSON.stringify(equityState)) return;
+    EQ.save(next);
+    setEquityState(next);
+  }, [equityState, closeHistory, fxHistVersion, demoMode, currency]);
 
   // Stored closes are in the quote currency; convert each to EUR at the rate of
   // its day: USD from the daily USD history, CHF / GBp & co. from the currency
