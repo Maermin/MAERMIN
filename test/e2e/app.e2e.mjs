@@ -3874,6 +3874,49 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E7): "What's new" after an update. A vault that
+  // last saw an older version gets the newest RELEASE.md section once; "Got it"
+  // records the version, so the next start shows nothing.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.evaluate(() => {
+        localStorage.setItem('maermin_onboarded', '1');
+        localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+        localStorage.setItem('transactions', JSON.stringify([{ id: 'w1', type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+        localStorage.setItem('maermin_whats_new_seen', '1.0.0');
+      });
+      await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      const card = page.locator('[data-testid="whats-new"]');
+      await card.waitFor({ timeout: 10000 });
+      r.version = await page.evaluate(() => window.MaerminBackup.VERSION);
+      r.text = (await card.innerText()).replace(/\s+/g, ' ');
+      r.items = await card.locator('li').count();
+      await page.locator('[data-testid="whats-new-close"]').click();
+      await page.waitForTimeout(300);
+      r.closed = await card.count() === 0;
+      r.seen = await page.evaluate(() => localStorage.getItem('maermin_whats_new_seen'));
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      await page.waitForTimeout(1500);
+      r.again = await page.locator('[data-testid="whats-new"]').count();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E7: after an update the newest release notes show once', !err && r.text && r.text.includes("What's new in " + r.version) && r.items > 0, err || JSON.stringify(r));
+    ok('E7: "Got it" records the version; the next start shows nothing', !err && r.closed && r.seen === r.version && r.again === 0, err || JSON.stringify(r));
+    ok('no page errors in the whats-new session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();

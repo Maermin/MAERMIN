@@ -81,7 +81,8 @@ console.log('[build] dist/compute.worker.js  ' + (workerOut.outputFiles[0].text.
 
 // PWA assets ship as-is (service-worker.js must stay a standalone file served at
 // scope; pwa.js is already inside the bundle and registers it).
-for (const asset of ['manifest.webmanifest', 'icon.svg']) {
+// RELEASE.md: whats-new.js shows its newest section after an update.
+for (const asset of ['manifest.webmanifest', 'icon.svg', 'RELEASE.md']) {
   await copyFile(join(root, asset), join(dist, asset));
 }
 // service-worker.js is stamped further down, once every file it caches is written.

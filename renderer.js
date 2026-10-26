@@ -1151,6 +1151,24 @@ function InvestmentTracker() {
   const [lastVisitDay, setLastVisitDay] = useState(null);
   const [sinceVisitClosed, setSinceVisitClosed] = useState(false);
   const lastVisitRead = useRef(false);
+  // Audit 2026-10-24 feature 7: the newest RELEASE.md section after an update
+  // (whats-new.js). Fetched only when the version differs from the last seen.
+  const [whatsNew, setWhatsNew] = useState(null);
+  const whatsNewChecked = useRef(false);
+  useEffect(() => {
+    const WN = window.MaerminWhatsNew, version = window.MaerminBackup && window.MaerminBackup.VERSION;
+    if (!WN || !version || demoMode || !startupSynced || whatsNewChecked.current) return;
+    whatsNewChecked.current = true;
+    if (WN.check(localStorage, version) !== 'show') return;
+    fetch('RELEASE.md', { cache: 'no-cache', signal: AbortSignal.timeout(8000) })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((md) => {
+        const notes = WN.parseLatest(md);
+        if (notes && notes.version === version) setWhatsNew(notes);
+        else WN.markSeen(localStorage, version); // no notes for this version: nothing to show
+      })
+      .catch(() => { /* offline: try again on the next start */ });
+  }, [demoMode, startupSynced]);
   useEffect(() => {
     const SV = window.MaerminSinceVisit;
     if (!SV || demoMode || !startupSynced || lastVisitRead.current) return;
@@ -4445,6 +4463,11 @@ function InvestmentTracker() {
       !demoMode && renderMisfiledSkins(),
       !demoMode && renderCryptoPairs(),
       !demoMode && renderDividendDuplicates(),
+
+      // Audit 2026-10-24 feature 7: what's new after an update.
+      whatsNew && window.MaerminWhatsNew && React.createElement(window.MaerminWhatsNew.Card, {
+        notes: whatsNew, onClose: () => { window.MaerminWhatsNew.markSeen(localStorage, whatsNew.version); setWhatsNew(null); }
+      }),
 
       // Audit 2026-10-24 feature 5: what changed since the last visit day.
       !demoMode && lastVisitDay && !sinceVisitClosed && window.MaerminSinceVisit && window.MaerminSnapshots && (() => {
