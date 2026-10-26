@@ -252,7 +252,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     while (v < target && m < cap) { v = v * (1 + rM) + monthly; m++; }
     if (m >= cap) return { months: null, reachable: false };
     var d = new Date(); d.setMonth(d.getMonth() + m);
-    return { months: m, reachable: true, etaISO: d.toISOString().split('T')[0], projectedValue: v };
+    return { months: m, reachable: true, etaISO: (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(d), projectedValue: v };
   }
 
   // ---- #1 Benchmark comparison (portfolio vs index, both date-keyed) --------
