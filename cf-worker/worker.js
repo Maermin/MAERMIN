@@ -1584,11 +1584,11 @@ const CG_PARAM = {
 };
 export function coinGeckoTarget(params) {
   const p = String(params.get('p') || '');
-  let m, allowed, ttl;
+  let allowed, ttl;
   if (p === 'simple/price') { allowed = ['ids', 'vs_currencies', 'include_24hr_change']; ttl = 60; }
   else if (p === 'search') { allowed = ['query']; ttl = 86400; }
-  else if ((m = p.match(/^coins\/([a-z0-9-]{1,80})\/market_chart$/))) { allowed = ['vs_currency', 'days', 'interval']; ttl = 3600; }
-  else if ((m = p.match(/^coins\/([a-z0-9-]{1,80})\/market_chart\/range$/))) { allowed = ['vs_currency', 'from', 'to']; ttl = 3600; }
+  else if (/^coins\/[a-z0-9-]{1,80}\/market_chart$/.test(p)) { allowed = ['vs_currency', 'days', 'interval']; ttl = 3600; }
+  else if (/^coins\/[a-z0-9-]{1,80}\/market_chart\/range$/.test(p)) { allowed = ['vs_currency', 'from', 'to']; ttl = 3600; }
   else return null;
   const q = [];
   for (const k of allowed) {

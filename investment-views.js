@@ -12,16 +12,6 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 var useMemo = React.useMemo;
 
-// Theme tokens for every view in this file (FINDINGS H-8: the views were
-// hard-coded light-on-dark, white on white in the light theme). The
-// dashboard provides the app theme; the defaults are the former dark
-// literals, so a view rendered on its own looks as before.
-var DEFAULT_THEME = {
-  text: '#ffffff', textSecondary: 'rgba(255,255,255,0.6)', card: 'rgba(255,255,255,0.035)',
-  cardBorder: 'rgba(255,255,255,0.08)', inputBg: 'rgba(0,0,0,0.3)', inputBorder: 'rgba(255,255,255,0.2)',
-  accent: '#8b7cff', accentSoft: 'rgba(139,124,255,0.3)', shadow: '0 18px 40px -18px rgba(0,0,0,0.6)'
-};
-var ThemeCtx = React.createContext(DEFAULT_THEME);
 // Amounts (EUR inside) go through the app's formatter, which converts to the
 // display currency and masks them in Privacy Mode (FINDINGS M-12). On its own
 // a view prints plain EUR.
@@ -1097,12 +1087,12 @@ function InvestmentAnalysisDashboard(props) {
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
     }
   };
-  // Every section reads the app theme from here (FINDINGS H-8).
+  // Every section formats amounts through the app's formatter (FINDINGS M-12).
+  // Colours come from the CSS tokens (ui-* classes), so no theme is passed down.
   var fp = props.formatPrice, sym = typeof props.getCurrencySymbol === 'function' ? props.getCurrencySymbol() : '€';
   var money = typeof fp === 'function' ? function(v) { return fp(Number(v) || 0) + ' ' + sym; } : null;
   var renderSection = function() {
-    return React.createElement(ThemeCtx.Provider, { value: theme },
-      React.createElement(MoneyCtx.Provider, { value: money }, renderSectionRaw()));
+    return React.createElement(MoneyCtx.Provider, { value: money }, renderSectionRaw());
   };
 
   
@@ -1131,7 +1121,6 @@ window.InvestmentViews = {
   MetricGrid: MetricGrid,
   DataTable: DataTable,
   ProgressBar: ProgressBar,
-  ThemeContext: ThemeCtx,
   MoneyContext: MoneyCtx,
   goalProgress: goalProgress
 };

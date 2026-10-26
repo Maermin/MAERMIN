@@ -436,7 +436,7 @@ function importData(data, format, options = {}) {
     parser = BrokerParsers[options.broker];
     detectedBroker = parser.name;
   }
-  for (const [brokerId, brokerParser] of Object.entries(parser ? {} : BrokerParsers)) {
+  for (const [, brokerParser] of Object.entries(parser ? {} : BrokerParsers)) {
     if (brokerParser.detect(headers)) {
       parser = brokerParser;
       detectedBroker = brokerParser.name;

@@ -8,7 +8,7 @@ client-side app — the conventions below keep it that way.
 ```bash
 npm install
 npm test           # all Node test harnesses
-npm run check      # syntax check of every JS file, plus the i18n and colour guards
+npm run check      # syntax check of every JS file, plus the i18n, colour and unused-code guards
 npm run build:web  # production bundle in dist/
 npm run test:e2e   # headless browser smoke test (needs dist/ + Chromium: npx playwright-core install chromium)
 ```

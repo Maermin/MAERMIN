@@ -255,9 +255,9 @@ MAERMIN/
 The app runs directly from `index.html` (no build needed for dev). Common scripts:
 
 ```bash
-npm install        # once: esbuild (build), playwright-core, react, react-dom, klinecharts (tests, e2e)
+npm install        # once: esbuild (build), eslint (check), playwright-core, react, react-dom, klinecharts (tests, e2e)
 npm test           # run all Node test harnesses (test/*.test.js)
-npm run check      # syntax check of every JS file, plus the i18n and colour guards (fast pre-commit gate)
+npm run check      # syntax check of every JS file, plus the i18n, colour and unused-code guards (fast pre-commit gate)
 npm run build:web  # -> dist/index.html + dist/maermin.min.js + dist/styles.css
 npm run test:e2e   # headless Chromium smoke test of index.html + dist/ (after build:web)
 ```

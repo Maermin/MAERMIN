@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Fast syntax gate: run `node --check` on every project JS file. Catches parse
-// errors before they reach the browser bundle or CI test run. Then the i18n
-// guard (scripts/i18n-check.mjs).
+// errors before they reach the browser bundle or CI test run. Then the i18n,
+// colour and unused-code guards (scripts/*-check.mjs).
 import { readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
@@ -40,3 +40,7 @@ if (i18n().errors.length) process.exit(1);
 // Colour guard (PLAN Phase 6, R1.1): hex / rgb() literals in view files never grow.
 const { run: colours } = await import('./colour-check.mjs');
 if (colours().errors.length) process.exit(1);
+
+// Dead-code guard: no unused locals or functions (ESLint no-unused-vars).
+const { run: unused } = await import('./unused-check.mjs');
+if ((await unused()).errors.length) process.exit(1);
