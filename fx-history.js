@@ -209,11 +209,29 @@
   var CUR_MISS_MS = 24 * 3600 * 1000;     // a currency the source does not know: ask again after a day
   var CUR_MAX_GAP_DAYS = 7;               // a fixing older than this is not "the rate of that date"
   var CUR_LEAD_DAYS = 10;                 // fetch from a few days before the first trade (prior fixing)
-  // Currencies with a Yahoo EUR cross. Anything else (a crypto quote like BTC,
-  // a typo) is never requested and stays 'unknown' / 'approx' as before.
-  var FIAT = ['CHF', 'GBP', 'JPY', 'CAD', 'AUD', 'NZD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON',
-    'HKD', 'SGD', 'CNY', 'INR', 'KRW', 'TWD', 'THB', 'BRL', 'MXN', 'ZAR', 'TRY', 'ILS'];
-  var FIAT_SET = {}; FIAT.forEach(function (c) { FIAT_SET[c] = true; });
+  // Fiat currencies with a daily history source: every ISO 4217 code the
+  // runtime knows (Intl.supportedValuesOf, PLAN-EQUITY § 2) except EUR and USD,
+  // which have their own paths. There is no list in the code: a code the source
+  // does not serve lands in the `miss` store and is asked again after a day.
+  // Anything else (a crypto quote like BTC, a typo) is never requested and
+  // stays 'unknown' / 'approx' as before. A runtime without supportedValuesOf
+  // accepts any three-letter code and relies on the miss store.
+  var _iso;
+  function isoCurrencies() {
+    if (_iso !== undefined) return _iso;
+    try { _iso = {}; Intl.supportedValuesOf('currency').forEach(function (c) { _iso[c] = true; }); } catch (e) { _iso = null; }
+    return _iso;
+  }
+  function isFiat(c) {
+    if (c === 'EUR' || c === 'USD' || !/^[A-Z]{3}$/.test(c || '')) return false;
+    var iso = isoCurrencies();
+    return iso ? !!iso[c] : true;
+  }
+  // Sorted codes for pickers (EUR and USD left out, like the history source).
+  function fiatList() {
+    var iso = isoCurrencies();
+    return iso ? Object.keys(iso).filter(isFiat).sort() : [];
+  }
 
   // 'GBp' / 'GBX' (pence) → { cur: 'GBP', div: 100 }; plain codes → div 1.
   function majorOf(currency) {
@@ -224,7 +242,7 @@
     if (up === 'ILA') return { cur: 'ILS', div: 100 };
     return { cur: up, div: 1 };
   }
-  function hasHistory(currency) { return !!FIAT_SET[majorOf(currency).cur]; }
+  function hasHistory(currency) { return isFiat(majorOf(currency).cur); }
   function dayNo(iso) { return Math.round(Date.parse(iso + 'T00:00:00Z') / DAY); }
   function isoOfDay(n) { return new Date(n * DAY).toISOString().slice(0, 10); }
 
@@ -241,7 +259,7 @@
     if (!obj || typeof obj !== 'object') return out;
     Object.keys(obj.cur || {}).forEach(function (c) {
       var e = obj.cur[c];
-      if (!FIAT_SET[c] || !e || !Array.isArray(e.d) || !Array.isArray(e.r)) return;
+      if (!isFiat(c) || !e || !Array.isArray(e.d) || !Array.isArray(e.r)) return;
       var d = [], r = [], last = -Infinity;
       for (var i = 0; i < e.d.length && i < e.r.length; i++) {
         var dn = num(e.d[i]), rate = num(e.r[i]);
@@ -250,7 +268,7 @@
       }
       if (d.length) out.cur[c] = { req: ymd(e.req) || isoOfDay(d[0]), at: num(e.at) || 0, d: d, r: r };
     });
-    Object.keys(obj.miss || {}).forEach(function (c) { if (FIAT_SET[c] && num(obj.miss[c]) > 0 && !out.cur[c]) out.miss[c] = num(obj.miss[c]); });
+    Object.keys(obj.miss || {}).forEach(function (c) { if (isFiat(c) && num(obj.miss[c]) > 0 && !out.cur[c]) out.miss[c] = num(obj.miss[c]); });
     return out;
   }
   function loadCurrencies() {
@@ -323,7 +341,7 @@
     (transactions || []).forEach(function (tx) {
       if (!tx || !tx.currency) return;
       var c = majorOf(tx.currency).cur, d = ymd(tx.date);
-      if (!FIAT_SET[c] || !d || !isFinite(dayNo(d))) return; // an impossible date (2024-13-01) is no reason to fetch
+      if (!isFiat(c) || !d || !isFinite(dayNo(d))) return; // an impossible date (2024-13-01) is no reason to fetch
       if (!out[c] || d < out[c]) out[c] = d;
     });
     return out;
@@ -427,6 +445,27 @@
     return v == null ? { value: a, status: 'unknown' } : { value: v, status: 'approx' };
   }
 
+  // A rate stored ON the transaction (PLAN-EQUITY § 1, additive): equity vests
+  // and purchases keep the rate of their event day, or a manual one from the
+  // payslip, in tx.fx.EUR = { rate, date, source } (EUR per 1 unit of the major
+  // currency, so a GBX price is divided by 100 first). It wins over the
+  // history lookup, so the cost basis can never drift when rates are reloaded.
+  // Transactions without it convert exactly as before.
+  function storedEurRate(tx) {
+    var f = tx && tx.fx && tx.fx.EUR;
+    var r = num(f && typeof f === 'object' ? f.rate : f);
+    return r != null && r > 0 ? r : null;
+  }
+  function txAmountToEUR(amount, tx, rate, fxAt, rates) {
+    var cur = String((tx && tx.currency) || 'EUR');
+    var r = cur.toUpperCase() === 'EUR' ? null : storedEurRate(tx);
+    if (r != null) {
+      var src = tx.fx.EUR && tx.fx.EUR.source;
+      return { value: (num(amount) || 0) / majorOf(cur).div * r, status: 'exact', stored: src === 'manual' ? 'manual' : 'event' };
+    }
+    return txToEUR(amount, cur, tx && tx.date, rate, fxAt, rates);
+  }
+
   // Currencies of a transaction list that do NOT convert exactly yet, for the
   // import preview: [{ currency, status, count }] with status
   //   'history'  fiat with a daily history source: converted at the rate of each
@@ -460,10 +499,10 @@
     setUsdRates: setUsdRates,
     usdRates: usdRates,
     quoteToEUR: quoteToEUR,
-    txToEUR: txToEUR,
+    txToEUR: txToEUR, txAmountToEUR: txAmountToEUR, storedEurRate: storedEurRate,
     currencyReport: currencyReport,
     USD_PEGGED: USD_PEGGED,
-    CUR_KEY: CUR_KEY, FIAT: FIAT, hasHistory: hasHistory, majorOf: majorOf,
+    CUR_KEY: CUR_KEY, fiatList: fiatList, isFiat: isFiat, hasHistory: hasHistory, majorOf: majorOf,
     currencyRateAt: currencyRateAt, ingestYahooCross: ingestYahooCross,
     currenciesNeeded: currenciesNeeded, planCurrencies: planCurrencies, syncCurrencies: syncCurrencies,
     loadCurrencies: loadCurrencies, saveCurrencies: saveCurrencies, normalizeCurrencies: normalizeCurrencies,

@@ -116,6 +116,20 @@
         // range (MaerminFxHistory.applySeries), dropping the misdated keys.
         try { localStorage.removeItem('maermin_fx_backfill'); } catch (e) { /* best effort */ }
       }
+    },
+    {
+      v: 7,
+      name: 'equity:init-stores',   // create the employee-equity and income stores (PLAN-EQUITY Package 1)
+      up: function () {
+        // Empty, versioned stores; existing data (a store restored from a newer
+        // backup) is left alone. Runs behind guardedRun like every migration,
+        // so the encrypted pre-migration copy is written first.
+        var E = (typeof window !== 'undefined' && window.MaerminEquity) || null;
+        if (!E) { try { E = require('./equity-model.js'); } catch (e) { E = null; } }
+        if (!E) throw new Error('equity-model.js not loaded');
+        if (localStorage.getItem(E.KEY) == null) writeJSON(E.KEY, E.normalize(null));
+        if (localStorage.getItem(E.INCOME_KEY) == null) writeJSON(E.INCOME_KEY, E.normalizeIncome(null));
+      }
     }
   ];
 

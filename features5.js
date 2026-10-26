@@ -34,7 +34,7 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
 // 2. NET WORTH DASHBOARD
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
-function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur, cashEUR }) {
+function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur, cashEUR, equity }) {
   t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
   const rate = usdToEur || (prices && prices.usdToEur) || 1;
   const [accounts, setAccounts] = useState(() => {
@@ -85,7 +85,11 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       };
   const totalAssets      = nw.manualAssets;
   const totalLiabilities = nw.liabilities;
-  const netWorth         = portfolioValue + totalAssets - totalLiabilities;
+  // Employee equity (PLAN-EQUITY Package 1): ESPP cash always counts; unvested
+  // shares only when the setting says so (default: left out).
+  const eq = equity || {};
+  const equityValue      = (Number(eq.esppCash) || 0) + (eq.includeUnvested ? (Number(eq.unvested) || 0) : 0);
+  const netWorth         = portfolioValue + totalAssets - totalLiabilities + equityValue;
 
   const isLiabilityType = (tp) => LIABILITIES.has(tp);
 
@@ -156,6 +160,13 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         badge: { pos: true, text: window.MaerminI18n.pct(portfolioValue / (netWorth + totalLiabilities) * 100, 0) } }),
       React.createElement(KpiCard, { theme, label: __('nwCashOther', 'Cash & Other Assets'), value: `${formatPrice(totalAssets)} ${getCurrencySymbol()}` }),
       React.createElement(KpiCard, { theme, label: __('nwTotalLiab', 'Total Liabilities'), value: `${formatPrice(totalLiabilities)} ${getCurrencySymbol()}`, color: totalLiabilities > 0 ? theme.danger : theme.text }),
+      (Number(eq.unvested) || 0) > 0 && React.createElement(KpiCard, { theme,
+        label: __('nwEquityUnvested', 'Unvested employee equity'),
+        value: `${formatPrice(eq.unvested)} ${getCurrencySymbol()}`,
+        sub: eq.includeUnvested ? __('nwEquityIncluded', 'Included in net worth') : __('nwEquityExcluded', 'Not included in net worth (setting)') }),
+      (Number(eq.esppCash) || 0) > 0 && React.createElement(KpiCard, { theme,
+        label: __('nwEsppCash', 'ESPP cash'),
+        value: `${formatPrice(eq.esppCash)} ${getCurrencySymbol()}` }),
       recurringSummary && recurringSummary.count > 0 && React.createElement(KpiCard, { theme,
         label: __('nwDebtService', 'Monthly Debt Service'),
         value: `${formatPrice(recurringSummary.monthlyEquivalent)} ${getCurrencySymbol()}`,
@@ -169,6 +180,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         [
           { value: portfolioValue, color: 'var(--chart-1)', label: __('portfolio', 'Portfolio') },
           { value: totalAssets,    color: 'var(--chart-2)', label: __('nwCashAssets', 'Cash & Assets') },
+          { value: equityValue,    color: 'var(--chart-3)', label: __('nwEquity', 'Employee equity') },
         ].filter(s => s.value > 0).map((s, i) =>
           React.createElement('div', { key: i, title: `${s.label}: ${formatPrice(s.value)}`,
             className: 'ui-nw-bar__seg', style: { width: `${s.value / barTotal * 100}%`, background: s.color } })
@@ -177,6 +189,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       React.createElement('ul', { className: 'ui-chart__legend' },
         [{ label: __('portfolio', 'Portfolio'), color: 'var(--chart-1)', value: portfolioValue },
          { label: __('nwCashAssets', 'Cash & Assets'), color: 'var(--chart-2)', value: totalAssets },
+         ...(equityValue > 0 ? [{ label: __('nwEquity', 'Employee equity'), color: 'var(--chart-3)', value: equityValue }] : []),
          { label: __('nwLiabilities', 'Liabilities'), color: 'var(--loss)', value: -totalLiabilities }].map((s, i) =>
           React.createElement('li', { key: i },
             React.createElement('span', { className: ['ui-cat-dot', 'is-round'].join(' '), 'aria-hidden': 'true', style: { background: s.color } }),
@@ -344,7 +357,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
   // Build cumulative invested timeline from transactions
   const investedSeries = useMemo(() => {
     const FX = window.MaerminFxHistory, U = window.MaerminUtils;
-    const eur = (amt, tx) => (FX && FX.txToEUR) ? FX.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value
+    const eur = (amt, tx) => (FX && FX.txAmountToEUR) ? FX.txAmountToEUR(amt, tx, exchangeRate, fxAt).value
       : (U ? U.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt);
     const sorted = [...transactions]
       .filter(tx => (tx.type === 'buy' || tx.type === 'sell') && tx.category !== 'options')
@@ -497,7 +510,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
     return (amount, tx) => {
       const a = parseFloat(amount) || 0;
       if (!a) return 0;
-      if (FX && FX.txToEUR) return FX.txToEUR(a, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value;
+      if (FX && FX.txAmountToEUR) return FX.txAmountToEUR(a, tx, exchangeRate, fxAt).value;
       return U ? U.toEUR(a, tx.currency || 'EUR', exchangeRate) : a;
     };
   }, [exchangeRate, fxAt]);

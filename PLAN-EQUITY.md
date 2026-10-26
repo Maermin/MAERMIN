@@ -1,6 +1,6 @@
 # PLAN-EQUITY — Employee equity (RSU, PSU, ESPP, employer match)
 
-Status: **plan only, waiting for go.** Nothing is implemented until the owner approves.
+Status: **approved 2026-10-26** (decisions in § 7). Implementation runs package by package.
 Scope: one feature set, delivered as 8 PRs (packages 1–8), each with tests, demo data
 and German strings. UI page name: **„Mitarbeiteraktien"**.
 
@@ -50,9 +50,9 @@ Load order: after `fx-history.js`, `ledger.js`, `close-history.js`; view module 
 
 | Key | Contents | Sync |
 |-----|----------|------|
-| `maermin_equity` | `{ v, plans[], grants[], tranches[], events[], settings }` | encrypted sync (see Q3) |
-| `maermin_income` | `{ v, entries[] }`: salary and one-off income | encrypted sync **or** device-local (see Q3) |
-| `maermin_equity_fx_overrides` | manual FX rates `{ 'EUR>USD@2026-03-15': {rate, note} }` | encrypted sync |
+| `maermin_equity` | `{ v, plans[], grants[], tranches[], events[], settings }` | encrypted sync (encrypted sync, § 7 #3) |
+| `maermin_income` | `{ v, entries[] }`: salary and one-off income | encrypted sync **or** device-local (encrypted sync, § 7 #3) |
+| (inside `maermin_equity`) `fxOverrides` | manual FX rates `{ 'USD>EUR@2026-03-15': {rate, note} }`, kept in the equity store instead of a third key (Package 1) | encrypted sync |
 
 In demo mode all three live in memory only, like the other demo stores.
 
@@ -144,7 +144,7 @@ IncomeEntry  { id, from, to?, kind: 'base'|'bonus'|'13th'|'other', amount, perio
 - Ledger change (`tx.fx.EUR`), `moneyAuto`, ISO-wide FX and reporting currency (see § 2).
 - Migration **v7** „equity: init stores" creates empty stores and the schema version. It runs through
   `guardedRun`, so the encrypted pre-migration copy is written first.
-- Nav: `v('equity', 'navEquity', 'Mitarbeiteraktien')` in Home (visibility: Q9). Empty state with
+- Nav: `v('equity', 'navEquity', 'Mitarbeiteraktien')` in Home (Advanced until a plan exists, § 7 #9). Empty state with
   „Plan anlegen".
 - Demo: plans and grants only (events follow per package).
 - Tests: normalize/round-trip, lot link (basis = FMV × stored rate, never 0), `tx.fx` precedence in
@@ -159,9 +159,9 @@ IncomeEntry  { id, from, to?, kind: 'base'|'bonus'|'13th'|'other', amount, perio
 - **Rounding.** `floor` per tranche with a true-up on the last one (default), `round`, or `none`
   (fractional). Tested for 1,000 units / 16 tranches and for prime totals.
 - **Withholding.** `sell_to_cover` (withheld units = ceil(gross × rate) or entered actual), `payroll`
-  (0 withheld), `none`. **Net units drive the lot.** The sell-to-cover sale price question is Q5.
+  (0 withheld), `none`. **Net units drive the lot.** Sell-to-cover books gross units plus a same-day sale of the withheld units (§ 7 #5).
 - **Dividend equivalents** (optional): cash or reinvested units on unvested units, from
-  `DividendDataService`. Tax treatment is Q12.
+  `DividendDataService`. Default Arbeitslohn (§ 7 #12).
 - **Auto-generation.** Past tranches become VestEvents from the close history (`close-history.js`) and
   the FX history. FMV source per plan: close of the vest day (default), previous close, or manual.
   Future tranches stay `projected` and never become lots.
@@ -215,7 +215,7 @@ IncomeEntry  { id, from, to?, kind: 'base'|'bonus'|'13th'|'other', amount, perio
   current %. Horizon: current period, 1y, 3y or 5y. All purchase dates come from the plan settings.
 - Price scenarios per purchase date: flat; CAGR presets −20/0/+10/+20 % p.a. plus free input;
   Monte Carlo P10/P50/P90. MC = **block bootstrap** of the stock's own daily log returns from
-  `close-history.js` (method: Q13), with seeded mulberry32 (seed shown and editable, default fixed),
+  `close-history.js`, with seeded mulberry32 (seed shown and editable, default fixed),
   N = 2,000 paths. Simulation runs in share currency, then converts to base. FX scenario (flat or
   ±X % p.a.) is its own band.
 - Per purchase × scenario: contribution, price, shares, value at purchase, instant discount gain,
@@ -244,7 +244,7 @@ IncomeEntry  { id, from, to?, kind: 'base'|'bonus'|'13th'|'other', amount, perio
 - UI: the ESPP card splits own vs match shares (vested/unvested). The forecast shows „effektiver
   Rabatt inkl. Match" (e.g. 15 % + 25 % → value per own 100). Sell-form warning: „Der Verkauf dieser
   Aktien lässt X nicht gevestete Match-Aktien verfallen (≈ Y)." Underlying shares are found by FIFO on
-  the purchase lots (see Q7).
+  the purchase lots.
 - Demo: 25 % match with a 2-year holding period. One match tranche has vested.
 
 ### Package 6 — Overview page „Mitarbeiteraktien" (PR `equity/6-overview`)
@@ -254,7 +254,7 @@ IncomeEntry  { id, from, to?, kind: 'base'|'bonus'|'13th'|'other', amount, perio
 - Vest calendar: timeline + list of upcoming RSU/PSU/match vests and ESPP purchases.
 - Combined 12-month forecast (vests + purchases + match) with the P4 scenarios and FX band.
 - „Austritt zum Datum X": kept vs forfeited units and value per type, plus the ESPP cash refund.
-  Good-leaver rules are configurable per plan (Q8).
+  Leaver rules are configurable per plan (§ 7 #8).
 - Concentration risk: employer stock as % of net worth with and without unvested shares. A warning
   threshold (default 10 %, configurable) as a `risk-monitor.js` rule + an Overview chip.
 - `.ics` export of upcoming vests and purchases via `event-feed.toICS` (amounts only if the user opts
@@ -287,7 +287,7 @@ All figures are in the tax currency at the event-day rate stored on the event.
   a stored conversion), `DQ-EQUITY-FX-FALLBACK` (info).
 - AT/CH: the report structure and tax-currency handling are in place; rules are `TODO` with sources
   to check (AT § 3 Abs. 1 Z 15 lit. b EStG 1988; CH ESTV Kreisschreiben Nr. 37 „Besteuerung von
-  Mitarbeiterbeteiligungen"). Nothing is computed until verified (Q11).
+  Mitarbeiterbeteiligungen"). Nothing is computed until verified.
 - Label: „Hilfsrechnung, keine Steuerberatung" (like the other tax panels).
 
 ### Package 8 — Import (PR `equity/8-import`)
@@ -312,7 +312,7 @@ All figures are in the tax currency at the event-day rate stored on the event.
 | Non-EUR | ESPP with CHF salary and a **GBX**-quoted share (e.g. a LSE ticker), cap in GBP |
 
 Offline FMV and FX series are added to `demo-fixtures.js` (generated deterministically, no network).
-Demo tickers and names: Q10.
+Demo tickers: fictional employer, real tickers (§ 7 #10).
 
 ---
 
@@ -348,39 +348,26 @@ Demo tickers and names: Q10.
 
 ---
 
-## 7. Open questions (answers needed before or during the packages)
+## 7. Decisions (2026-10-26)
 
-1. ~~**Plan file in the repo?**~~ Answered 2026-10-26: `PLAN-EQUITY.md` is committed publicly (an exception
-   to the rule that keeps internal plans git-ignored).
-2. **Base currency app-wide:** generalise `reporting-currency.js` to any ISO code in P1 (recommended), or
-   keep the app at EUR/USD/CHF and let only the equity page use any base currency?
-3. **Salary sync:** `maermin_income` encrypted in zero-knowledge sync like portfolio data (meets the
-   brief), or device-local only (never leaves the device, but not on other devices)?
-4. **Which FX rate counts for tax?** The pipeline uses Yahoo closes, not ECB reference rates. Payroll often
-   uses the employer's rate or the monthly BMF USt-Umrechnungskurse. Default to the pipeline rate +
-   manual override, or add an ECB source (a new Worker route)?
-5. **Sell-to-cover:** create a lot for net units only (brief), or book gross units + a sale of the withheld
-   units at the actual sale price? The second shows the small KAP gain or loss that the sale really
-   creates.
-6. **FMV at vest:** close of the vest day, previous close, or the plan admin's FMV? The § 3 Nr. 39 / BMF
-   valuation date (inflow day vs day of booking out) could not be verified from a primary source. Default
-   is close of the vest day + manual override.
-7. **Match forfeiture on sale:** which purchase lots count as "underlying"? FIFO across all ESPP lots, or
-   the shares of that specific purchase only?
-8. **Leaving:** default good-leaver rules (e.g. unvested RSU forfeited, PSU pro-rata, ESPP cash refunded)
-   or always ask per plan?
-9. **Nav visibility:** „Mitarbeiteraktien" in Simple mode, or Advanced only?
-10. **Demo tickers:** real tickers (MSFT, an LSE GBX stock) with a fictional employer and generated prices,
-    or fully fictional tickers?
-11. **AT/CH:** OK to ship data model and report structure only, with all rules marked TODO until sources are
-    checked?
-12. **Dividend equivalents on unvested RSUs (DE):** treat as Arbeitslohn (likely) or capital income? Not
-    verified. Proposal: configurable, default Arbeitslohn, flagged.
-13. **Monte Carlo method:** block bootstrap of historical returns (recommended: keeps fat tails) or GBM with
-    historical μ/σ? Minimum history required (proposal: 2 years, else CAGR scenarios only).
-14. **Fünftelregelung (§ 34 EStG)** for RSUs vesting after a multi-year service period: out of scope,
-    or show a hint? Since 2025 it is no longer applied in payroll, only in the assessment. Not verified.
-15. **Plan-admin files:** can you attach anonymised exports (Morgan Stanley, E*TRADE, Schwab, Fidelity) for
-    Package 8?
-16. **Merge rule:** the brief says "never push to main". Do I open each package PR and you merge it, or
-    should I merge on green CI?
+The owner approved all recommendations on 2026-10-26 ("auto-approve your recommendations").
+These replace the open questions of the first draft.
+
+| # | Question | Decision | Why |
+|---|----------|----------|-----|
+| 1 | Plan file in the repo | `PLAN-EQUITY.md` is committed publicly | Owner's choice; an exception to the rule that keeps internal plans git-ignored |
+| 2 | Base currency | Any ISO currency **app-wide**: `reporting-currency.js` is generalised in Package 1 | One base currency everywhere; rates for every currency already come from the open.er-api table |
+| 3 | Salary sync | `maermin_income` is sensitive, encrypted at rest and synced as ciphertext like portfolio data | Matches the brief; backup restore and second devices keep working; the Worker never sees plaintext |
+| 4 | Tax FX source | Existing pipeline rate + manual override per event; no ECB source and no Worker change | The brief names the existing pipeline; payslip rates are entered as overrides |
+| 5 | Sell-to-cover | Book **gross** units at FMV + a same-day sale of the withheld units at the real sale price (default: FMV, editable) | That sale is a real taxable disposal; the remaining position is the net units, so net units still drive the holding |
+| 6 | FMV at vest | Close of the vest day; previous close or manual per plan/event | The valuation date under § 3 Nr. 39 / BMF is not verified; the override covers the plan admin's FMV |
+| 7 | Match forfeiture on sale | Shares of the **specific purchase** the match belongs to | Each match is tied to one purchase |
+| 8 | Leaving | Leaver rules per plan; default: unvested RSU/PSU/match forfeited, ESPP cash refunded | Plans differ; the default is the common case |
+| 9 | Nav visibility | Advanced only until a plan exists, then also in Simple | An empty page does not crowd Simple mode |
+| 10 | Demo tickers | Fictional employer with real tickers and deterministically generated prices | Charts and FX look real, no real company is implied as employer |
+| 11 | AT/CH | Data model + report structure only; rules TODO with the sources named | Nothing unverified is computed |
+| 12 | Dividend equivalents (DE) | Setting; default Arbeitslohn, flagged as unverified | Most likely treatment; not verified |
+| 13 | Monte Carlo | Block bootstrap of the stock's own daily log returns, seeded; ≥ 2 years of history, else CAGR scenarios only | Keeps fat tails; reproducible |
+| 14 | Fünftelregelung (§ 34 EStG) | Hint only, no calculation | Not verified; applied only in the assessment since 2025 |
+| 15 | Plan-admin importers | Built when the owner sends real (anonymised) export files | No guessed formats |
+| 16 | Merging | The owner merges every package PR. Packages are stacked on the previous package's branch when it is not merged yet, and the PR says so | Owner merges by default |

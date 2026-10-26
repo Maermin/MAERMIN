@@ -30,6 +30,8 @@
       v('overview', 'navOverview', 'Overview'),
       v('portfolios', 'navPortfolios', 'Portfolios'),
       v('net-worth', 'navNetWorth', 'Net Worth'),
+      // PLAN-EQUITY decision 9: Advanced until a plan exists, then promoted
+      v('equity', 'navEquity', 'Employee Equity', true),
       v('budget', 'navBudget', 'Budget', true),
       v('watchlist', 'navWatchlist', 'Watchlist'),
       v('events', 'navEvents', 'Events'),
@@ -112,8 +114,16 @@
     return normalizeMode(stored) || ((txCount || 0) > 0 ? 'advanced' : 'simple');
   }
 
+  // Advanced views the app shows in Simple mode too because the user has data
+  // for them (setPromoted({ equity: true }) once an equity plan exists).
+  var PROMOTED = {};
+  function setPromoted(map) {
+    PROMOTED = {};
+    Object.keys(map || {}).forEach(function (k) { if (map[k]) PROMOTED[k] = true; });
+  }
+
   function viewShown(view, mode, activeView) {
-    return mode === 'advanced' || !view.advanced || view.id === canonical(activeView);
+    return mode === 'advanced' || !view.advanced || !!PROMOTED[view.id] || view.id === canonical(activeView);
   }
 
   // The tabs of a group that the mode shows (the open view always counts).
@@ -165,6 +175,7 @@
 
   var api = {
     MODE_KEY: MODE_KEY, MODES: MODES, AREAS: AREAS, ALIASES: ALIASES,
+    setPromoted: setPromoted,
     canonical: canonical, isKnown: isKnown, areaOf: areaOf, getArea: getArea,
     normalizeMode: normalizeMode, initialMode: initialMode,
     visibleEntries: visibleEntries, visibleTabs: visibleTabs, entryTarget: entryTarget,

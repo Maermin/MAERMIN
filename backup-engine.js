@@ -99,6 +99,9 @@
     'maermin_fund_holdings',
     // classification trees with their assigned holdings (P5-2.10)
     'maermin_taxonomies',
+    // employee equity (PLAN-EQUITY): plans, grants, events and the income timeline
+    'maermin_equity',
+    'maermin_income',
     // deleted auto-dividends (so a restore doesn't re-book them)
     'maermin_div_skipped',
     // daily EUR rates of the non-EUR/USD currencies traded (fx-history.js): with
