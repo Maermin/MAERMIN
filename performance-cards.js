@@ -372,7 +372,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('line', { x1: 0, y1: 0, x2: 300, y2: 0, className: 'ui-perf-dd__base' }),
             e('path', { d: areaPath, className: 'ui-perf-dd__area' })),
           e('div', { className: 'ui-tiles' },
-            e(UIC.Stat, { className: 'ui-tile', label: t.perfMaxDrawdown || 'Max drawdown', value: I.pct(ddStat.maxDd, 1), tone: ddStat.maxDd < 0 ? 'loss' : null }),
+            e(UIC.Stat, { className: 'ui-tile', label: (window.MaerminGlossary ? e(window.MaerminGlossary.Term, { id: 'maxDrawdown' }, (t.perfMaxDrawdown || 'Max drawdown')) : (t.perfMaxDrawdown || 'Max drawdown')), value: I.pct(ddStat.maxDd, 1), tone: ddStat.maxDd < 0 ? 'loss' : null }),
             e(UIC.Stat, { className: 'ui-tile', label: t.perfCurrentDd || 'Current', value: I.pct(ddStat.currentDd, 1), tone: ddStat.currentDd < -0.05 ? 'loss' : null }),
             e(UIC.Stat, { className: 'ui-tile', label: t.perfRecovery || 'Status', value: ddStat.recovered ? '▲ ' + (t.perfRecovered || 'Recovered') : '▼ ' + (t.perfUnderwater || 'Underwater'), tone: ddStat.recovered ? 'gain' : 'loss' })));
       })() : null;

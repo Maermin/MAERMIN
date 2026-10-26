@@ -328,10 +328,10 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // The answer: XIRR, TWR, total return, inflation over the same period
     React.createElement('div', { className: 'ui-ov-tiles', 'data-testid': 'returns-answer' },
-      tile('xirr-card', { 'data-real': real && real.xirr !== null ? real.xirr : '' }, __('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—',
+      tile('xirr-card', { 'data-real': real && real.xirr !== null ? real.xirr : '' }, (window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'xirr' }, __('retXirr', 'XIRR (annualized)')) : __('retXirr', 'XIRR (annualized)')), xirrResult !== null ? fmtPct(xirrResult) : '—',
         (clearings ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
           + (real && real.xirr !== null ? ' · ' + __('rrRealPa', 'real {pct} p.a.', { pct: fmtPct(real.xirr) }) : ''), xirrResult !== null ? UIC.toneOf(xirrResult) : null),
-      tile('twr-card', { 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '' }, 'TWR', twrResult !== null ? fmtPct(twrResult) : '—',
+      tile('twr-card', { 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '' }, (window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'twr' }, 'TWR') : 'TWR'), twrResult !== null ? fmtPct(twrResult) : '—',
         twrSubCash + (real && real.twr ? ' · ' + __('rrReal', 'real {pct}', { pct: fmtPct(real.twr.real) }) + (real.twr.realAnnualized !== null ? ' (' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.twr.realAnnualized) }) + ')' : '') : ''),
         twrResult !== null ? UIC.toneOf(twrResult) : null),
       stats && tile('total-return-card', { 'data-v': stats.totalReturn }, __('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct),
