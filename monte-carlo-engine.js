@@ -16,7 +16,6 @@ function runMonteCarloSimulation(portfolio, config) {
     monthlyContribution = 0,
     expectedReturn = null,
     volatility = null,
-    inflationRate = 0.02,
     withdrawalAmount = 0,
     withdrawalStartYear = 0
   } = config;

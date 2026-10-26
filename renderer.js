@@ -1102,7 +1102,7 @@ function InvestmentTracker() {
   const showSecurity = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.security);
   const setShowSecurity = (v) => { const n = typeof v === 'function' ? v(showSecurity) : v; n ? window.MaerminUI.openOverlay('security') : window.MaerminUI.closeOverlay('security'); };
   const [syncBusy, setSyncBusy] = useState(false);
-  const [securityRev, setSecurityRev] = useState(0); // bump to re-read vault/sync status
+  const [, setSecurityRev] = useState(0); // bump to re-read vault/sync status
   const [recoveryNudgeDismissed, setRecoveryNudgeDismissed] = useState(() => {
     try { return localStorage.getItem('maermin_recovery_nudge') === 'dismissed'; } catch (e) { return false; }
   });

@@ -431,8 +431,9 @@ they add no `SENSITIVE_KEYS` and need no migration.
   and fails on any non-zero exit. Tests exercise the **real** modules via the
   Node export, with minimal DOM/crypto stubs.
 - `npm run check` — `node --check` on every JS file (fast syntax gate), plus the i18n
-  guard (every key in en and de, no new hardcoded UI text) and the colour guard (no new
-  hex/rgb literals).
+  guard (every key in en and de, no new hardcoded UI text), the colour guard (no new
+  hex/rgb literals) and the unused-code guard (ESLint `no-unused-vars`: no unused locals
+  or functions; tests and docs are not checked).
 - `npm run test:e2e` — `test/e2e/app.e2e.mjs` runs the real app (dev `index.html`
   and `dist/`) in headless Chromium via `playwright-core`: mount after unlock,
   every view of the rail, Tax Report + PDF export, upgrade migration. Needs a built
