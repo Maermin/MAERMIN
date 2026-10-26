@@ -3510,7 +3510,7 @@ function InvestmentTracker() {
       // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
-        return window.MaerminPerformance ?
+        return window.MaerminPerformance ? React.createElement(React.Fragment, null,
           React.createElement(window.MaerminPerformance.View, {
             theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
             series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt,
@@ -3519,7 +3519,13 @@ function InvestmentTracker() {
               theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
               privacyMode, formatPrice, getCurrencySymbol
             })
-          }) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
+          }),
+          // Audit 2026-10-24 feature 8: one calendar year from the Returns figures (year-review.js).
+          window.MaerminYearReview && window.MaerminReturnFigures && React.createElement(window.MaerminYearReview.Panel, {
+            transactions, formatPrice, getCurrencySymbol, privacyMode,
+            figures: (txs, asOf) => window.MaerminReturnFigures.compute(txs, { securitiesValueEUR: 0, exchangeRate, fxAt, today: asOf }),
+            snapshots: window.MaerminSnapshots, snapshotState: window.MaerminSnapshots ? window.MaerminSnapshots.load() : null
+          })) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
