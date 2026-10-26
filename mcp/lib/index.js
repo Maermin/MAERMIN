@@ -167,13 +167,19 @@ const DEFS = {
 function createServer(vault, opts) {
   opts = opts || {};
   const amounts = opts.amounts === true;
-  const usdEur = opts.usdEur > 0 ? opts.usdEur : 0.92;
+  // No invented exchange rate: the backup holds no rate history, so a vault
+  // with amounts in USD or another currency needs --usd-eur for every tool
+  // that reports values; an all-EUR vault needs none.
+  const usdEur = opts.usdEur > 0 ? opts.usdEur : null;
+  const foreign = (vault.data.transactions || []).some((t) => t && t.currency && String(t.currency).toUpperCase() !== 'EUR');
+  const needsRate = foreign && !usdEur;
+  const NO_RATE = 'This vault has amounts in USD or another currency, and the backup holds no exchange rate. Start the server with --usd-eur <EUR per USD>; MAERMIN does not guess a rate. The transactions tool works without it.';
   const today = opts.today || new Date().toISOString().slice(0, 10);
   const scopes = Array.isArray(opts.scopes) && opts.scopes.length ? TOOLS.filter((t) => opts.scopes.includes(t)) : TOOLS.slice();
   // The app's modules read their stores (fund types, tax settings, corporate
   // actions...) from localStorage: give them the decrypted data, in memory.
   globalThis.localStorage = memoryStorage(Object.assign({}, vault.strings));
-  const note = 'USD and other non-EUR prices converted at ' + usdEur + ' EUR per USD (--usd-eur); prices as of the latest one in the vault.';
+  const note = (usdEur ? 'USD and other non-EUR prices converted at ' + usdEur + ' EUR per USD (--usd-eur); ' : 'All amounts in EUR; ') + 'prices as of the latest one in the vault.';
 
   const handlers = {
     overview() {
@@ -274,6 +280,7 @@ function createServer(vault, opts) {
       case 'tools/call': {
         const name = p.name;
         if (!scopes.includes(name) || !handlers[name]) return result(msg.id, { content: [{ type: 'text', text: 'Unknown or not enabled tool: ' + name + '. Enabled: ' + scopes.join(', ') }], isError: true });
+        if (needsRate && name !== 'transactions') return result(msg.id, { content: [{ type: 'text', text: NO_RATE }], isError: true });
         try {
           const out = await handlers[name](p.arguments || {});
           return result(msg.id, { content: [{ type: 'text', text: JSON.stringify(out, null, 1) }], structuredContent: out });

@@ -13,7 +13,7 @@ Usage: maermin-mcp --backup <maermin-vault-backup.json> [options]
   --scopes <list>        tools to offer, comma-separated (default: all):
                          ${M.TOOLS.join(', ')}
   --amounts              include quantities, prices and values in EUR (default: percentages only)
-  --usd-eur <rate>       EUR per USD for non-EUR prices (default 0.92)
+  --usd-eur <rate>       EUR per USD; needed when the vault has non-EUR amounts (no default rate)
   --sync <worker-url>    also read the newer sync blob from YOUR OWN Worker (the only network access)
   --password-file <file> read the vault password from a file (else MAERMIN_PASSWORD)
 
