@@ -3917,6 +3917,35 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E8): Year in review in Performance (demo). The
+  // copied summary carries percentages and counts only.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await openView(page, 'performance');
+      const card = page.locator('[data-testid="year-review"]');
+      await card.waitFor({ timeout: 10000 });
+      r.title = await card.locator('.ui-card__title').first().innerText();
+      r.tiles = await card.locator('[data-stat]').evaluateAll((els) => els.map((e) => e.getAttribute('data-stat')).join());
+      await page.locator('[data-testid="year-review-copy"]').click();
+      const copied = page.locator('[data-testid="year-review-copied"]');
+      await copied.waitFor({ timeout: 5000 });
+      r.copied = await copied.innerText();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E8: Performance shows the year in review with its figures', !err && /Year in review \d{4}/.test(r.title || '') && /invested,realized,dividends,fees,taxes/.test(r.tiles || ''), err || JSON.stringify(r));
+    ok('E8: the copied summary has percentages and counts, no amounts or currency', !err && /My MAERMIN year \d{4}/.test(r.copied || '') && !/[€$]|\d+[.,]\d{2}(?!\s?%)/.test((r.copied || '').replace(/[+−-]?\d+[.,]\d\s?%/g, '')), err || JSON.stringify(r));
+    ok('no page errors in the year-review session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
