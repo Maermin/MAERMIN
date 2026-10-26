@@ -132,7 +132,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Panel(props) {
     if (typeof React === 'undefined') return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 0); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
 

@@ -66,7 +66,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Panel(props) {
     if (typeof React === 'undefined') return null;
     var h = React.createElement;
-    var th = (props && props.theme) || {};
     var fmt = (props && props.formatPrice) || function (n) { return String(Math.round(n)); };
     var result = compute((props && props.positions) || []);
     if (!result.rows.length) return null;

@@ -12,10 +12,6 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 var useMemo = React.useMemo;
 
-// P5-1.2: two columns on wide screens, one on phones (a fixed '1fr 1fr' grid
-// overflowed at 375 px: Sectors, Countries, Currencies, Liquidity).
-var TWO_COL = 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))';
-
 // Theme tokens for every view in this file (FINDINGS H-8: the views were
 // hard-coded light-on-dark, white on white in the light theme). The
 // dashboard provides the app theme; the defaults are the former dark
@@ -26,7 +22,6 @@ var DEFAULT_THEME = {
   accent: '#8b7cff', accentSoft: 'rgba(139,124,255,0.3)', shadow: '0 18px 40px -18px rgba(0,0,0,0.6)'
 };
 var ThemeCtx = React.createContext(DEFAULT_THEME);
-function useT() { return Object.assign({}, DEFAULT_THEME, React.useContext(ThemeCtx) || {}); }
 // Amounts (EUR inside) go through the app's formatter, which converts to the
 // display currency and masks them in Privacy Mode (FINDINGS M-12). On its own
 // a view prints plain EUR.
@@ -122,7 +117,6 @@ function ProgressBar(props) {
 // ============================================================================
 
 function DCAAnalyzerView(props) {
-  var T = useT();
   var portfolio = props.portfolio || {};
   var priceHistory = props.priceHistory || {};
   
@@ -262,7 +256,6 @@ function DCAAnalyzerView(props) {
 
 function SectorAllocationView(props) {
   var money = useMoney();
-  var T = useT();
   var portfolio = props.portfolio || {};
   var prices = props.prices || {};
 
@@ -381,7 +374,6 @@ function SectorAllocationView(props) {
 
 function CountryAllocationView(props) {
   var money = useMoney();
-  var T = useT();
   var portfolio = props.portfolio || {};
   var prices = props.prices || {};
 
@@ -454,7 +446,6 @@ function CountryAllocationView(props) {
 
 function CurrencyExposureView(props) {
   var money = useMoney();
-  var T = useT();
   var portfolio = props.portfolio || {};
   
   var _baseCurrency = useState('EUR');
@@ -586,7 +577,6 @@ function liqRating(r) {
 
 function LiquidityAnalysisView(props) {
   var money = useMoney();
-  var T = useT();
   var portfolio = props.portfolio || {};
   
   var liquidityData = useMemo(function() {
@@ -720,7 +710,6 @@ function goalStateLabel(state) {
 
 // The planned path (line) and today's money (dot); a dashed line at the target.
 function GoalPathChart(props) {
-  var T = useT();
   var path = props.path || [];
   if (path.length < 2) return null;
   // Drawn at about its on-screen size, so the labels keep their size on a
@@ -745,7 +734,6 @@ function GoalPathChart(props) {
 
 function GoalPathCard(props) {
   var money = useMoney();
-  var T = useT();
   var GP = window.MaerminGoalPath;
   var goal = GP.normalizeGoal(props.goal);
   var asOf = window.MaerminUtils.todayISO();
@@ -788,8 +776,6 @@ function GoalPathCard(props) {
 
 function GoalInvestingView(props) {
   var money = useMoney();
-  var T = useT();
-  var portfolioValue = props.portfolioValue || 0;
   
   // Read the saved goals in the initializer (not in an effect), so the save
   // effect below never sees a not-yet-loaded [] and can always write - also

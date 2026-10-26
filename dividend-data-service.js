@@ -6,8 +6,6 @@
 
 (function() {
 'use strict';
-// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
-function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 // API Configuration
 var API_CONFIG = {

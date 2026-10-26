@@ -234,10 +234,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
 
     var sFx = React.useState(_fxCache[workerBase] || null);

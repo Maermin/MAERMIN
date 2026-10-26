@@ -299,7 +299,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var theme = props.theme || {};
     // R4.6: Card, provider boxes, shared buttons / inputs and the table look
     var UIC = window.MaerminComponents;
     var btn = function (primary) { return ['ui-btn', primary ? 'ui-btn--primary' : 'ui-btn--secondary', 'ui-btn--sm'].join(' '); };

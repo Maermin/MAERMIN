@@ -13,20 +13,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHARED
-// ─────────────────────────────────────────────────────────────────────────────
-function Card({ theme, children, style = {} }) {
-  return React.createElement('div', { className: ['ui-card', 'ui-card--pad'].join(' '), style }, children);
-}
-
-// R4.5: a small figure on the shared Stat tile; a theme colour becomes a tone.
-function StatCell({ label, value, sub, color, theme }) {
-  const UIC = window.MaerminComponents;
-  const tone = !color ? null : color === theme.success ? 'gain' : color === theme.danger ? 'loss' : color === theme.warning ? 'warning' : null;
-  return React.createElement(UIC.Stat, { className: 'ui-tile', label, value, sub, tone });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // 1. MULTI-PORTFOLIO MANAGER
 // Portfolios sind Labels auf Transaktionen (portfolioId field)
 // Kein Datenmigrations-Problem — alle alten Transaktionen gehören zu "default"

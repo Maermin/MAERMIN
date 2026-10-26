@@ -127,7 +127,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
-    var e = React.createElement, th = props.theme || {};
+    var e = React.createElement;
     var data = byCountry(props.dividends || []);
     var I = window.MaerminI18n;
     var money = props.formatMoney || function (v) { return I.money(v, 'EUR'); };

@@ -185,7 +185,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
-    var theme = props.theme || {};
     // R4.6: Card, connection boxes, shared fields, buttons and the table look
     var UIC = window.MaerminComponents;
     var INPUT = 'ui-input';

@@ -84,7 +84,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!React) return null;
       var e = React.createElement;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         // R4.6: Card and the shared Table (phone rows)
         var UIC = window.MaerminComponents;

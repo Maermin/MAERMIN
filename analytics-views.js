@@ -137,7 +137,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var D = window.MaerminAnalyticsData, A = window.MaerminAnalytics;
     if (!D || !A) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var dim = 'var(--text-dim)';
     var UIC = window.MaerminComponents;
 
@@ -193,7 +192,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var D = window.MaerminAnalyticsData, A = window.MaerminAnalytics;
     if (!D || !A || !D.alignReturns) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var dim = 'var(--text-dim)', bad = 'var(--loss)';
     var UIC = window.MaerminComponents;
     var workerBase = (props.workerUrl || '').trim().replace(/\/$/, '');

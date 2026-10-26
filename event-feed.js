@@ -234,7 +234,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState, useEffect = React.useEffect;
-    var th = props.theme || {};
     // R4.4: the view frame, Chips for the kinds, one Card with the list grouped by month
     var UIC = W.MaerminComponents;
     var I = W.MaerminI18n;

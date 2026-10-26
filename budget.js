@@ -355,7 +355,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // screen the labels move into a legend under the chart.
   function SankeyChart(props) {
     var React = window.React, e = React.createElement;
-    var sk = props.data, th = props.theme || {}, money = props.money;
+    var sk = props.data, money = props.money;
     var narrow = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
     var W = narrow ? 360 : 780, MIN_H = narrow ? 6 : 16, GAP = narrow ? 3 : 4, SCALE = narrow ? 200 : 300;
     var ins = sk.links.filter(function (l) { return l.target === 'budget'; }), outs = sk.links.filter(function (l) { return l.source === 'budget'; });

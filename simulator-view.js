@@ -64,7 +64,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var h = React.createElement;
-    var theme = props.theme || {};
     var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(Math.round(n), 0); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
     // R4.5: the shared Card, Segmented, Field inputs and Stat tiles

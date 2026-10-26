@@ -115,7 +115,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var order = tx.type === 'buy' ? (swapOf[i] != null ? 2 : 0) : (swapSell[i] != null ? 1 : 3);
       events.push({ d: ymd(tx.date), order: order, i: i, tx: tx });
     });
-    var fundYears = {};
     Object.keys(funds).forEach(function (sym) {
       var first = null;
       txs.forEach(function (tx) { if (String(tx.symbol || '').toUpperCase() === sym && tx.type === 'buy' && (!first || ymd(tx.date) < first)) first = ymd(tx.date); });
@@ -237,9 +236,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var d = props.report && props.report.summary && props.report.summary.austrianDetail;
     var year = props.year || new Date().getFullYear();

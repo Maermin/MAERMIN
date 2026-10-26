@@ -1111,7 +1111,6 @@ function InvestmentTracker() {
   // Transactions filter/search
   const [txSearch, setTxSearch] = useState('');
   const [txSortBy, setTxSortBy] = useState('date-desc'); // date-desc, date-asc, amount-desc, symbol
-  const [txDeleteConfirm, setTxDeleteConfirm] = useState(null); // txId waiting for confirm
   const [txType, setTxType] = useState('all'); // R3.3 (B-5): the type chip
   const [txSelected, setTxSelected] = useState(null); // R3.3 (B-5): the booking in the detail panel
   
@@ -4273,7 +4272,7 @@ function InvestmentTracker() {
       },
       allocation: () => (
       stats.totalPositions > 0 && (() => {
-        const { catList, catMeta, green, red, gray, glyph, tileInk, money, fmtPct, list, totalVal } = ovListData();
+        const { catList, catMeta, glyph, tileInk, money, fmtPct, list, totalVal } = ovListData();
 
         // Allocation by asset class → donut + legend
         const classes = catList.map(c => {
@@ -4784,8 +4783,7 @@ function InvestmentTracker() {
         if (e) nameMap[f.symbol] = e.name;
       });
     }
-    let moved = 0;
-    setTransactions(prev => { const res = T.repairMisfiledSkins(prev, nameMap); moved = res.moved; return res.transactions; });
+    setTransactions(prev => { const res = T.repairMisfiledSkins(prev, nameMap); return res.transactions; });
     setSkinRepairBusy(false);
     const named = Object.keys(nameMap).length;
     addToast(__('skinMoved', '{n} {n:item|items} moved to CS2 Skins', { n: found.length }) + (base.length > 5 ? ' · ' + __('skinMatched', '{named}/{n} matched to their market name', { named, n: found.length }) : '') + ' - ' + __('skinRefreshToLoad', 'refresh prices to load them'), 'success', 8000);

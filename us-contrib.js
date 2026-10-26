@@ -144,8 +144,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', warn = th.warning || '#f59e0b', bad = th.danger || '#ef4444', accent = th.accent || '#8b7cff';
+    var bad = th.danger || '#ef4444';
     var money = function (v) { return props.privacy ? '••••••' : window.MaerminI18n.money(v, 'USD'); };
     var year = props.year || new Date().getFullYear(), Y = String(year);
     var s0 = useState(loadSettings); var st = s0[0], setSt = s0[1];

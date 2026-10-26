@@ -8,20 +8,8 @@
 // Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
 function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
-const { useState, useEffect, useMemo, useCallback, useRef } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-// Static formatters live in utils.js (window.MaerminUtils). formatPrice keeps
-// its currency-conversion logic here but delegates final number formatting.
-const formatPrice = (price, currency = 'EUR', exchangeRate = 1) => {
-  if (price === undefined || price === null || isNaN(price)) return '0.00';
-  const converted = currency === 'USD' ? price * exchangeRate : price;
-  return window.MaerminUtils.formatNumber(converted);
-};
 
 // ============================================================================
 // COMMAND PALETTE COMPONENT

@@ -143,7 +143,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var LT = (typeof window !== 'undefined') && window.MaerminLookThrough;
     if (!React || !LT) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.3: costs read as amounts (no loss colour without a sign); a missing TER is a warning in words
     var UIC = window.MaerminComponents;

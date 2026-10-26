@@ -415,7 +415,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       var useState = React.useState;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         var accounts = props.accounts || [];
         var rate = props.usdToEur || (props.prices && props.prices.usdToEur) || 1;

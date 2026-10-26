@@ -10,7 +10,6 @@ function RiskAnalyticsViewV2(props) {
   var prices = props.prices;
   var priceHistory = props.priceHistory;
   var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-  var theme = props.theme || {};
   var formatPrice = props.formatPrice || function(v) { return window.MaerminI18n.num(v, 2); };
   // formatPrice converts to the display currency, so the label must follow it (FINDINGS M-12).
   var currencyLabel = typeof props.getCurrencySymbol === 'function' ? props.getCurrencySymbol() : 'EUR';

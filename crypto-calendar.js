@@ -107,7 +107,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, useMemo = React.useMemo;
-    var th = props.theme || {};
     // R4.6: Card and the shared table look (cells keep their test hooks)
     var UIC = window.MaerminComponents;
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };

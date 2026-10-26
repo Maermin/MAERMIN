@@ -275,24 +275,10 @@
     };
   }
 
-  // With a theme the score uses its status tokens (readable in every theme,
-  // incl. light and colour-blind safe); without one the original palette.
-  function scoreColor(score, theme) {
-    if (theme && theme.success && theme.warning && theme.danger) {
-      return score >= 70 ? theme.success : score >= 40 ? theme.warning : theme.danger;
-    }
-    if (score >= 85) return '#22c55e';
-    if (score >= 70) return '#84cc16';
-    if (score >= 55) return '#f59e0b';
-    if (score >= 40) return '#f97316';
-    return '#ef4444';
-  }
-
   // ---- React view ----------------------------------------------------------
   function HealthView(props) {
     const portfolio = props.portfolio || {};
     const prices = props.prices || {};
-    const theme = props.theme || {};
     const formatPrice = props.formatPrice || ((v) => (v || 0).toFixed(2));
     const sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '';
     const t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});

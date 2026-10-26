@@ -158,7 +158,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       var useState = React.useState;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         var privacy = !!props.privacyMode;
         var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };

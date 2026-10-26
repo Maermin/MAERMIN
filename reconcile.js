@@ -172,7 +172,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var theme = props.theme || {};
     // R4.6: a callout with the shared table look; status in words with a mark and its tone
     var UIC = window.MaerminComponents;
     var s0 = useState(load), links = s0[0], setLinks = s0[1];

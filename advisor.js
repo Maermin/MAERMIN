@@ -20,7 +20,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
   function pct(n) { return I18N().pct(Math.round((n || 0) * 10) / 10, { min: 0, max: 1 }); }
-  function money(n) { return I18N().num(Math.round(n || 0), 0); }
 
   // Health sub-score key -> label.
   function areaLabel(k) {
@@ -244,7 +243,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Panel(props) {
     if (typeof React === 'undefined') return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras, { formatMoney: props.formatMoney });
     var findings = report.findings || [];
