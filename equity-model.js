@@ -170,10 +170,11 @@
       source: oneOf(ev.source, ['manual', 'auto', 'import'], 'manual'),
       note: str(ev.note, 300)
     };
-    ['purchasePrice', 'discountAmount', 'lookbackGain', 'effectiveDiscountPct', 'refund', 'carry', 'fmvStart'].forEach(function (k) {
+    ['purchasePrice', 'discountAmount', 'lookbackGain', 'effectiveDiscountPct', 'refund', 'carry', 'fmvStart', 'fxEffect', 'salePrice'].forEach(function (k) {
       var v = num(ev[k]); if (v != null) out[k] = v;
     });
     if (ev.offeringStart) out.offeringStart = ymd(ev.offeringStart);
+    if (ev.soldImmediately) out.soldImmediately = true;
     if (ev.contributed && typeof ev.contributed === 'object' && num(ev.contributed.amount) != null) {
       out.contributed = { amount: num(ev.contributed.amount), currency: cur(ev.contributed.currency) || 'EUR' };
     }
@@ -275,6 +276,11 @@
     var out = [];
     var units = ev.withheldUnits > 0 ? ev.grossUnits : ev.netUnits;
     if (units > 0) out.push(Object.assign({}, base, { id: 'eq-' + ev.id, type: 'buy', quantity: units, price: ev.fmv, equityRole: 'lot' }));
+    // ESPP 'sell right after the purchase': the lot is sold the same day at the
+    // sale price (else the FMV), so its gain or loss is realised apart
+    if (ev.kind === 'purchase' && ev.soldImmediately && units > 0) {
+      out.push(Object.assign({}, base, { id: 'eq-' + ev.id + '-sale', type: 'sell', quantity: units, price: ev.salePrice > 0 ? ev.salePrice : ev.fmv, equityRole: 'sale' }));
+    }
     if (ev.withheldUnits > 0) {
       out.push(Object.assign({}, base, {
         id: 'eq-' + ev.id + '-cover', type: 'sell', quantity: ev.withheldUnits,

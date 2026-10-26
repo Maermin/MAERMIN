@@ -136,7 +136,7 @@
     while (lo <= hi) { var mid = (lo + hi) >> 1; if (series.d[mid] <= t) { ans = mid; lo = mid + 1; } else { hi = mid - 1; } }
     if (source === 'prevClose' && ans > -1 && series.d[ans] === t) ans--;
     if (ans < 0 || t - series.d[ans] > 7) return null;
-    return { fmv: series.p[ans] / div, date: isoOf(series.d[ans]), sameDay: series.d[ans] === t };
+    return { fmv: Math.round(series.p[ans] / div * 1e6) / 1e6, date: isoOf(series.d[ans]), sameDay: series.d[ans] === t };
   }
 
   function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }

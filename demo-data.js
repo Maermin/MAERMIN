@@ -41,11 +41,12 @@
   // are: 12 AAPL × 228 = 2,736 € on the Overview) — so the demo shows live P/L
   // without any network. Keyed by symbol (matches what the renderer looks up).
   const PRICES = {
-    BTC: 92000, ETH: 3100, AAPL: 228, 'VWCE.DE': 132, XAU: 2620, TSLA: 240, MSFT: 412,
+    BTC: 92000, ETH: 3100, AAPL: 228, 'VWCE.DE': 132, XAU: 2620, TSLA: 240, MSFT: 412, 'AZN.L': 130,
     'AK-47 | Redline (Field-Tested)': 41
   };
 
-  const SETTINGS = { exchangeRate: 0.92 }; // USD→EUR used by the demo
+  // USD→EUR used by the demo; GBP and CHF: today's EUR rates of fxHistories
+  const SETTINGS = { exchangeRate: 0.92, gbpToEur: 1.17, chfToEur: 1.06 };
 
   // ── Employee equity (PLAN-EQUITY, decision 10: fictional employers, real
   // tickers, made-up prices) ─────────────────────────────────────────────────
@@ -79,7 +80,17 @@
         psu: { perfStart: '2024-01-01', perfEnd: '2026-12-31', settleDate: '2027-03-01', min: 0, target: 100, max: 200 } },
       { id: 'demo-eq-psu23', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2023-2025', grantDate: '2023-03-01', units: 100, withholding: 'sell_to_cover', withholdingRate: 0.45,
         psu: { perfStart: '2023-01-01', perfEnd: '2025-12-31', settleDate: '2026-03-02', min: 0, target: 100, max: 200, actual: 120 } },
-      { id: 'demo-eq-espp-fab', planId: 'demo-eq-fabrikam', type: 'ESPP', name: 'Sharesave', grantDate: '2021-01-01' }
+      // ESPP (Package 4): EUR salary, USD share, 6-month offerings, 15 % discount,
+      // lookback, 10 % of base + bonus, 4,500 EUR per offering (the large 2026
+      // bonus runs over it; the excess is carried)
+      { id: 'demo-eq-espp', planId: 'demo-eq-contoso', type: 'ESPP', name: 'ESPP', grantDate: '2024-01-01',
+        contribution: { anchor: '2024-01-01', periodMonths: 6, discountPct: 15, lookback: true, pctHistory: [{ from: '2024-01-01', pct: 10 }],
+          eligible: 'base_bonus', caps: { currency: 'EUR', periodAmount: 4500, excess: 'carry' }, leftover: 'carry', fxMode: 'purchase',
+          actuals: { '2026-01': 700, '2026-02': 700 } } },
+      // the non-EUR example: CHF salary, GBX-quoted share, 2021-2022
+      { id: 'demo-eq-espp-fab', planId: 'demo-eq-fabrikam', type: 'ESPP', name: 'Sharesave', grantDate: '2021-01-01',
+        contribution: { anchor: '2021-01-01', endDate: '2022-12-31', periodMonths: 6, discountPct: 10, lookback: false, pctHistory: [{ from: '2021-01-01', pct: 5 }],
+          eligible: 'base', leftover: 'refund', fxMode: 'purchase' } }
     ],
     // tranche ids as equity-vesting.js names them (<grant>-t<n>), so the
     // schedule finds its past vests and only adds the projected ones
@@ -102,7 +113,7 @@
       { id: 'demo-inc-c1', from: '2023-01-01', to: '2025-03-31', kind: 'base', period: 'year', amount: 78000, currency: 'EUR' },
       { id: 'demo-inc-c2', from: '2025-04-01', kind: 'base', period: 'year', amount: 84000, currency: 'EUR' },
       { id: 'demo-inc-b25', from: '2025-03-31', kind: 'bonus', period: 'once', amount: 9000, currency: 'EUR' },
-      { id: 'demo-inc-b26', from: '2026-03-31', kind: 'bonus', period: 'once', amount: 9500, currency: 'EUR' },
+      { id: 'demo-inc-b26', from: '2026-03-31', kind: 'bonus', period: 'once', amount: 25000, currency: 'EUR', note: 'Special bonus' },
       { id: 'demo-inc-13', from: '2025-11-30', kind: '13th', period: 'once', amount: 7000, currency: 'EUR' }
     ]
   };
@@ -151,6 +162,23 @@
     if (_shock[day] === undefined) _shock[day] = (seeded('market|' + day)() - 0.5) * 0.02;
     return _shock[day];
   }
+  // Plan tickers without trades in the sample book: [day, close in the quote currency]
+  const EQ_SERIES = { 'AZN.L': { cur: 'GBp', anchors: [['2020-12-18', 7350], ['2021-06-30', 8480], ['2021-12-31', 8700], ['2022-06-30', 10800], ['2022-12-30', 11200], ['2024-06-28', 12300]] } };
+  // EUR per CHF and per GBP on weekdays of the last ~6 years: smooth waves
+  // that end at SETTINGS.chfToEur / gbpToEur today (the ESPP example of
+  // Fabrikam runs 2021-2022, before the USD sample history starts).
+  function fxHistories(todayISO) {
+    const t = dayNo(todayISO), out = { CHF: {}, GBP: {} };
+    for (let n = t - 6 * 366; n <= t; n++) {
+      const wd = new Date(n * DAY).getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      const x = n - t, iso = new Date(n * DAY).toISOString().slice(0, 10);
+      out.CHF[iso] = Math.round(SETTINGS.chfToEur * Math.exp(0.07 * Math.tanh(x / 900) + 0.01 * Math.sin(x / 31)) * 1e5) / 1e5;
+      out.GBP[iso] = Math.round(SETTINGS.gbpToEur * Math.exp(0.02 * Math.sin(x / 200) + 0.008 * Math.sin(x / 17)) * 1e5) / 1e5;
+    }
+    return out;
+  }
+
   function closeHistory(todayISO) {
     const today = dayNo(todayISO);
     const bySym = {};
@@ -158,6 +186,11 @@
       if (!HISTORY_CATEGORIES[t.category] || (t.type !== 'buy' && t.type !== 'sell')) return;
       const k = t.category + '|' + t.symbol.toUpperCase();
       (bySym[k] = bySym[k] || { cur: t.currency, sym: t.symbol, anchors: [] }).anchors.push([dayNo(t.date), t.price]);
+    });
+    Object.keys(EQ_SERIES).forEach((sym) => {
+      const k = 'stocks|' + sym.toUpperCase();
+      bySym[k] = bySym[k] || { cur: EQ_SERIES[sym].cur, sym: sym, anchors: [] };
+      EQ_SERIES[sym].anchors.forEach((a) => bySym[k].anchors.push([dayNo(a[0]), a[1]]));
     });
     // Employee equity: the series pass through every vest FMV (USD shares only;
     // the GBX example has no events yet).
@@ -175,7 +208,7 @@
       anchors.unshift([start, anchors[0][1]]);
       // PRICES are what the app values the holding at (EUR); a USD series ends
       // at that price in USD, so today's close and the live price agree.
-      const end = PRICES[e.sym] ? (e.cur === 'USD' ? PRICES[e.sym] / SETTINGS.exchangeRate : PRICES[e.sym]) : anchors[anchors.length - 1][1];
+      const end = PRICES[e.sym] ? (e.cur === 'USD' ? PRICES[e.sym] / SETTINGS.exchangeRate : e.cur === 'GBp' ? Math.round(PRICES[e.sym] / SETTINGS.gbpToEur * 100 * 100) / 100 : PRICES[e.sym]) : anchors[anchors.length - 1][1];
       if (anchors[anchors.length - 1][0] < today) anchors.push([today, end]);
       const rnd = seeded(k);
       const weekdaysOnly = k.indexOf('crypto|') !== 0;
@@ -367,7 +400,7 @@
     ['ZPHR', 'Zephyr Aerospace (sample)', 'growth']
   ];
 
-  const api = { FLAG, SETTINGS, BROKER, EQ_PORTFOLIO, SAMPLE_COMPANIES, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory, getEquity, getIncome };
+  const api = { FLAG, SETTINGS, BROKER, EQ_PORTFOLIO, SAMPLE_COMPANIES, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory, getEquity, getIncome, fxHistories };
   if (typeof window !== 'undefined') window.MaerminDemo = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -211,6 +211,9 @@ function InvestmentTracker() {
   // also a normal lot in `transactions`; syncLots keeps the two in step (an
   // event added, edited or deleted, a store restored or synced in).
   const [equityState, setEquityState] = useState(() => (window.MaerminEquity ? window.MaerminEquity.load() : null));
+  // The income timeline (salary, bonus, 13th salary) for ESPP contributions:
+  // its own encrypted store, never sent anywhere in plaintext.
+  const [incomeState, setIncomeState] = useState(() => (window.MaerminEquity ? window.MaerminEquity.loadIncome() : null));
   useEffect(() => {
     const EQ = window.MaerminEquity;
     if (!EQ || !equityState) return;
@@ -944,21 +947,32 @@ function InvestmentTracker() {
   // PLAN-EQUITY Package 2: past tranches of a schedule become vest events from
   // the close and FX history (FMV and rates of the day); future ones stay
   // projected. Runs again when history arrives; saves only when something changed.
-  useEffect(() => {
-    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting;
-    if (!EQ || !EV || !equityState) return;
+  // The FX context of the equity modules: the stored pipeline, or in demo mode
+  // the sample USD history and the sample CHF / GBP histories.
+  const equityFxCtx = useMemo(() => {
+    if (!demoMode) return {};
+    const today = window.MaerminUtils.todayISO();
+    return { usdHistory: DFX ? DFX.fxHistory() : undefined, histories: window.MaerminDemo && window.MaerminDemo.fxHistories ? window.MaerminDemo.fxHistories(today) : undefined };
+  }, [demoMode]);
+  const equityOpts = useMemo(() => {
     const series = (closeHistory && closeHistory.series) || {};
-    const r = EV.regenerate(equityState, {
+    return {
       today: window.MaerminUtils.todayISO(),
       closes: (ticker) => series['stocks|' + String(ticker).toUpperCase()] || null,
-      fxCtx: demoMode && DFX ? { usdHistory: DFX.fxHistory() } : {},
-      targets: ['EUR', currency]
-    });
-    const next = EQ.normalize(r.state);
+      fxCtx: equityFxCtx, targets: ['EUR', currency],
+      income: (incomeState && incomeState.entries) || []
+    };
+  }, [closeHistory, equityFxCtx, currency, incomeState, fxHistVersion]);
+  useEffect(() => {
+    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting, ES = window.MaerminEquityEspp;
+    if (!EQ || !EV || !equityState) return;
+    let st = EV.regenerate(equityState, equityOpts).state;
+    if (ES) st = ES.regenerate(EQ.normalize(st), equityOpts).state;   // Package 4: ESPP purchases
+    const next = EQ.normalize(st);
     if (JSON.stringify(next) === JSON.stringify(equityState)) return;
     EQ.save(next);
     setEquityState(next);
-  }, [equityState, closeHistory, fxHistVersion, demoMode, currency]);
+  }, [equityState, equityOpts]);
 
   // Stored closes are in the quote currency; convert each to EUR at the rate of
   // its day: USD from the daily USD history, CHF / GBp & co. from the currency
@@ -2267,7 +2281,7 @@ function InvestmentTracker() {
     if (!window.MaerminDemo) return;
     window.MaerminDemo.enable();
     setDemoMode(true);
-    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); setIncomeState(window.MaerminEquity.loadIncome()); }
     setTransactions(window.MaerminDemo.getTransactions());
     setPrices(window.MaerminDemo.getPrices());
     setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
@@ -2282,7 +2296,7 @@ function InvestmentTracker() {
     if (PD && PD.active) { window.location.assign(PD.exitUrl(window.location)); return; }
     if (window.MaerminDemo) window.MaerminDemo.disable();
     setDemoMode(false);
-    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); setIncomeState(window.MaerminEquity.loadIncome()); }
     const saved = localStorage.getItem('transactions');
     setTransactions(window.MaerminUtils.safeParse(saved, []) || []);
     setPrices({});
@@ -3545,12 +3559,21 @@ function InvestmentTracker() {
 
   // Employee equity in net worth: unvested shares at today's EUR price (counted
   // only with the setting on); ESPP cash follows with the ESPP package.
-  const equityNetWorth = (() => {
-    const EQ = window.MaerminEquity;
+  const equityNetWorth = useMemo(() => {
+    const EQ = window.MaerminEquity, ES = window.MaerminEquityEspp, EF = window.MaerminEquityFx;
     if (!EQ || !equityState) return null;
     const px = (p) => { const v = prices[p.ticker] || prices[p.ticker.toLowerCase()]; return typeof v === 'number' ? v : parseFloat(v) || null; };
-    return { unvested: EQ.pipeline(equityState, px, (v) => v).total.base, esppCash: 0, includeUnvested: equityState.settings.includeUnvested };
-  })();
+    // ESPP cash: the contributions of the open offerings (and carried cash), in EUR today
+    let esppCash = 0;
+    if (ES && EF) equityState.grants.forEach((g) => {
+      if (g.type !== 'ESPP' || !g.contribution) return;
+      const sc = ES.schedule(equityState, g, equityOpts);
+      if (!(sc.cash > 0)) return;
+      const c = EF.convert(sc.cash, sc.cashCurrency, 'EUR', equityOpts.today, equityOpts.fxCtx);
+      if (c) esppCash += c.value;
+    });
+    return { unvested: EQ.pipeline(equityState, px, (v) => v).total.base, esppCash, includeUnvested: equityState.settings.includeUnvested };
+  }, [equityState, prices, equityOpts]);
   // PLAN-EQUITY decision 9: the page joins Simple mode once a plan exists.
   if (window.MaerminNav && window.MaerminNav.setPromoted) window.MaerminNav.setPromoted({ equity: !!(window.MaerminEquity && window.MaerminEquity.hasPlans(equityState)) });
 
@@ -3734,7 +3757,8 @@ function InvestmentTracker() {
             state: equityState, onChange: setEquityState,
             transactions, portfolios, prices, formatPrice, getCurrencySymbol, baseCurrency: reporting.cur,
             taxJurisdiction, privacy: privacyMode, addToast,
-            usdHistory: demoMode && DFX ? DFX.fxHistory() : undefined
+            usdHistory: demoMode && DFX ? DFX.fxHistory() : undefined,
+            fxCtx: equityFxCtx, equityOpts, income: incomeState, onIncomeChange: (next) => { const EQ = window.MaerminEquity; const n = EQ.normalizeIncome(next); EQ.saveIncome(n); setIncomeState(n); }
           }) : renderAnalyticsPlaceholder(__('navEquity', 'Employee Equity'));
 
       case 'net-worth':

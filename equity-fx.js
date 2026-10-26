@@ -25,7 +25,8 @@
 //   valueIn(amount, from, fxRecord, to)   amount through a stored record (no lookup)
 //
 // ctx (all optional; tests inject them): { series(cur) -> [{ d: ISO, r: EUR per
-// unit }] sorted, usdHistory ({ ISO: EUR per USD }), usdRates, overrides:
+// unit }] sorted, usdHistory ({ ISO: EUR per USD }), histories ({ CUR: { ISO:
+// EUR per unit } }, e.g. the demo's), usdRates, overrides:
 // { key: { rate, note } }, maxGapDays }.
 // Pure + Node-tested (test/equity-fx.test.js).
 // ============================================================================
@@ -61,8 +62,14 @@
   // Daily EUR rates of a major currency from the pipeline: [{ d, r }] sorted.
   // usdHistory: the app's USD->EUR map when it is not the stored one (the
   // demo's sample history, as the renderer's fxAt uses it).
-  function pipelineSeries(cur, usdHistory) {
+  // histories: { CUR: { ISO: EUR per unit } } for other currencies the same way.
+  function pipelineSeries(cur, usdHistory, histories) {
     var F = fxh();
+    var given = histories && histories[cur];
+    if (given) {
+      return Object.keys(given).filter(function (k) { return ymd(k) && num(given[k]) > 0; }).sort()
+        .map(function (k) { return { d: k, r: num(given[k]) }; });
+    }
     if (!F && !usdHistory) return [];
     if (cur === 'USD') {
       var h = usdHistory || (F.load ? F.load() : {});
@@ -77,7 +84,7 @@
     if (ctx && typeof ctx.series === 'function') return ctx.series(cur) || [];
     if (ctx) {
       ctx._cache = ctx._cache || {};
-      return ctx._cache[cur] || (ctx._cache[cur] = pipelineSeries(cur, ctx.usdHistory));
+      return ctx._cache[cur] || (ctx._cache[cur] = pipelineSeries(cur, ctx.usdHistory, ctx.histories));
     }
     return pipelineSeries(cur);
   }
@@ -161,7 +168,7 @@
   var api = {
     MAX_GAP_DAYS: MAX_GAP_DAYS, TAX_COUNTRIES: TAX_COUNTRIES,
     majorOf: majorOf, taxCurrency: taxCurrency, overrideKey: overrideKey,
-    eurPer: eurPer, rate: rate, convert: convert, record: record, valueIn: valueIn
+    seriesOf: seriesOf, eurPer: eurPer, rate: rate, convert: convert, record: record, valueIn: valueIn
   };
   if (typeof window !== 'undefined') window.MaerminEquityFx = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
