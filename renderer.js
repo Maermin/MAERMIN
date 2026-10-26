@@ -211,6 +211,9 @@ function InvestmentTracker() {
   // also a normal lot in `transactions`; syncLots keeps the two in step (an
   // event added, edited or deleted, a store restored or synced in).
   const [equityState, setEquityState] = useState(() => (window.MaerminEquity ? window.MaerminEquity.load() : null));
+  // The income timeline (salary, bonus, 13th salary) for ESPP contributions:
+  // its own encrypted store, never sent anywhere in plaintext.
+  const [incomeState, setIncomeState] = useState(() => (window.MaerminEquity ? window.MaerminEquity.loadIncome() : null));
   useEffect(() => {
     const EQ = window.MaerminEquity;
     if (!EQ || !equityState) return;
@@ -853,12 +856,15 @@ function InvestmentTracker() {
   // then converts such a trade at the rate of ITS date in every view. Runs when
   // a new currency / an earlier trade appears and after a price refresh (the
   // plan itself re-requests a currency at most every 12 h). Not in demo mode.
+  // PLAN-EQUITY: the plans' tickers and salary / tax currencies load their
+  // history too, before any lot exists (rows only for the loaders).
+  const historyTx = useMemo(() => (window.MaerminEquity && equityState) ? transactions.concat(window.MaerminEquity.historyRows(equityState)) : transactions, [transactions, equityState]);
   const curSyncRef = useRef({ sig: '', at: 0, busy: false });
   const [curTick, setCurTick] = useState(0); // re-check after a run (a currency may have been added meanwhile)
   useEffect(() => {
     const FXH = window.MaerminFxHistory;
     if (!FXH || !FXH.syncCurrencies || demoMode) return;
-    const needed = FXH.currenciesNeeded(transactions);
+    const needed = FXH.currenciesNeeded(historyTx);
     const curs = Object.keys(needed);
     const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
     if (!curs.length || rawBase.length <= 5) return;
@@ -866,7 +872,7 @@ function InvestmentTracker() {
     const st = curSyncRef.current;
     if (st.busy || (st.sig === sig && Date.now() - st.at < 10 * 60 * 1000)) return;
     curSyncRef.current = { sig, at: Date.now(), busy: true };
-    FXH.syncCurrencies({ transactions, workerBase: rawBase }).then((res) => {
+    FXH.syncCurrencies({ transactions: historyTx, workerBase: rawBase }).then((res) => {
       curSyncRef.current.busy = false;
       setCurTick(n => n + 1);
       if (res.failed.length) dbg('[FX] no rate history for', res.failed.map(f => f.cur + ' (' + f.reason + ')').join(', '));
@@ -874,7 +880,7 @@ function InvestmentTracker() {
       if (!FXH.saveCurrencies(res.store)) console.warn('[FX] could not persist the currency history - kept for this session');
       setFxHistVersion(v => v + 1); // new resolver identity -> positions, ledger, tax report recompute
     }).catch(() => { curSyncRef.current.busy = false; });
-  }, [transactions, marketWorker, demoMode, lastRefresh, curTick]);
+  }, [historyTx, marketWorker, demoMode, lastRefresh, curTick]);
   // ── Daily close history → value path (TWR from day one) ───────────────────
   // priceHistory only has one point per refresh, so TWR, rolling volatility and
   // correlation stayed empty for days after an import. MaerminCloseHistory keeps
@@ -897,7 +903,7 @@ function InvestmentTracker() {
     // suffixes (EUNL -> EUNL.DE) the history needs, and it gets the first go at
     // the Worker's and CoinGecko's request limits.
     if (!CH || demoMode || !lastRefresh) return;
-    const need = CH.need(transactions);
+    const need = CH.need(historyTx);
     const keys = Object.keys(need);
     if (!keys.length) return;
     const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
@@ -912,7 +918,7 @@ function InvestmentTracker() {
     let suffixCache = {};
     try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
     CH.sync({
-      transactions, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
+      transactions: historyTx, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
       // live EUR price: a Yahoo coin pair far off it is another coin
       priceOf: (sym) => { const s = String(sym || ''); return prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0; }
     }).then((res) => {
@@ -936,7 +942,41 @@ function InvestmentTracker() {
       closeStoreRef.current = res.store;
       setCloseHistory(res.store);
     }).catch(() => { closeSyncRef.current.busy = false; });
-  }, [transactions, marketWorker, demoMode, lastRefresh, closeTick]);
+  }, [historyTx, marketWorker, demoMode, lastRefresh, closeTick]);
+
+  // PLAN-EQUITY Package 2: past tranches of a schedule become vest events from
+  // the close and FX history (FMV and rates of the day); future ones stay
+  // projected. Runs again when history arrives; saves only when something changed.
+  // The FX context of the equity modules: the stored pipeline, or in demo mode
+  // the sample USD history and the sample CHF / GBP histories.
+  const equityFxCtx = useMemo(() => {
+    if (!demoMode) return {};
+    const today = window.MaerminUtils.todayISO();
+    return { usdHistory: DFX ? DFX.fxHistory() : undefined, histories: window.MaerminDemo && window.MaerminDemo.fxHistories ? window.MaerminDemo.fxHistories(today) : undefined };
+  }, [demoMode]);
+  const equityOpts = useMemo(() => {
+    const series = (closeHistory && closeHistory.series) || {};
+    return {
+      today: window.MaerminUtils.todayISO(),
+      closes: (ticker) => series['stocks|' + String(ticker).toUpperCase()] || null,
+      fxCtx: equityFxCtx, targets: ['EUR', currency],
+      income: (incomeState && incomeState.entries) || []
+    };
+  }, [closeHistory, equityFxCtx, currency, incomeState, fxHistVersion]);
+  useEffect(() => {
+    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting, ES = window.MaerminEquityEspp, EM = window.MaerminEquityMatch;
+    if (!EQ || !EV || !equityState) return;
+    let st = EV.regenerate(equityState, equityOpts).state;
+    if (ES) st = ES.regenerate(EQ.normalize(st), equityOpts).state;   // Package 4: ESPP purchases
+    if (EM) {                                                          // Package 5: match grants, then their vests
+      st = EM.regenerate(EQ.normalize(st), Object.assign({}, equityOpts, { transactions })).state;
+      st = EV.regenerate(EQ.normalize(st), equityOpts).state;
+    }
+    const next = EQ.normalize(st);
+    if (JSON.stringify(next) === JSON.stringify(equityState)) return;
+    EQ.save(next);
+    setEquityState(next);
+  }, [equityState, equityOpts, transactions]);
 
   // Stored closes are in the quote currency; convert each to EUR at the rate of
   // its day: USD from the daily USD history, CHF / GBp & co. from the currency
@@ -2245,7 +2285,7 @@ function InvestmentTracker() {
     if (!window.MaerminDemo) return;
     window.MaerminDemo.enable();
     setDemoMode(true);
-    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); setIncomeState(window.MaerminEquity.loadIncome()); }
     setTransactions(window.MaerminDemo.getTransactions());
     setPrices(window.MaerminDemo.getPrices());
     setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
@@ -2260,7 +2300,7 @@ function InvestmentTracker() {
     if (PD && PD.active) { window.location.assign(PD.exitUrl(window.location)); return; }
     if (window.MaerminDemo) window.MaerminDemo.disable();
     setDemoMode(false);
-    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); setIncomeState(window.MaerminEquity.loadIncome()); }
     const saved = localStorage.getItem('transactions');
     setTransactions(window.MaerminUtils.safeParse(saved, []) || []);
     setPrices({});
@@ -3523,12 +3563,21 @@ function InvestmentTracker() {
 
   // Employee equity in net worth: unvested shares at today's EUR price (counted
   // only with the setting on); ESPP cash follows with the ESPP package.
-  const equityNetWorth = (() => {
-    const EQ = window.MaerminEquity;
+  const equityNetWorth = useMemo(() => {
+    const EQ = window.MaerminEquity, ES = window.MaerminEquityEspp, EF = window.MaerminEquityFx;
     if (!EQ || !equityState) return null;
     const px = (p) => { const v = prices[p.ticker] || prices[p.ticker.toLowerCase()]; return typeof v === 'number' ? v : parseFloat(v) || null; };
-    return { unvested: EQ.pipeline(equityState, px, (v) => v).total.base, esppCash: 0, includeUnvested: equityState.settings.includeUnvested };
-  })();
+    // ESPP cash: the contributions of the open offerings (and carried cash), in EUR today
+    let esppCash = 0;
+    if (ES && EF) equityState.grants.forEach((g) => {
+      if (g.type !== 'ESPP' || !g.contribution) return;
+      const sc = ES.schedule(equityState, g, equityOpts);
+      if (!(sc.cash > 0)) return;
+      const c = EF.convert(sc.cash, sc.cashCurrency, 'EUR', equityOpts.today, equityOpts.fxCtx);
+      if (c) esppCash += c.value;
+    });
+    return { unvested: EQ.pipeline(equityState, px, (v) => v).total.base, esppCash, includeUnvested: equityState.settings.includeUnvested };
+  }, [equityState, prices, equityOpts]);
   // PLAN-EQUITY decision 9: the page joins Simple mode once a plan exists.
   if (window.MaerminNav && window.MaerminNav.setPromoted) window.MaerminNav.setPromoted({ equity: !!(window.MaerminEquity && window.MaerminEquity.hasPlans(equityState)) });
 
@@ -3712,7 +3761,8 @@ function InvestmentTracker() {
             state: equityState, onChange: setEquityState,
             transactions, portfolios, prices, formatPrice, getCurrencySymbol, baseCurrency: reporting.cur,
             taxJurisdiction, privacy: privacyMode, addToast,
-            usdHistory: demoMode && DFX ? DFX.fxHistory() : undefined
+            usdHistory: demoMode && DFX ? DFX.fxHistory() : undefined,
+            fxCtx: equityFxCtx, equityOpts, income: incomeState, onIncomeChange: (next) => { const EQ = window.MaerminEquity; const n = EQ.normalizeIncome(next); EQ.saveIncome(n); setIncomeState(n); }
           }) : renderAnalyticsPlaceholder(__('navEquity', 'Employee Equity'));
 
       case 'net-worth':
@@ -5794,6 +5844,25 @@ function InvestmentTracker() {
                 : __('fxHintNone', 'No exchange rate for {cur} - the amount would be counted as EUR.', { cur }));
           })()
         ),
+
+        // PLAN-EQUITY Package 5: selling employer shares - the match shares a sale
+        // forfeits (that purchase's shares sold in the holding period)
+        (() => {
+          const EQ = window.MaerminEquity, EM = window.MaerminEquityMatch;
+          if (!EQ || !EM || !equityState || newTransaction.type !== 'sell') return null;
+          const sym = String(newTransaction.symbol || '').trim().toUpperCase();
+          const plan = equityState.plans.find(p => p.ticker === sym);
+          const qty = window.MaerminUtils.parseDecimal(newTransaction.quantity) || 0;
+          if (!plan || !(qty > 0)) return null;
+          const pv = EM.forfeitPreview(equityState, transactions.filter(x => x.id !== editingTransactionId), {
+            portfolioId: newTransaction.targetPortfolioId || writePortfolioId, symbol: plan.ticker, quantity: qty, date: newTransaction.date || window.MaerminUtils.todayISO()
+          });
+          if (!(pv.units > 0)) return null;
+          const px = prices[plan.ticker] || prices[plan.ticker.toLowerCase()];
+          return React.createElement('p', { role: 'status', 'data-testid': 'tx-match-forfeit', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
+            __('eqSellForfeit', 'Selling these shares forfeits {n} unvested match shares (≈ {value}).', {
+              n: window.MaerminI18n.num(pv.units, { min: 0, max: 4 }), value: px ? `${formatPrice(pv.units * px)} ${getCurrencySymbol()}` : '–' }));
+        })(),
 
         // Total display
         newTransaction.quantity && newTransaction.price && React.createElement('div', { className: 'ui-tx-total' },

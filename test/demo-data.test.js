@@ -43,7 +43,7 @@ const D = require('../demo-data.js');
     const px = D.getPrices();
     ok('today\'s close is the demo price (EUR series) or that price in USD (USD series)', Object.keys(h.series).every((k) => {
       const e = h.series[k]; if (!px[e.sym]) return true;
-      const want = e.cur === 'USD' ? px[e.sym] / D.SETTINGS.exchangeRate : px[e.sym];
+      const want = e.cur === 'USD' ? px[e.sym] / D.SETTINGS.exchangeRate : e.cur === 'GBp' ? px[e.sym] / D.SETTINGS.gbpToEur * 100 : px[e.sym];
       return e.d[e.d.length - 1] === day('2026-10-09') && Math.abs(e.p[e.p.length - 1] - want) < 0.01; }));
     ok('days strictly ascending, every close positive', Object.keys(h.series).every((k) => h.series[k].d.every((x, i, a) => i === 0 || x > a[i - 1]) && h.series[k].p.every((p) => p > 0)));
     ok('deterministic (same input, same series)', JSON.stringify(h) === JSON.stringify(D.closeHistory('2026-10-09')));

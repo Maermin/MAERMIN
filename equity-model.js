@@ -49,7 +49,7 @@
   var FX_SOURCES = ['exact', 'history', 'fallback', 'approx', 'manual'];
   var FMV_SOURCES = ['close', 'prevClose', 'manual'];
   var WITHHOLDING = ['sell_to_cover', 'payroll', 'none'];
-  var ROUNDING = ['floor_trueup', 'round', 'none'];
+  var ROUNDING = ['floor_trueup', 'floor_cumulative', 'round', 'none'];
   var DEFAULT_SETTINGS = { includeUnvested: false, concentrationWarnPct: 10, showShareCurrency: false };
 
   function efx() {
@@ -131,6 +131,7 @@
       schedule: g.schedule && typeof g.schedule === 'object' ? g.schedule : null,
       psu: g.psu && typeof g.psu === 'object' ? g.psu : null,
       contribution: g.contribution && typeof g.contribution === 'object' ? g.contribution : null,
+      match: g.match && typeof g.match === 'object' ? g.match : null,   // MATCH grants (equity-match.js)
       rounding: oneOf(g.rounding, ROUNDING, 'floor_trueup'),
       withholding: oneOf(g.withholding, WITHHOLDING, 'sell_to_cover'),
       withholdingRate: pos(g.withholdingRate),
@@ -162,6 +163,7 @@
     var out = {
       id: id, kind: kind, grantId: grantId, trancheId: idOf(ev.trancheId), date: date,
       fmv: fmv, fmvSource: oneOf(ev.fmvSource, FMV_SOURCES, 'close'),
+      fmvDate: ymd(ev.fmvDate) || date,   // the close the FMV came from (a weekend vest: the Friday)
       shareCurrency: cur(ev.shareCurrency) || 'USD',
       fx: cleanFx(ev.fx),
       grossUnits: gross, withheldUnits: withheld, netUnits: net,
@@ -169,10 +171,11 @@
       source: oneOf(ev.source, ['manual', 'auto', 'import'], 'manual'),
       note: str(ev.note, 300)
     };
-    ['purchasePrice', 'discountAmount', 'lookbackGain', 'effectiveDiscountPct', 'refund', 'carry', 'fmvStart'].forEach(function (k) {
+    ['purchasePrice', 'discountAmount', 'lookbackGain', 'effectiveDiscountPct', 'refund', 'carry', 'fmvStart', 'fxEffect', 'salePrice'].forEach(function (k) {
       var v = num(ev[k]); if (v != null) out[k] = v;
     });
     if (ev.offeringStart) out.offeringStart = ymd(ev.offeringStart);
+    if (ev.soldImmediately) out.soldImmediately = true;
     if (ev.contributed && typeof ev.contributed === 'object' && num(ev.contributed.amount) != null) {
       out.contributed = { amount: num(ev.contributed.amount), currency: cur(ev.contributed.currency) || 'EUR' };
     }
@@ -215,8 +218,10 @@
     var grantIds = {}; grants.forEach(function (g) { grantIds[g.id] = true; });
     var tranches = arr(o.tranches).map(function (t) { return cleanTranche(t, grantIds); }).map(uniq).filter(Boolean);
     var events = arr(o.events).map(function (e) { return cleanEvent(e, grantIds); }).map(uniq).filter(Boolean);
-    tranches.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    events.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    // by date, then id: the same store always normalises to the same text
+    var byDateId = function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0; };
+    tranches.sort(byDateId);
+    events.sort(byDateId);
     return { v: VERSION, plans: plans, grants: grants, tranches: tranches, events: events, fxOverrides: cleanOverrides(o.fxOverrides), settings: cleanSettings(o.settings) };
   }
 
@@ -272,6 +277,11 @@
     var out = [];
     var units = ev.withheldUnits > 0 ? ev.grossUnits : ev.netUnits;
     if (units > 0) out.push(Object.assign({}, base, { id: 'eq-' + ev.id, type: 'buy', quantity: units, price: ev.fmv, equityRole: 'lot' }));
+    // ESPP 'sell right after the purchase': the lot is sold the same day at the
+    // sale price (else the FMV), so its gain or loss is realised apart
+    if (ev.kind === 'purchase' && ev.soldImmediately && units > 0) {
+      out.push(Object.assign({}, base, { id: 'eq-' + ev.id + '-sale', type: 'sell', quantity: units, price: ev.salePrice > 0 ? ev.salePrice : ev.fmv, equityRole: 'sale' }));
+    }
     if (ev.withheldUnits > 0) {
       out.push(Object.assign({}, base, {
         id: 'eq-' + ev.id + '-cover', type: 'sell', quantity: ev.withheldUnits,
@@ -353,6 +363,23 @@
     return out;
   }
 
+  // Rows that make the existing history loaders (close-history.js need/sync,
+  // fx-history.js currenciesNeeded/syncCurrencies) fetch what the plans need
+  // before any lot exists: the ticker's closes from the earliest grant, and
+  // the salary and tax currencies. Never stored, never shown.
+  function historyRows(state) {
+    var out = [];
+    ((state && state.plans) || []).forEach(function (p) {
+      var first = null;
+      state.grants.forEach(function (g) { if (g.planId === p.id && g.grantDate && (!first || g.grantDate < first)) first = g.grantDate; });
+      if (!first) return;
+      out.push({ type: 'buy', category: 'stocks', symbol: p.ticker, currency: p.quoteCurrency, date: first, quantity: 0, price: 0, source: 'equity-history' });
+      var F = efx(), tax = F ? F.taxCurrency(p.taxCountry) : null;
+      [p.salaryCurrency, tax].forEach(function (c) { if (c && c !== 'EUR') out.push({ type: 'deposit', category: 'cashflow', currency: c, date: first, amount: 0, source: 'equity-history' }); });
+    });
+    return out;
+  }
+
   // ---- storage (browser) --------------------------------------------------------------
   var _demo = { equity: null, income: null };
   function demoActive() { return !!(W.MaerminDemo && W.MaerminDemo.isActive && W.MaerminDemo.isActive()); }
@@ -386,7 +413,7 @@
     INCOME_KINDS: INCOME_KINDS, WITHHOLDING: WITHHOLDING, ROUNDING: ROUNDING, DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     newId: newId, normalize: normalize, normalizeIncome: normalizeIncome,
     byId: byId, planOfGrant: planOfGrant, grantsOf: grantsOf, tranchesOf: tranchesOf, eventsOf: eventsOf,
-    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline, heldByPlan: heldByPlan,
+    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline, heldByPlan: heldByPlan, historyRows: historyRows,
     load: load, save: save, loadIncome: loadIncome, saveIncome: saveIncome, resetDemo: resetDemo, hasPlans: hasPlans
   };
   if (typeof window !== 'undefined') window.MaerminEquity = api;
