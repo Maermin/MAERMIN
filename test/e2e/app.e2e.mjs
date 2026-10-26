@@ -3917,6 +3917,57 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E10): a source document on a transaction. It is
+  // stored encrypted in IndexedDB, opens again, is not in the encrypted
+  // backup, and can be deleted.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 }, acceptDownloads: true });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await createVault(page, base);
+      await page.evaluate(() => {
+        localStorage.setItem('maermin_onboarded', '1');
+        localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+        localStorage.setItem('transactions', JSON.stringify([{ id: 'a1', type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+      });
+      await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'transactions');
+      await page.locator('main [data-tx-id]').first().click();
+      const panel = page.locator('[data-testid="tx-attachments"]');
+      await panel.waitFor({ timeout: 10000 });
+      await page.locator('[data-testid="tx-attachment-input"]').setInputFiles({ name: 'broker-statement.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 secret-content') });
+      await panel.locator('li[data-attachment]').first().waitFor({ timeout: 10000 });
+      r.item = await panel.locator('li[data-attachment]').first().innerText();
+      r.store = await page.evaluate(async () => {
+        const db = await new Promise((res, rej) => { const q = indexedDB.open('maermin'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+        const all = await new Promise((res) => { const out = []; const tx = db.transaction('kv').objectStore('kv').openCursor(); tx.onsuccess = (e) => { const c = e.target.result; if (c) { out.push([String(c.key), String(c.value)]); c.continue(); } else res(out); }; });
+        return { keys: all.map((x) => x[0]).filter((k) => /^att/.test(k)), plain: all.some((x) => x[1].includes('secret-content') || x[1].includes('broker-statement')) };
+      });
+      const dl = page.waitForEvent('download', { timeout: 10000 });
+      await panel.locator('li[data-attachment] .ui-link').first().click();
+      const d = await dl;
+      r.dlName = d.suggestedFilename();
+      r.dlBody = await readFile(await d.path(), 'utf8');
+      r.inBackup = await page.evaluate(() => window.MaerminStorage.exportEncryptedBackup().then((b) => JSON.stringify(b).includes('att:')));
+      await panel.locator('[data-attachment-delete]').first().click();
+      await page.locator('[aria-labelledby="dlg-confirm"]').getByRole('button', { name: 'Delete', exact: true }).click();
+      await page.waitForTimeout(500);
+      r.after = await panel.locator('li[data-attachment]').count();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E10: a PDF attaches to the transaction and is listed', !err && /broker-statement\.pdf/.test(r.item || ''), err || JSON.stringify(r));
+    ok('E10: stored encrypted in IndexedDB under its own keys (no plain name or content)', !err && r.store && r.store.keys.includes('att-index') && r.store.keys.some((k) => /^att:a1:/.test(k)) && r.store.plain === false, err || JSON.stringify(r.store));
+    ok('E10: opening gives back the same file', !err && r.dlName === 'broker-statement.pdf' && r.dlBody === '%PDF-1.4 secret-content', err || JSON.stringify({ n: r.dlName, b: r.dlBody }));
+    ok('E10: not in the encrypted backup; deleting removes it', !err && r.inBackup === false && r.after === 0, err || JSON.stringify({ inBackup: r.inBackup, after: r.after }));
+    ok('no page errors in the attachments session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
