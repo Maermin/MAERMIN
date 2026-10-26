@@ -1,6 +1,7 @@
 // Node harness for P1-7 (FINDINGS.md H-8): Strategy Analysis follows the app
-// theme. Renders the real views with react-dom/server in the light theme and
-// checks that no text is drawn white / light-on-dark.
+// theme. Renders the real views with react-dom/server and checks that no text
+// is drawn white / light-on-dark. The views take their colours from the CSS
+// tokens (ui-* classes), so they render without any theme passed in.
 // Run: node test/strategy-theme.test.js
 'use strict';
 
@@ -59,7 +60,8 @@ function render(el) { return renderToStaticMarkup(el); }
   // R5.4: titles and labels take the theme text colour from CSS (no inline colour at all)
   ok('H-8: text takes the theme colour from CSS (no inline text colour)', /ui-section-title/.test(dash) && !/style="[^"]*[^-]color:/.test(dash), (dash.match(/style="[^"]*color:[^"]*"/) || [''])[0]);
 
-  // Every section, inside the theme the dashboard provides.
+  // Every section on its own: no theme context, nothing to fall back to.
+  ok('the views no longer take a theme context', !('ThemeContext' in V));
   const views = [
     ['DCA', V.DCAAnalyzerView, { portfolio, priceHistory: {} }],
     ['Sectors', V.SectorAllocationView, { portfolio, prices }],
@@ -70,14 +72,14 @@ function render(el) { return renderToStaticMarkup(el); }
   ];
   views.forEach(([name, View, props]) => {
     let html = '', err = null;
-    try { html = render(React.createElement(V.ThemeContext.Provider, { value: light }, React.createElement(View, props))); }
+    try { html = render(React.createElement(View, props)); }
     catch (e) { err = e; }
     const bad = err ? ['render error: ' + err.message] : lightOnDark(html);
     ok('H-8: ' + name + ' has no white text in the light theme', bad.length === 0, bad.slice(0, 3).join(' | '));
   });
   // A saved goal renders its figures in the theme colour too.
   localStorage.setItem('investmentGoals', JSON.stringify([{ id: 'g', name: 'Haus', type: 'house', targetAmount: 50000, currentAmount: 10000, targetDate: '2030-01-01', monthlyContribution: 500 }]));
-  const goals = render(React.createElement(V.ThemeContext.Provider, { value: light }, React.createElement(V.GoalInvestingView, { portfolioValue: 10000 })));
+  const goals = render(React.createElement(V.GoalInvestingView, { portfolioValue: 10000 }));
   ok('H-8: goal cards (target date, monthly, remaining) are readable', lightOnDark(goals).length === 0 && /Haus/.test(goals));
   // R4.3: on their own the primitives render the shared card (themed by CSS), no hard-coded colour.
   { const card = render(React.createElement(V.AnalysisCard, { title: 'X' }));
