@@ -3034,6 +3034,10 @@ input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus { 
 .ui-since-visit { margin-bottom: var(--space-5); }
 .ui-since-visit__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .ui-since-visit__list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+/* Audit 2026-10-24 feature 7: "What's new" after an update (whats-new.js). */
+.ui-whats-new { margin-bottom: var(--space-5); }
+.ui-whats-new__list { margin: var(--space-3) 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--space-1); }
+.ui-whats-new__more { margin: var(--space-3) 0 0; }
 .ui-imp__pre { margin: var(--space-2) 0 0; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: var(--type-caption); overflow: auto; }
 .ui-imp__data { height: 200px; font-family: var(--mono, ui-monospace, monospace); resize: vertical; padding: var(--space-3); }
 .ui-bi-drop:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
