@@ -190,7 +190,6 @@
 
   function Panel(props) {
     var React = W.React, e = React.createElement;
-    var theme = props.theme || {};
     var I = W.MaerminI18n, U = W.MaerminUtils, FX = W.MaerminFxHistory;
     var txs = props.transactions || [];
     var basis = props.basis === 'gross' ? 'gross' : 'net';

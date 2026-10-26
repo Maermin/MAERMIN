@@ -30,7 +30,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
     try { var t = new Date(d); return isNaN(t.getTime()) ? '' : (typeof d === 'number' ? t.toISOString().slice(0, 10) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(t)); } catch (e) { return ''; }
   }
-  function days(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
   // §23 EStG / US long-term: the holding period must EXCEED one year. The
   // period ends on the anniversary of the acquisition (§§187, 188 BGB; a
   // 29 Feb purchase ends on 28 Feb), so a sale ON the anniversary is still
@@ -714,7 +713,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     doc.text(__('trGenerated', 'Generated: {v}', { v: I18N().date(report.meta.generatedAt, 'dateTime') }), 14, oy); oy += 8;
 
     var s = report.summary;
-    var autoTable = doc.autoTable ? doc.autoTable.bind(doc) : (typeof doc.autoTable === 'function' ? doc.autoTable : null);
     function table(title, head, body, startY) {
       doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
       doc.text(title, 14, startY);

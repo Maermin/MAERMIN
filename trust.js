@@ -23,7 +23,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Disclaimer(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
-    var th = props.theme || {};
     // R4.2: the shared note look (.ui-disclaimer); R4.6: a caller adds spacing by class, not inline
     return React.createElement('div', { role: 'note', 'data-testid': 'disclaimer', 'data-kind': props.kind || 'invest', className: ['ui-disclaimer', props.className || ''].join(' ').trim() },
       React.createElement('span', { 'aria-hidden': 'true', className: 'ui-disclaimer__mark' }, '!'),

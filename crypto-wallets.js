@@ -137,7 +137,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var theme = props.theme || {};
     // R4.6: Card, wallet boxes, the shared table look, Input / Select with labels, shared buttons
     var UIC = window.MaerminComponents;
     var s0 = useState(load), st = s0[0], setSt = s0[1];

@@ -86,7 +86,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // ---- chart ---------------------------------------------------------------------------
   function Chart(props) {
     var React = W.React, e = React.createElement;
-    var th = props.theme || {}, pts = props.points || [], on = props.on || {};
+    var pts = props.points || [], on = props.on || {};
     if (pts.length < 2) return e('p', { className: 'ui-muted' }, __('rsNoChart', 'No price history for this range.'));
     var closes = pts.map(function (p) { return p.price; });
     // R4.3: the chart palette (price = series 1, then the indicators); never gain / loss colours

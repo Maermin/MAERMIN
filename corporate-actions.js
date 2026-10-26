@@ -442,7 +442,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function EventsPanel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React || !props.symbol) return null;
-    var e = React.createElement, th = props.theme || {};
+    var e = React.createElement;
     var revS = React.useState(0), rev = revS[0], setRev = revS[1];
     var fS = React.useState({ kind: 'symbol_change', date: '', newSymbol: '', newName: '', num: '1', den: '1', cash: '', pct: '' }), form = fS[0], setForm = fS[1];
     var mS = React.useState(''), msg = mS[0], setMsg = mS[1];

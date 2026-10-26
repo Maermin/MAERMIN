@@ -340,7 +340,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       MASKED = !!props.privacyMode;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         // R4.6: Card, Stat tiles and the shared findings list (mark + priority in words)
         var UIC = window.MaerminComponents;

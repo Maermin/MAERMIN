@@ -239,7 +239,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var svc = (typeof window !== 'undefined') && window.DividendDataService;
     if (!React || !svc) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.6: Card, Stat tiles, the verdict line, the shared table look with keyboard-openable rows
     var UIC = window.MaerminComponents;

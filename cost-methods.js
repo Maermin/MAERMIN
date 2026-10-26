@@ -101,9 +101,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, useMemo = React.useMemo;
-    var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', bad = th.danger || '#ef4444', accent = th.accent || th.primary || '#8b7cff';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var year = props.year || new Date().getFullYear();
     // The depots the German report keeps apart (M-15), so FIFO here matches it.

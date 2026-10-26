@@ -122,7 +122,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
-    var e = React.createElement, th = props.theme || {};
+    var e = React.createElement;
     var lv = React.useState(null), level = lv[0], setLevel = lv[1];
     var cp = React.useState(''), copied = cp[0], setCopied = cp[1];
     var privacy = !!props.privacyMode;

@@ -234,7 +234,6 @@
   function ToastContainer(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React || !Store || !toasts) return null;
-    var theme = (props && props.theme) || {};
     var list = Store.useStore(toasts, function (s) { return s.items; });
     return React.createElement('div', { className: 'toast-container' },
       list.map(function (toast) {

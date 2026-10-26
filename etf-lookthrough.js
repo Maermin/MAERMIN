@@ -575,11 +575,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.2: tokens, the shared Card / Button / table look; bars on the chart palette
     var UIC = window.MaerminComponents;
-    var dim = 'var(--text-dim)';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';

@@ -862,7 +862,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.2: counts per priority as answer tiles, the findings on the shared
     // findings list inside a Card; the disclaimer under the lead.

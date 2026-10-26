@@ -95,7 +95,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var th = props.theme || {};
     // R4.6: Card, shared inputs and buttons, the shared table look
     var UIC = window.MaerminComponents;
     var I = window.MaerminI18n;

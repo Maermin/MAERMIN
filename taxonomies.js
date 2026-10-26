@@ -311,7 +311,6 @@
   // --------------------------------------------------------------------------
   function Panel(props) {
     var React = W.React, e = React.createElement;
-    var theme = props.theme || {};
     var I = W.MaerminI18n, U = W.MaerminUtils, RB = W.MaerminRebalance;
     var fmt = props.formatPrice || function (x) { return I.num(x, 2); };
     var cur = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';

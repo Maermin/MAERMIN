@@ -151,7 +151,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var GT = (typeof window !== 'undefined') && window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
     if (!React || !GT) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.6: Card, the shared table look with small inputs, shared Select / Button, the computation on shared rows
     var UIC = window.MaerminComponents;
@@ -401,7 +400,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var TS = (typeof window !== 'undefined') && window.MaerminTaxSettings;
     if (!React || !TS) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     // R4.6: Card with an Edit / Hide action, shared rows, small inputs and On / Off chips
     var UIC = window.MaerminComponents;
