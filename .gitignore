@@ -6,20 +6,39 @@ dist/
 build/
 out/
 
-# Runtime data
+# Runtime data, caches, coverage
 *.log
 npm-debug.log*
+.cache/
+.eslintcache
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
 
 # OS / Editor
 .DS_Store
 Thumbs.db
+desktop.ini
 .vscode/
 .idea/
+*.swp
+*~
+
+# Backups, merge leftovers, temp files
+*.bak
+*.orig
+*.rej
+*.tmp
 
 # Local env / secrets
 .env
 .env.local
+.env.*.local
 .dev.vars
+
+# Local Claude Code session files (worktrees, PR drafts)
+.claude/
 
 # Cloudflare Wrangler
 .wrangler/
