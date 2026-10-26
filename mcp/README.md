@@ -52,7 +52,7 @@ Add `--amounts` to the arguments if the assistant may see quantities, prices and
 | `--backup <file>` | the encrypted backup (required; or `MAERMIN_BACKUP`) |
 | `--scopes <list>` | tools to offer, comma-separated; default: all |
 | `--amounts` | include quantities, prices, values and tax figures in EUR |
-| `--usd-eur <rate>` | EUR per USD for non-EUR prices (default 0.92); the backup holds no exchange-rate history |
+| `--usd-eur <rate>` | EUR per USD; needed when the vault has amounts in USD or another currency, since the backup holds no exchange-rate history. There is no default rate: without it those tools refuse (`transactions` still works) |
 | `--sync <worker-url>` | also read the newer sync blob from your own Worker (cloud sync must be on) |
 | `--password-file <file>` | read the password from a file instead of `MAERMIN_PASSWORD` |
 

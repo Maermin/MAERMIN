@@ -144,7 +144,7 @@ const DATA = {
   fs.writeFileSync(file, JSON.stringify(backup));
   const bin = path.join(__dirname, '..', 'mcp', 'bin', 'maermin-mcp.js');
   const answers = await new Promise((resolve) => {
-    const p = spawn(process.execPath, [bin, '--backup', file, '--scopes', 'positions,overview'], { env: Object.assign({}, process.env, { MAERMIN_PASSWORD: PW }) });
+    const p = spawn(process.execPath, [bin, '--backup', file, '--scopes', 'positions,overview', '--usd-eur', '0.9'], { env: Object.assign({}, process.env, { MAERMIN_PASSWORD: PW }) });
     let out = '', err = '';
     const got = [];
     p.stdout.on('data', (c) => { out += c; let i; while ((i = out.indexOf('\n')) >= 0) { got.push(JSON.parse(out.slice(0, i))); out = out.slice(i + 1); if (got.length === 3) { p.kill(); } } });
