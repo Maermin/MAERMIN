@@ -63,7 +63,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s = String(d);
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
     var t = new Date(d);
-    return isNaN(t.getTime()) ? '' : t.toISOString().slice(0, 10);
+    if (isNaN(t.getTime())) return '';
+    return typeof d === 'number' ? t.toISOString().slice(0, 10) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(t); // a local time: its local date
   }
   function addDays(iso, n) { return new Date(Date.parse(iso + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10); }
   function normKey(k) {

@@ -389,7 +389,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
         // the value line and reading as a loss against "Invested".
         else if (!hist.length && prices && prices[pos.sym] > 0) value += pos.amount * prices[pos.sym];
       });
-      return { date: new Date(ts).toISOString().slice(0, 10), value };
+      return { date: window.MaerminUtils.todayISO(new Date(ts)), value }; // a refresh moment: its local date
     }).filter(d => d.value > 0);
   }, [priceHistory, portfolio, prices, valuePath]);
 

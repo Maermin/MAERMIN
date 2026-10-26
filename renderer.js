@@ -3266,13 +3266,13 @@ function InvestmentTracker() {
         let anchor;
         if (exDate) {
           anchor = new Date(exDate);
-          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
+          if (isNaN(anchor.getTime())) { anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
           else {
             while (anchor.getTime() < Date.now()) anchor.setUTCMonth(anchor.getUTCMonth() + monthsPerPay);
             anchor.setUTCDate(anchor.getUTCDate() + 14); // ex → pay
           }
         } else {
-          anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+          anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
         }
 
         // One event per individual payment across the next 12 months.
