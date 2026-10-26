@@ -68,7 +68,10 @@
   const EQ_PORTFOLIO = 'demo-plan-account';
   const EQUITY = {
     plans: [
-      { id: 'demo-eq-contoso', employer: 'Contoso (sample)', ticker: 'MSFT', shareCurrency: 'USD', admin: 'morgan_stanley', portfolioId: EQ_PORTFOLIO, taxCountry: 'DE', salaryCurrency: 'EUR' },
+      { id: 'demo-eq-contoso', employer: 'Contoso (sample)', ticker: 'MSFT', shareCurrency: 'USD', admin: 'morgan_stanley', portfolioId: EQ_PORTFOLIO, taxCountry: 'DE', salaryCurrency: 'EUR',
+        // Package 5: 25 % of the purchase value in extra shares, after a 2-year holding
+        // period; lost when leaving or when the bought shares are sold before
+        matchRules: [{ from: '2024-01-01', pct: 25, basis: 'purchase_value', delivery: 'vesting', vest: { years: 2, cliffMonths: 24, freqMonths: 24 }, forfeitOnLeave: true, forfeitOnSale: true }] },
       { id: 'demo-eq-fabrikam', employer: 'Fabrikam (sample)', ticker: 'AZN.L', shareCurrency: 'GBX', admin: 'other', adminLabel: 'Computershare', portfolioId: EQ_PORTFOLIO, taxCountry: 'CH', salaryCurrency: 'CHF' }
     ],
     grants: [

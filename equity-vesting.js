@@ -199,6 +199,8 @@
     var today = ymd(opts.today) || isoOf(Math.floor(Date.now() / DAY));
     var pl = byId(state.plans, grant.planId);
     var gs = grantSteps(grant), st = gs.steps, units = gs.units;
+    // match shares lost to a sale of the underlying purchase (equity-match.js)
+    var lost = grant.match && Array.isArray(grant.match.forfeitByStep) ? grant.match.forfeitByStep : null;
     var prevTr = state.tranches.filter(function (t) { return t.grantId === grant.id; });
     var events = state.events.filter(function (e) { return e.grantId === grant.id; });
     var tranches = [], newEvents = [], missing = [];
@@ -208,7 +210,16 @@
       // a PSU waits for its settlement: unvested (projected) even after the period
       var past = s.date <= today && !gs.pending;
       var ev = events.filter(function (e) { return e.trancheId === id; })[0];
-      var status = prev && (prev.status === 'forfeited' || prev.status === 'settled') ? prev.status : past ? 'vested' : 'unvested';
+      // a forfeiture by sale (match) is derived again on every run, so undoing
+      // the sale brings the units back; a manual one stays
+      var derived = grant.match && grant.match.forfeitOnSale;
+      var status = prev && (prev.status === 'settled' || (prev.status === 'forfeited' && !derived)) ? prev.status : past ? 'vested' : 'unvested';
+      var lostHere = lost && lost[i] > 0 ? Math.min(lost[i], units[i]) : 0;
+      if (lostHere) {
+        tranches.push({ id: id + '-f', grantId: grant.id, date: s.date, units: lostHere, status: 'forfeited', projected: false });
+        units = units.slice(); units[i] -= lostHere;
+        if (!(units[i] > 0)) return;
+      }
       tranches.push({ id: id, grantId: grant.id, date: s.date, units: units[i], status: status, projected: !past });
       if (!past || ev || status === 'forfeited') return;
       var series = opts.closes && pl ? opts.closes(pl.ticker) : null;
@@ -221,7 +232,7 @@
       var gross = units[i];
       var w = withheld(gross, grant, null);
       newEvents.push({
-        id: id + '-vest', kind: 'vest', grantId: grant.id, trancheId: id, date: s.date,
+        id: id + '-vest', kind: grant.type === 'MATCH' ? 'delivery' : 'vest', grantId: grant.id, trancheId: id, date: s.date,
         fmv: px.fmv, fmvSource: px.sameDay ? 'close' : 'prevClose', fmvDate: px.date, shareCurrency: pl.shareCurrency, fx: fx,
         grossUnits: gross, withheldUnits: w, netUnits: gross - w, coverPrice: null, source: 'auto'
       });

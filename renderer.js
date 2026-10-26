@@ -964,15 +964,19 @@ function InvestmentTracker() {
     };
   }, [closeHistory, equityFxCtx, currency, incomeState, fxHistVersion]);
   useEffect(() => {
-    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting, ES = window.MaerminEquityEspp;
+    const EQ = window.MaerminEquity, EV = window.MaerminEquityVesting, ES = window.MaerminEquityEspp, EM = window.MaerminEquityMatch;
     if (!EQ || !EV || !equityState) return;
     let st = EV.regenerate(equityState, equityOpts).state;
     if (ES) st = ES.regenerate(EQ.normalize(st), equityOpts).state;   // Package 4: ESPP purchases
+    if (EM) {                                                          // Package 5: match grants, then their vests
+      st = EM.regenerate(EQ.normalize(st), Object.assign({}, equityOpts, { transactions })).state;
+      st = EV.regenerate(EQ.normalize(st), equityOpts).state;
+    }
     const next = EQ.normalize(st);
     if (JSON.stringify(next) === JSON.stringify(equityState)) return;
     EQ.save(next);
     setEquityState(next);
-  }, [equityState, equityOpts]);
+  }, [equityState, equityOpts, transactions]);
 
   // Stored closes are in the quote currency; convert each to EUR at the rate of
   // its day: USD from the daily USD history, CHF / GBp & co. from the currency
@@ -5840,6 +5844,25 @@ function InvestmentTracker() {
                 : __('fxHintNone', 'No exchange rate for {cur} - the amount would be counted as EUR.', { cur }));
           })()
         ),
+
+        // PLAN-EQUITY Package 5: selling employer shares - the match shares a sale
+        // forfeits (that purchase's shares sold in the holding period)
+        (() => {
+          const EQ = window.MaerminEquity, EM = window.MaerminEquityMatch;
+          if (!EQ || !EM || !equityState || newTransaction.type !== 'sell') return null;
+          const sym = String(newTransaction.symbol || '').trim().toUpperCase();
+          const plan = equityState.plans.find(p => p.ticker === sym);
+          const qty = window.MaerminUtils.parseDecimal(newTransaction.quantity) || 0;
+          if (!plan || !(qty > 0)) return null;
+          const pv = EM.forfeitPreview(equityState, transactions.filter(x => x.id !== editingTransactionId), {
+            portfolioId: newTransaction.targetPortfolioId || writePortfolioId, symbol: plan.ticker, quantity: qty, date: newTransaction.date || window.MaerminUtils.todayISO()
+          });
+          if (!(pv.units > 0)) return null;
+          const px = prices[plan.ticker] || prices[plan.ticker.toLowerCase()];
+          return React.createElement('p', { role: 'status', 'data-testid': 'tx-match-forfeit', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
+            __('eqSellForfeit', 'Selling these shares forfeits {n} unvested match shares (≈ {value}).', {
+              n: window.MaerminI18n.num(pv.units, { min: 0, max: 4 }), value: px ? `${formatPrice(pv.units * px)} ${getCurrencySymbol()}` : '–' }));
+        })(),
 
         // Total display
         newTransaction.quantity && newTransaction.price && React.createElement('div', { className: 'ui-tx-total' },
