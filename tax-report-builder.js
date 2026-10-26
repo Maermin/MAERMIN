@@ -24,7 +24,12 @@
 function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
-  function ymd(d) { try { return new Date(d).toISOString().split('T')[0]; } catch (e) { return ''; } }
+  // A written date keeps its day ("2027-01-01T00:30:00" is 1 January, not 31
+  // December in UTC); other values: their local date, epoch numbers in UTC.
+  function ymd(d) {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+    try { var t = new Date(d); return isNaN(t.getTime()) ? '' : (typeof d === 'number' ? t.toISOString().slice(0, 10) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(t)); } catch (e) { return ''; }
+  }
   function days(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
   // §23 EStG / US long-term: the holding period must EXCEED one year. The
   // period ends on the anniversary of the acquisition (§§187, 188 BGB; a

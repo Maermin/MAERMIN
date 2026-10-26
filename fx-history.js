@@ -35,7 +35,7 @@
   function ymd(d) {
     if (!d) return '';
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-    try { var t = new Date(d); return isNaN(t.getTime()) ? '' : t.toISOString().slice(0, 10); }
+    try { var t = new Date(d); return isNaN(t.getTime()) ? '' : (typeof d === 'number' ? t.toISOString().slice(0, 10) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(t)); }
     catch (e) { return ''; }
   }
   function num(x) { var n = typeof x === 'number' ? x : parseFloat(x); return isFinite(n) ? n : null; }
@@ -357,7 +357,7 @@
   function syncCurrencies(opts) {
     opts = opts || {};
     var now = opts.now || Date.now();
-    var today = opts.today || new Date(now).toISOString().slice(0, 10);
+    var today = opts.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(new Date(now));
     var base = String(opts.workerBase || '').trim().replace(/\/$/, '');
     var fetchFn = opts.fetch || (typeof fetch !== 'undefined' ? fetch : null);
     var store = normalizeCurrencies(opts.store || loadCurrencies());

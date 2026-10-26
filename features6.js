@@ -264,7 +264,7 @@ function storedCryptoCloses(symbol, period, usdToEur) {
   let entry;
   try { entry = CH.load().series[CH.keyOf('crypto', symbol)]; } catch (e) { return null; }
   if (!entry || !entry.to || (Date.now() - Date.parse(entry.to + 'T00:00:00Z')) > 3 * 86400000) return null;
-  const from = period.cgDays === 'max' ? '' : new Date(Date.now() - period.cgDays * 86400000).toISOString().slice(0, 10);
+  const from = period.cgDays === 'max' ? '' : window.MaerminUtils.todayISO(new Date(Date.now() - period.cgDays * 86400000));
   const rows = CH.closesOf(entry).filter(([d]) => d >= from);
   if (rows.length < 2) return null;
   // Yahoo coin pairs are stored in USD, CoinGecko closes in EUR.
@@ -359,7 +359,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     // Demo mode: the daily value path of the sample closes, no fetching.
     if (Array.isArray(pathPoints) && pathPoints.length > 1) {
       const days = currentPeriod.cgDays === 'max' ? Infinity : Math.max(2, currentPeriod.cgDays);
-      const from = days === Infinity ? '' : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+      const from = days === Infinity ? '' : window.MaerminUtils.todayISO(new Date(Date.now() - days * 86400000));
       setHoveredIdx(null); setError(null); setLoading(false);
       setChartData(pathPoints.filter(pt => pt.d >= from && pt.v > 0).map(pt => ({ ts: Math.floor(Date.parse(pt.d + 'T00:00:00Z') / 1000), value: pt.v, date: pt.d })));
       return;
