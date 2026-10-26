@@ -131,6 +131,7 @@
       schedule: g.schedule && typeof g.schedule === 'object' ? g.schedule : null,
       psu: g.psu && typeof g.psu === 'object' ? g.psu : null,
       contribution: g.contribution && typeof g.contribution === 'object' ? g.contribution : null,
+      match: g.match && typeof g.match === 'object' ? g.match : null,   // MATCH grants (equity-match.js)
       rounding: oneOf(g.rounding, ROUNDING, 'floor_trueup'),
       withholding: oneOf(g.withholding, WITHHOLDING, 'sell_to_cover'),
       withholdingRate: pos(g.withholdingRate),

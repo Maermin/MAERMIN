@@ -517,6 +517,13 @@
         h(UIC.Stat, { label: __('nwEsppCash', 'ESPP cash'), value: money(sc.cash, sc.cashCurrency), sub: open ? __('eqOfferingRuns', 'Offering {from} – {to}', { from: I.date(open.start), to: I.date(open.end) }) : __('eqNoOpenOffering', 'No open offering') }),
         maxPrice ? h(UIC.Stat, { label: __('eqMaxPrice', 'Highest purchase price'), value: hide(I.moneyAuto(maxPrice, plan.shareCurrency)),
           sub: minGain ? __('eqMinGain', 'locks in at least {amount} if the price stays above the start', { amount: money(minGain, sc.cashCurrency) }) : null }) : null,
+        (function () {
+          var om = ownVsMatch(props.state, g);
+          return om.matchVested + om.matchUnvested + om.matchForfeited > 0 || W.MaerminEquityMatch && W.MaerminEquityMatch.rules(plan).length
+            ? h(UIC.Stat, { label: __('eqOwnVsMatch', 'Own / match shares'), value: I.num(om.own, { min: 0, max: 4 }) + ' / ' + I.num(om.matchVested + om.matchUnvested, { min: 0, max: 4 }), 'data-testid': 'eq-own-match',
+              sub: __('eqMatchSplit', 'match: {v} vested, {u} unvested{f}', { v: I.num(om.matchVested, { min: 0, max: 4 }), u: I.num(om.matchUnvested, { min: 0, max: 4 }),
+                f: om.matchForfeited ? ', ' + __('eqMatchForfeitedN', '{n} forfeited', { n: I.num(om.matchForfeited, { min: 0, max: 4 }) }) : '' }) }) : null;
+        })(),
         rc && rc.salary != null ? h(UIC.Stat, { label: __('eqReturnOnCash', 'Return on contributed cash'), value: I.pct(rc.salary * 100, 1) + ' ' + __('eqPa', 'p.a.'),
           sub: (rc.base != null && props.baseCurrency !== sc.cashCurrency ? __('eqInBase', 'in {cur}: {pct} p.a.', { cur: props.baseCurrency, pct: I.pct(rc.base * 100, 1) }) + ' · ' : '')
             + __('eqReturnNote', 'annualised: each deduction is in the plan for a few months only') }) : null),
@@ -551,6 +558,18 @@
           { key: 'gain', label: __('eqDiscountGain', 'Discount + lookback'), align: 'right', priority: 2, render: function (r) {
             return r.purchase.manual ? '–' : hide(I.moneyAuto(r.purchase.discountAmount, plan.shareCurrency)) + ' + ' + hide(I.moneyAuto(r.purchase.lookbackGain, plan.shareCurrency)); } },
           { key: 'eff', label: __('eqEffDiscount', 'Eff. discount'), align: 'right', phone: 'sub', render: function (r) { return r.purchase.manual ? '–' : I.pct(r.purchase.effectiveDiscountPct, 1); } },
+          { key: 'match', label: __('eqMatchCol', 'Match'), align: 'right', priority: 2, render: function (r) {
+            var ev = props.state.events.filter(function (e) { return e.grantId === g.id && e.kind === 'purchase' && e.date === r.end; })[0];
+            if (!ev || !W.MaerminEquityMatch) return '–';
+            var ps = W.MaerminEquityMatch.purchaseSummary(props.state, ev);
+            return ps.matchUnits ? I.num(ps.matchUnits, { min: 0, max: 4 }) + ' · ' + hide(I.moneyAuto(ps.matchValue, plan.shareCurrency)) : '–';
+          } },
+          { key: 'free', label: __('eqFreeValue', 'Free value / on own money'), align: 'right', priority: 3, render: function (r) {
+            var ev = props.state.events.filter(function (e) { return e.grantId === g.id && e.kind === 'purchase' && e.date === r.end; })[0];
+            if (!ev || !W.MaerminEquityMatch) return '–';
+            var ps = W.MaerminEquityMatch.purchaseSummary(props.state, ev);
+            return hide(I.moneyAuto(ps.free, plan.shareCurrency)) + (ps.returnOnOwn != null ? ' · ' + I.pct(ps.returnOnOwn * 100, 1) : '');
+          } },
           { key: 'rest', label: __('eqRefundCarry', 'Refund / carry'), align: 'right', priority: 3, render: function (r) { return money(r.refund, r.currency) + ' / ' + money(r.carryOut, r.currency); } }
         ],
         rows: done.slice().reverse().map(function (r) { return Object.assign({ id: r.start }, r); })
@@ -671,6 +690,78 @@
         h('input', { className: 'ui-input', type: 'number', 'aria-label': __('eqSeed', 'Seed'), value: c.seed, style: { width: '6em' }, onChange: function (e) { put('seed', Number(e.target.value) || 1); } })) : null);
   }
 
+  // ---- employer match rules (Package 5) ------------------------------------------------
+  function MatchRules(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n, EM = W.MaerminEquityMatch;
+    var plan = props.plan, rules = EM.rules(plan);
+    var blank = { from: today(), pct: '25', basis: 'purchase_value', ratioFree: '1', ratioPer: '3', delivery: 'vesting', years: '2', cliffMonths: '24', freqMonths: '24',
+      capYear: '', capPeriod: '', capShares: '', forfeitOnLeave: true, forfeitOnSale: true, fractional: false };
+    var _f = React.useState(null), form = _f[0], setForm = _f[1];
+    var upd = function (k) { return function (e) { var v = e.target.type === 'checkbox' ? e.target.checked : e.target.value; setForm(function (o) { var n = Object.assign({}, o); n[k] = v; return n; }); }; };
+    var describe = function (r) {
+      var what = r.basis === 'ratio' ? __('eqMatchRatioText', '{free} free per {per} bought', { free: I.num(r.ratioFree, { min: 0, max: 2 }), per: I.num(r.ratioPer, { min: 0, max: 2 }) })
+        : r.basis === 'own_contribution' ? __('eqMatchOwnText', '{pct} of your own contribution', { pct: I.pct(r.pct, 1) })
+          : __('eqMatchValueText', '{pct} of the purchase value', { pct: I.pct(r.pct, 1) });
+      var how = r.delivery === 'vesting' ? __('eqMatchVestText', 'vests after {months} months', { months: r.vest.cliffMonths }) : __('eqMatchNowText', 'delivered at the purchase');
+      var lose = [r.forfeitOnLeave ? __('eqMatchLoseLeave', 'lost when you leave before') : null, r.forfeitOnSale ? __('eqMatchLoseSale', 'lost when the bought shares are sold before') : null].filter(Boolean).join(', ');
+      return __('eqFrom', 'From') + ' ' + I.date(r.from) + ': ' + what + ' · ' + how + (lose ? ' · ' + lose : '');
+    };
+    var save = function () {
+      var r = { from: form.from, pct: num(form.pct), basis: form.basis, ratioFree: num(form.ratioFree), ratioPer: num(form.ratioPer), delivery: form.delivery,
+        vest: { years: num(form.years), cliffMonths: num(form.cliffMonths), freqMonths: num(form.freqMonths) },
+        caps: { yearAmount: num(form.capYear), periodAmount: num(form.capPeriod), periodShares: num(form.capShares) },
+        forfeitOnLeave: !!form.forfeitOnLeave, forfeitOnSale: !!form.forfeitOnSale, rounding: form.fractional ? 'none' : 'floor' };
+      props.onSave(Object.assign({}, plan, { matchRules: (plan.matchRules || []).concat([r]) }));
+      setForm(null);
+    };
+    return h('div', { className: 'ui-card', 'data-testid': 'eq-match-rules-' + plan.id },
+      h('b', null, __('eqMatchRules', 'Employer match')),
+      rules.length ? h('ul', { className: 'ui-note' }, rules.map(function (r, i) {
+        return h('li', { key: i }, describe(r), ' ', h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () {
+          props.onSave(Object.assign({}, plan, { matchRules: (plan.matchRules || []).filter(function (x, j) { return j !== i; }) }));
+        } }, __('eqRemove', 'Remove')));
+      })) : h('p', { className: 'ui-note' }, __('eqMatchNone', 'No match: add the rule from your plan documents.')),
+      form ? h('div', { 'data-testid': 'eq-match-form' },
+        h('div', { className: 'ui-form-grid' },
+          h(UIC.Input, { label: __('eqFrom', 'From'), type: 'date', value: form.from, onChange: upd('from') }),
+          h(UIC.Select, { label: __('eqMatchBasis', 'Match on'), value: form.basis, onChange: upd('basis'), options: [
+            { value: 'purchase_value', label: __('eqMatchBasisValue', '% of the purchase value') }, { value: 'own_contribution', label: __('eqMatchBasisOwn', '% of my contribution') },
+            { value: 'ratio', label: __('eqMatchBasisRatio', 'X free per Y bought') }] }),
+          form.basis !== 'ratio' ? h(UIC.Input, { label: __('eqMatchPct', 'Match (%)'), inputMode: 'decimal', value: form.pct, onChange: upd('pct') }) : null,
+          form.basis === 'ratio' ? h(UIC.Input, { label: __('eqMatchFree', 'Free shares (X)'), inputMode: 'decimal', value: form.ratioFree, onChange: upd('ratioFree') }) : null,
+          form.basis === 'ratio' ? h(UIC.Input, { label: __('eqMatchPer', 'per shares bought (Y)'), inputMode: 'decimal', value: form.ratioPer, onChange: upd('ratioPer') }) : null,
+          h(UIC.Select, { label: __('eqMatchDelivery', 'Delivery'), value: form.delivery, onChange: upd('delivery'), options: [
+            { value: 'immediate', label: __('eqMatchImmediate', 'at the purchase') }, { value: 'vesting', label: __('eqMatchVesting', 'own vesting / holding period') }] }),
+          form.delivery === 'vesting' ? h(UIC.Input, { label: __('eqCliff', 'Cliff (months)'), inputMode: 'numeric', value: form.cliffMonths, onChange: upd('cliffMonths') }) : null,
+          form.delivery === 'vesting' ? h(UIC.Input, { label: __('eqYears', 'Years'), inputMode: 'decimal', value: form.years, onChange: upd('years') }) : null,
+          form.delivery === 'vesting' ? h(UIC.Input, { label: __('eqFreq', 'Then every (months)'), inputMode: 'numeric', value: form.freqMonths, onChange: upd('freqMonths') }) : null,
+          h(UIC.Input, { label: __('eqMatchCapYear', 'Match cap per year (amount)'), inputMode: 'decimal', value: form.capYear, onChange: upd('capYear') }),
+          h(UIC.Input, { label: __('eqMatchCapPeriod', 'Match cap per offering (amount)'), inputMode: 'decimal', value: form.capPeriod, onChange: upd('capPeriod') }),
+          h(UIC.Input, { label: __('eqMatchCapShares', 'Max match shares per offering'), inputMode: 'decimal', value: form.capShares, onChange: upd('capShares') })),
+        h('div', { className: 'ui-view__bar' },
+          [['forfeitOnLeave', __('eqMatchForfeitLeave', 'Lost when I leave before it vests')], ['forfeitOnSale', __('eqMatchForfeitSale', 'Lost when I sell the bought shares before')],
+            ['fractional', __('eqFractional', 'Fractional shares')]].map(function (x) {
+            return h('label', { key: x[0], className: 'ui-check' }, h('input', { type: 'checkbox', checked: !!form[x[0]], onChange: upd(x[0]) }), ' ', x[1]);
+          })),
+        h('div', { className: 'ui-view__bar' },
+          h(UIC.Button, { variant: 'primary', 'data-testid': 'eq-match-save', disabled: !form.from || (form.basis !== 'ratio' && !(num(form.pct) >= 0)), onClick: save }, __('eqSave', 'Save')),
+          h(UIC.Button, { variant: 'quiet', onClick: function () { setForm(null); } }, __('eqCancel', 'Cancel')))) : null,
+      !form ? h(UIC.Button, { size: 'sm', onClick: function () { setForm(blank); }, 'data-testid': 'eq-match-add' }, __('eqMatchAdd', '+ Match rule')) : null);
+  }
+
+  // Own vs match shares of an ESPP grant: vested (held as lots) and unvested.
+  function ownVsMatch(st, grant) {
+    var M = E(), purchases = M.eventsOf(st, grant.id).filter(function (e) { return e.kind === 'purchase'; });
+    var own = purchases.reduce(function (a, e) { return a + e.netUnits; }, 0);
+    var mv = 0, mu = 0, mf = 0;
+    purchases.forEach(function (e) {
+      st.grants.filter(function (g) { return g.parentEventId === e.id; }).forEach(function (g) {
+        M.tranchesOf(st, g.id).forEach(function (t) { if (t.status === 'forfeited') mf += t.units; else if (t.status === 'unvested') mu += t.units; else mv += t.units; });
+      });
+    });
+    return { own: own, matchVested: mv, matchUnvested: mu, matchForfeited: mf };
+  }
+
   // ---- plan card -------------------------------------------------------------------
   function PlanCard(props) {
     var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
@@ -679,7 +770,7 @@
     var _e = React.useState(false), addEvent = _e[0], setAddEvent = _e[1];
     var _x = React.useState(null), editGrant = _x[0], setEditGrant = _x[1];
     var _o = React.useState(null), openGrant = _o[0], setOpenGrant = _o[1];
-    var grants = M.grantsOf(st, plan.id);
+    var grants = M.grantsOf(st, plan.id).filter(function (g) { return !(g.type === 'MATCH' && g.parentEventId); });
     var taxCur = FX().taxCurrency(plan.taxCountry) || 'EUR';
     var money = function (v) { return props.privacy ? '••••••' : props.formatPrice(v) + ' ' + props.getCurrencySymbol(); };
     var held = props.held[plan.id] || 0;
@@ -738,11 +829,13 @@
         rows: events,
         rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteEvent(r); } }]; }
       }) : null,
+      grants.some(function (g) { return g.type === 'ESPP'; }) && W.MaerminEquityMatch ? h(MatchRules, { plan: plan, onSave: props.onSavePlan }) : null,
       grants.filter(function (g) { return g.type === 'ESPP' && g.contribution && W.MaerminEquityEspp && props.equityOpts; }).map(function (g) {
         return h(React.Fragment, { key: g.id },
           h(EsppPanel, { grant: g, plan: plan, state: st, equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy, onUpdateGrant: props.onEditGrantKeep }),
           W.MaerminEquityForecast ? h(EsppForecast, { grant: g, plan: plan, state: st, settings: W.MaerminEquityEspp.normalizeSettings(g.contribution, g.grantDate),
-            equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy }) : null);
+            equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy,
+            matchPct: W.MaerminEquityMatch && W.MaerminEquityMatch.ruleAt(plan, today()) ? function (disc) { return W.MaerminEquityMatch.effectiveInclMatch(W.MaerminEquityMatch.ruleAt(plan, today()), 100 - disc, 100); } : null }) : null);
       }),
       grants.filter(function (g) { return g.type === 'PSU' && g.psu; }).map(function (g) {
         return h(PsuPanel, { key: g.id, grant: g, plan: plan, priceEUR: props.priceEUR, money: money, privacy: props.privacy, onSettle: props.onSettlePsu });
@@ -853,6 +946,7 @@
               events: st.events.filter(function (e) { return e.grantId !== g.id || e.source !== 'auto' || e.kind !== 'purchase'; }) }));
           },
           equityOpts: props.equityOpts,
+          onSavePlan: savePlan,
           onSetTrancheStatus: function (t, status) {
             commit(withList('tranches', st.tranches.map(function (x) { return x.id === t.id ? Object.assign({}, x, { status: status }) : x; })));
           },
