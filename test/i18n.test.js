@@ -52,7 +52,7 @@ const U = require('../utils.js');
   ok('i18n.js loads after prefs and before the views', html.indexOf('prefs-store.js') < html.indexOf('i18n.js') && html.indexOf('i18n.js') < html.indexOf('renderer.js'));
   const r = read('renderer.js');
   ok('<html lang> follows the language', /applyHtmlLang\(language\)/.test(r));
-  ok('formatPrice uses the locale formatter', /MaerminI18n\.num\(converted, 2, language\)/.test(r));
+  ok('formatPrice uses the locale formatter with the currency decimals', /MaerminI18n\.num\(converted, dec, language\)/.test(r) && /MaerminReporting\.decimals\(reporting\.cur\)/.test(r));
   ok("no 'en-US' number formatting left in formatPrice/utils", !/toLocaleString\('en-US'/.test(read('utils.js')));
 
   // ---- the guard -----------------------------------------------------------

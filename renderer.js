@@ -1242,7 +1242,9 @@ function InvestmentTracker() {
     if (price === undefined || price === null || isNaN(price)) return '0.00';
     // All prices are stored in EUR; shown in the reporting currency.
     const converted = price * reporting.rate;
-    return window.MaerminI18n.num(converted, 2, language);
+    // Decimals follow the currency (JPY 0, KWD 3; PLAN-EQUITY § 2).
+    const dec = window.MaerminReporting && window.MaerminReporting.decimals ? window.MaerminReporting.decimals(reporting.cur) : 2;
+    return window.MaerminI18n.num(converted, dec, language);
   }, [reporting, privacyMode, language]);
 
   const getCurrencySymbol = () => (window.MaerminReporting ? window.MaerminReporting.symbol(reporting.cur) : '€');
@@ -5711,7 +5713,7 @@ function InvestmentTracker() {
             // rate of the trade date (MaerminFxHistory, rates via the Worker).
             (() => {
               const FXH = window.MaerminFxHistory;
-              const list = (FXH && FXH.FIAT) || [];
+              const list = (FXH && FXH.fiatList) ? FXH.fiatList() : [];
               const cur = newTransaction.currency || 'EUR';
               const other = cur !== 'EUR' && cur !== 'USD';
               return React.createElement('select', {
@@ -6350,8 +6352,27 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null,
                 popLabel(t.currency || 'Currency'),
                 React.createElement('div', { className: 'mx-seg' },
-                  ['EUR', 'USD', 'CHF'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), { EUR: '€ EUR', USD: '$ USD', CHF: 'CHF' }[curr]))
+                  ((window.MaerminReporting && window.MaerminReporting.QUICK) || ['EUR']).map(curr => {
+                    const sym = window.MaerminReporting ? window.MaerminReporting.symbol(curr) : curr;
+                    return segBtn(curr, currency === curr, () => setCurrency(curr), sym === curr ? curr : sym + ' ' + curr);
+                  })
                 ),
+                // Any other ISO 4217 code (PLAN-EQUITY § 2): the list comes from Intl.
+                (() => {
+                  const RC = window.MaerminReporting;
+                  const list = (RC && RC.all && RC.all()) || [];
+                  if (!list.length) return null;
+                  const other = RC.QUICK.indexOf(currency) === -1;
+                  return React.createElement('select', {
+                    'aria-label': t.otherCurrency || 'Other currency', 'data-testid': 'currency-other',
+                    value: other ? currency : '',
+                    onChange: (e) => { if (e.target.value) setCurrency(e.target.value); },
+                    className: ['ui-input', 'ui-select', 'ui-tx-other', other ? 'is-on' : ''].join(' ').trim()
+                  },
+                    React.createElement('option', { value: '' }, t.otherCurrency || 'Other…'),
+                    list.filter(c => RC.QUICK.indexOf(c) === -1).map(c => React.createElement('option', { key: c, value: c }, c))
+                  );
+                })(),
                 reporting.fallback && React.createElement('p', { className: 'ui-note ui-note--flush', 'data-testid': 'currency-fallback' },
                   __('repNoRate', 'No {cur} rate yet: amounts are shown in EUR until prices are refreshed.', { cur: reporting.wanted })),
                 currency !== 'EUR' && React.createElement('p', { className: 'ui-note ui-note--flush' },

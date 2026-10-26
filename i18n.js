@@ -102,6 +102,19 @@
     return body + ' ' + sym;
   }
 
+  // Minor-unit digits of a currency from Intl: JPY 0, EUR 2, KWD 3 (an
+  // unknown code: 2). PLAN-EQUITY § 2: no currency table in the code.
+  function currencyDecimals(currency) {
+    try { return nf('en-US', { style: 'currency', currency: currency || 'EUR' }).resolvedOptions().maximumFractionDigits; }
+    catch (e) { return 2; }
+  }
+  // money() with the currency's own decimals: moneyAuto(1234.5, 'JPY') -> "1.235 ¥".
+  // An invalid code falls back to the number plus the code as written.
+  function moneyAuto(v, currency, l) {
+    try { return money(v, currency, currencyDecimals(currency), l); }
+    catch (e) { return num(v, 2, l) + ' ' + String(currency || ''); }
+  }
+
   // pct(12.5) -> "12,50 %" (de) / "12.50%" (en). Input is in percent units.
   // signed: a leading "+" for positive values.
   // dec: fixed decimals, or { min, max } for a range.
@@ -214,7 +227,7 @@
   var api = {
     LANGS: LANGS, LOCALES: LOCALES, lang: lang, setLang: setLang, locale: locale,
     dict: dict, t: t, fill: fill,
-    num: num, money: money, pct: pct, compact: compact, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq, sector: sector, country: country,
+    num: num, money: money, moneyAuto: moneyAuto, currencyDecimals: currencyDecimals, pct: pct, compact: compact, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq, sector: sector, country: country,
     applyHtmlLang: applyHtmlLang
   };
   if (typeof window !== 'undefined') { window.MaerminI18n = api; applyHtmlLang(); }
