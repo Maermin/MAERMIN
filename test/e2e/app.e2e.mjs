@@ -1453,8 +1453,8 @@ async function runBuild(browser, label, dir) {
         ok('P5-2.10: exported as JSON and imported again; the demo keeps it in memory only', !!json && json.format === 'maermin-taxonomy' && json.taxonomy.nodes[0].target === 70 && x.options === 2 && x.stored === null,
           err || JSON.stringify(x && { options: x.options, stored: x.stored, json: (x.json || '').slice(0, 80) })); }
       { const a = agd, sum = (l) => l.reduce((x, r) => x + r.pct, 0);
-        ok('P5-2.8: demo funds by provider (Vanguard) and value by broker: two portfolios, shares add up to 100 %', !!a && a.providers.length > 0 && a.providers[0].key === 'Vanguard' && Math.abs(sum(a.providers) - 100) < 1e-6
-          && a.brokers.length === 2 && Math.abs(sum(a.brokers) - 100) < 1e-6 && a.brokers.some((b) => b.key === 'demo-broker'), err || JSON.stringify(a)); }
+        ok('P5-2.8: demo funds by provider (Vanguard) and value by broker: three portfolios (incl. the employee plan account), shares add up to 100 %', !!a && a.providers.length > 0 && a.providers[0].key === 'Vanguard' && Math.abs(sum(a.providers) - 100) < 1e-6
+          && a.brokers.length === 3 && a.brokers.some((b) => b.key === 'demo-plan-account') && Math.abs(sum(a.brokers) - 100) < 1e-6 && a.brokers.some((b) => b.key === 'demo-broker'), err || JSON.stringify(a)); }
       { const h = hrd, m = h && (h.avgText.match(/over (\d+) months/) || [])[1];
         ok('P5-2.6: demo per holding: IRR by asset class, best sales ranked, capital flow per year adds up to the monthly average', !!h && h.classes.length >= 3 && h.classes.every((k) => /^class:/.test(k))
           && h.best.length > 0 && h.best.every((r, i, a) => !i || a[i - 1] >= r) && !!m && Math.abs(h.years.reduce((a, b) => a + b, 0) / Number(m) - h.avg) < 1e-6 && h.months === Number(m),
