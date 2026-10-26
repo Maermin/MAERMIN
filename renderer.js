@@ -4165,8 +4165,8 @@ function InvestmentTracker() {
             React.createElement('h2', { className: 'ui-ov-block__title' }, __('ovReturnsTitle', 'Returns')),
             React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: go }, __('ovToReturns', 'Returns →'))),
           React.createElement('div', { className: 'ui-ov-tiles' },
-            statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
-            statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'xirr' }, __('retXirr', 'XIRR (annualized)')) : __('retXirr', 'XIRR (annualized)')), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'twr' }, 'TWR') : 'TWR'), pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
               : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
             statCard(__('ovRealized', 'Realised gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
             statCard(__('ovDividendsReceived', 'Dividends received'), money(f.dividendsNet), __('ovDividendsGross', '{amount} gross', { amount: money(f.dividendsGross) }), undefined, go),

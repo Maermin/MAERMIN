@@ -3917,6 +3917,45 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E6): glossary popovers. The "?" next to XIRR
+  // explains it without opening the Returns page; Escape closes it and gives
+  // focus back; on a phone the popover stays on screen.
+  {
+  const GL_VPS = [{ width: 1366, height: 900 }, { width: 390, height: 844 }];
+  for (const vp of GL_VPS) {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: vp });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator(vp.width > 600 ? 'nav.ui-rail' : 'nav.ui-dock').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      const btn = page.locator('[data-testid="ov-returns"] .mx-term__info[data-term="xirr"]');
+      await btn.scrollIntoViewIfNeeded();
+      r.label = await btn.getAttribute('aria-label');
+      await btn.click();
+      const pop = page.locator('[data-testid="glossary-pop"]');
+      await pop.waitFor({ timeout: 5000 });
+      r.text = await pop.innerText();
+      r.expanded = await btn.getAttribute('aria-expanded');
+      r.stayed = await page.locator('[data-testid="ov-returns"]').count();
+      const box = await pop.boundingBox();
+      r.onScreen = !!box && box.x >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height + 1;
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      r.closed = await pop.count() === 0;
+      r.focus = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-term'));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E6 (' + vp.width + ' px): "?" next to XIRR explains it, without leaving the Overview', !err && /What is XIRR/.test(r.label || '') && /money/.test(r.text || '') && r.expanded === 'true' && r.stayed === 1, err || JSON.stringify(r));
+    ok('E6 (' + vp.width + ' px): the popover is on screen; Escape closes it and focus returns', !err && r.onScreen && r.closed && r.focus === 'xirr', err || JSON.stringify(r));
+    ok('no page errors in the glossary session (' + vp.width + ' px)', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  }
+
   // Feature (audit 2026-10-24 E8): Year in review in Performance (demo). The
   // copied summary carries percentages and counts only.
   {
