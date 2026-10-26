@@ -29,7 +29,7 @@ ok('an unknown term is null', G.entry('nope') === null);
 
 console.log('markup:');
 const m = renderToStaticMarkup(React.createElement(G.Term, { id: 'xirr' }, 'XIRR (annualized)'));
-ok('the label text is unchanged (the "?" is CSS)', />XIRR \(annualized\)<button/.test(m) && /<button[^>]*><\/button>/.test(m), m);
+ok('the label text is unchanged, no wrapper (the "?" is CSS)', /^XIRR \(annualized\)<button/.test(m) && /<button[^>]*><\/button>/.test(m), m);
 ok('the button names the term and starts closed', /aria-label="What is XIRR \(money-weighted return\)\?"/.test(m) && /aria-expanded="false"/.test(m), m);
 ok('no popover while closed', !/glossary-pop/.test(m));
 ok('an unknown id renders just the label', renderToStaticMarkup(React.createElement(G.Term, { id: 'nope' }, 'Label')) === 'Label');

@@ -97,7 +97,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           style: { top: pos.top + 'px', left: pos.left + 'px', width: pos.width + 'px' }
         }, h('strong', { className: 'mx-glossary__title' }, e.title), h('p', { className: 'mx-glossary__text' }, e.text)), document.body)
       : null;
-    return h('span', { className: 'mx-term' }, props.children,
+    // No wrapper element: the label keeps its structure (text, then the "?").
+    return h(React.Fragment, null, props.children,
       h('button', {
         ref: btnRef, type: 'button', className: 'mx-term__info', 'data-term': props.id,
         'aria-label': __('glWhatIs', 'What is {term}?', { term: e.title }), 'aria-expanded': pos ? 'true' : 'false', 'aria-controls': pos ? idRef.current : undefined,
