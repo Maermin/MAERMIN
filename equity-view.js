@@ -571,6 +571,106 @@
         } }, __('eqWithdraw', 'Withdraw')) : null));
   }
 
+  // ---- ESPP forecast (Package 4) -------------------------------------------------------
+  // Estimates only: never stored, never lots. The chart shows the cash put in
+  // against the value of all ESPP shares (P10-P90 band, P50 line), with a
+  // marker on each purchase date.
+  function ForecastChart(props) {
+    var h = W.React.createElement, I = W.MaerminI18n;
+    var sc = props.scenarios, p10 = sc.p10 || sc.flat, p50 = sc.p50 || sc.flat, p90 = sc.p90 || sc.flat;
+    var rows = (p50 || {}).rows || [];
+    if (!rows.length) return null;
+    var w = 640, hgt = 220, pad = { l: 8, r: 8, t: 12, b: 24 };
+    var vals = [0];
+    [p10, p50, p90].forEach(function (s) { s.rows.forEach(function (r) { vals.push(r.cumValue || 0, r.cumInvested || 0); }); });
+    var max = Math.max.apply(null, vals) || 1;
+    var x = function (i) { return pad.l + (rows.length === 1 ? (w - pad.l - pad.r) / 2 : i * (w - pad.l - pad.r) / (rows.length - 1)); };
+    var y = function (v) { return hgt - pad.b - (v / max) * (hgt - pad.t - pad.b); };
+    var line = function (s, key) { return s.rows.map(function (r, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(r[key] || 0).toFixed(1); }).join(' '); };
+    var band = p90.rows.map(function (r, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(r.cumValue || 0).toFixed(1); }).join(' ')
+      + ' ' + p10.rows.slice().reverse().map(function (r, j) { var i = p10.rows.length - 1 - j; return 'L' + x(i).toFixed(1) + ' ' + y(r.cumValue || 0).toFixed(1); }).join(' ') + ' Z';
+    return h('figure', { className: 'ui-chart', 'data-testid': 'eq-forecast-chart' },
+      h('svg', { viewBox: '0 0 ' + w + ' ' + hgt, width: '100%', role: 'img', 'aria-label': __('eqChartLabel', 'Cash put in vs value of all ESPP shares (estimate)') },
+        h('path', { d: band, fill: 'var(--chart-1)', opacity: 0.18, stroke: 'none' }),
+        h('path', { d: line(p50, 'cumValue'), fill: 'none', stroke: 'var(--chart-1)', strokeWidth: 2 }),
+        h('path', { d: line(p50, 'cumInvested'), fill: 'none', stroke: 'var(--text-dim)', strokeWidth: 2, strokeDasharray: '5 4' }),
+        rows.map(function (r, i) {
+          return h('g', { key: r.date },
+            h('circle', { cx: x(i), cy: y(r.cumValue || 0), r: 3.5, fill: 'var(--chart-1)' }),
+            h('text', { x: x(i), y: hgt - 6, textAnchor: i === 0 ? 'start' : i === rows.length - 1 ? 'end' : 'middle', fontSize: 11, fill: 'var(--text-dim)' }, I.date(r.date)));
+        })),
+      h('figcaption', { className: 'ui-chart__legend' },
+        h('span', null, '— ' + __('eqLegendValue', 'value of all ESPP shares (P50; band P10–P90)')), ' ',
+        h('span', null, '- - ' + __('eqLegendInvested', 'cash put in'))));
+  }
+
+  function EsppForecast(props) {
+    var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n, FC = W.MaerminEquityForecast;
+    var s0 = props.settings;
+    var curPct = (s0.pctHistory[s0.pctHistory.length - 1] || { pct: 0 }).pct;
+    var _c = React.useState({ horizon: '1y', pct: curPct, raise: 0, price: 0, fx: 0, band: 0, repeat: true, seed: 42 }), c = _c[0], setC = _c[1];
+    var put = function (k, v) { setC(Object.assign({}, c, (function () { var o = {}; o[k] = v; return o; })())); };
+    var f = React.useMemo(function () {
+      try {
+        return FC.espp(props.state, props.grant, Object.assign({}, props.equityOpts, {
+          base: props.baseCurrency, horizon: c.horizon, pct: c.pct !== curPct ? c.pct : null, raisePct: c.raise, priceShiftPct: c.price,
+          fxShiftPct: c.fx, fxBandPct: c.band, repeatOneOffs: c.repeat, seed: c.seed, paths: 600 }));
+      } catch (e) { return null; }
+    }, [props.state, props.grant, props.equityOpts, props.baseCurrency, c]);
+    var by = {};
+    ((f && f.scenarios) || []).forEach(function (s) { by[s.name] = s; });
+    var money = function (v) { return props.privacy ? '••••••' : v == null ? '–' : I.moneyAuto(v, props.baseCurrency); };
+    var units = function (u) { return I.num(u, { min: 0, max: 2 }); };
+    var slider = function (k, label, min, max, step, fmt) {
+      return h('label', { className: 'ui-field', key: k },
+        h('span', { className: 'ui-field__label' }, label + ': ' + fmt(c[k])),
+        h('input', { type: 'range', min: min, max: max, step: step, value: c[k], 'aria-label': label, onChange: function (e) { put(k, Number(e.target.value)); } }));
+    };
+    var pctFmt = function (v) { return I.pct(v, 0); };
+    var signed = function (v) { return (v > 0 ? '+' : '') + I.pct(v, 0); };
+    var names = ['flat', 'cagr-20', 'cagr10', 'cagr20', 'p10', 'p50', 'p90'];
+    var nameLabel = function (n) {
+      return n === 'flat' ? __('eqScenFlat', 'Price stays') : n.indexOf('cagr') === 0 ? __('eqScenCagr', '{pct} p.a.', { pct: signed(Number(n.slice(4))) })
+        : n.toUpperCase() + ' ' + __('eqScenMc', '(simulation)');
+    };
+    var flat = by.flat;
+    var discEff = flat && flat.rows.length ? flat.rows.reduce(function (a, r) { return a + r.effectiveDiscountPct; }, 0) / flat.rows.length : null;
+    return h('div', { className: 'ui-card', 'data-testid': 'eq-forecast-' + props.grant.id },
+      h('b', null, __('eqForecast', 'Forecast')), ' ', h(UIC.Badge, { tone: 'warning' }, __('eqEstimate', 'Estimate')),
+      h('p', { className: 'ui-note' }, __('eqForecastNote', 'Future contributions from your income timeline; prices flat, at a yearly rate or simulated from the stock\'s own history (seeded, reproducible). Nothing here is booked.')),
+      h(UIC.Segmented, { label: __('eqHorizon', 'Horizon'), value: c.horizon, onChange: function (v) { put('horizon', v); }, options: [
+        { value: 'period', label: __('eqHorizonPeriod', 'This offering') }, { value: '1y', label: __('eqHorizon1', '1 year') },
+        { value: '3y', label: __('eqHorizon3', '3 years') }, { value: '5y', label: __('eqHorizon5', '5 years') }] }),
+      h('div', { className: 'ui-form-grid', 'data-testid': 'eq-whatif' },
+        slider('pct', __('eqWhatPct', 'Contribution'), 0, 25, 1, pctFmt),
+        slider('raise', __('eqWhatRaise', 'Raise per year'), 0, 10, 0.5, pctFmt),
+        slider('price', __('eqWhatPrice', 'Share price now'), -50, 50, 5, signed),
+        slider('fx', __('eqWhatFx', 'Share currency now'), -20, 20, 1, signed),
+        slider('band', __('eqWhatBand', 'FX band ± per year'), 0, 10, 1, pctFmt)),
+      h('label', { className: 'ui-check' }, h('input', { type: 'checkbox', checked: c.repeat, onChange: function (e) { put('repeat', e.target.checked); } }), ' ', __('eqRepeatBonus', 'Repeat last year\'s bonus months')),
+      !f || f.missing ? h('p', { className: 'ui-note tone-warning' }, __('eqForecastNoPrice', 'No current price for the share yet: the forecast needs its price history.')) : null,
+      f && !f.mc && f.scenarios && f.scenarios.length ? h('p', { className: 'ui-note' }, __('eqNoMc', 'Less than 2 years of price history: no simulation, only the yearly-rate scenarios.')) : null,
+      flat ? h('div', { className: 'ui-ov-tiles' },
+        h(UIC.Stat, { label: __('eqFcInvested', 'Cash put in'), value: money(flat.invested), sub: __('eqFcPurchases', '{n} {n:purchase|purchases} until {date}', { n: flat.rows.length, date: I.date(f.end) }) }),
+        h(UIC.Stat, { label: __('eqFcShares', 'Shares bought'), value: units(flat.units) + (by.p10 ? ' (' + units(by.p90.units) + ' – ' + units(by.p10.units) + ')' : ''), sub: __('eqFcSharesSub', 'flat price (range: P90 – P10 price)') }),
+        h(UIC.Stat, { label: __('eqFcValue', 'Value of these shares'), value: money(by.p50 ? by.p50.value : flat.value), sub: by.p10 ? __('eqFcBand', 'P10 {lo} – P90 {hi}', { lo: money(by.p10.value), hi: money(by.p90.value) }) : __('eqScenFlat', 'Price stays') }),
+        discEff != null ? h(UIC.Stat, { label: __('eqEffDiscountAvg', 'Effective discount'), value: I.pct(discEff, 1), sub: props.matchPct ? __('eqInclMatch', 'incl. match: {pct}', { pct: I.pct(props.matchPct(discEff), 1) }) : __('eqLookbackIncl', 'incl. lookback, flat price') }) : null,
+        flat.warnings ? h(UIC.Stat, { label: __('eqFcCap', 'Cap'), value: String(flat.warnings), sub: __('eqFcCapSub', 'months over the cap (see the plan settings)') }) : null) : null,
+      f && f.fx ? h('p', { className: 'ui-note', 'data-testid': 'eq-fx-band' }, __('eqFxBandText', 'FX band ±{pct} p.a. (flat price): {lo} – {hi}', { pct: I.pct(f.fx.pct, 0), lo: money(Math.min(f.fx.low.value, f.fx.high.value)), hi: money(Math.max(f.fx.low.value, f.fx.high.value)) })) : null,
+      flat ? h(ForecastChart, { scenarios: by }) : null,
+      flat ? h(UIC.Table, {
+        caption: __('eqFcTable', 'Purchases by scenario'), 'data-testid': 'eq-forecast-table',
+        columns: [{ key: 'n', label: __('eqScenario', 'Scenario'), phone: 'title', render: function (s) { return nameLabel(s.name); } },
+          { key: 'units', label: __('eqFcShares', 'Shares bought'), align: 'right', phone: 'value', render: function (s) { return units(s.units); } },
+          { key: 'inv', label: __('eqFcInvested', 'Cash put in'), align: 'right', priority: 2, render: function (s) { return money(s.invested); } },
+          { key: 'val', label: __('eqFcValueEnd', 'Value at the end'), align: 'right', phone: 'sub', render: function (s) { return money(s.value); } },
+          { key: 'gain', label: __('eqDiscountGain', 'Discount + lookback'), align: 'right', priority: 3, render: function (s) { return money(s.rows.reduce(function (a, r) { return a + (r.discountGainBase || 0); }, 0)); } }],
+        rows: names.filter(function (n) { return by[n]; }).map(function (n) { return Object.assign({ id: n }, by[n]); })
+      }) : null,
+      f && f.mc ? h('p', { className: 'ui-note' }, __('eqMcSeed', 'Simulation: {n} paths, seed {seed}', { n: f.mc.paths, seed: f.mc.seed }), ' ',
+        h('input', { className: 'ui-input', type: 'number', 'aria-label': __('eqSeed', 'Seed'), value: c.seed, style: { width: '6em' }, onChange: function (e) { put('seed', Number(e.target.value) || 1); } })) : null);
+  }
+
   // ---- plan card -------------------------------------------------------------------
   function PlanCard(props) {
     var React = W.React, h = React.createElement, UIC = W.MaerminComponents, I = W.MaerminI18n;
@@ -639,7 +739,10 @@
         rowActions: function (r) { return [{ label: __('eqDelete', 'Delete'), danger: true, onClick: function () { props.onDeleteEvent(r); } }]; }
       }) : null,
       grants.filter(function (g) { return g.type === 'ESPP' && g.contribution && W.MaerminEquityEspp && props.equityOpts; }).map(function (g) {
-        return h(EsppPanel, { key: g.id, grant: g, plan: plan, state: st, equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy, onUpdateGrant: props.onEditGrantKeep });
+        return h(React.Fragment, { key: g.id },
+          h(EsppPanel, { grant: g, plan: plan, state: st, equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy, onUpdateGrant: props.onEditGrantKeep }),
+          W.MaerminEquityForecast ? h(EsppForecast, { grant: g, plan: plan, state: st, settings: W.MaerminEquityEspp.normalizeSettings(g.contribution, g.grantDate),
+            equityOpts: props.equityOpts, baseCurrency: props.baseCurrency, privacy: props.privacy }) : null);
       }),
       grants.filter(function (g) { return g.type === 'PSU' && g.psu; }).map(function (g) {
         return h(PsuPanel, { key: g.id, grant: g, plan: plan, priceEUR: props.priceEUR, money: money, privacy: props.privacy, onSettle: props.onSettlePsu });

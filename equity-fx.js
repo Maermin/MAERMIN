@@ -168,7 +168,7 @@
   var api = {
     MAX_GAP_DAYS: MAX_GAP_DAYS, TAX_COUNTRIES: TAX_COUNTRIES,
     majorOf: majorOf, taxCurrency: taxCurrency, overrideKey: overrideKey,
-    eurPer: eurPer, rate: rate, convert: convert, record: record, valueIn: valueIn
+    seriesOf: seriesOf, eurPer: eurPer, rate: rate, convert: convert, record: record, valueIn: valueIn
   };
   if (typeof window !== 'undefined') window.MaerminEquityFx = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

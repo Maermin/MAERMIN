@@ -179,10 +179,15 @@
     var share = plan ? plan.shareCurrency : 'USD';
     var capCur = s.caps.currency;
     var events = state.events.filter(function (e) { return e.grantId === grant.id && e.kind === 'purchase'; });
+    // opts.from: leave out offerings that end before it; opts.carryIn = { amount,
+    // currency }: the cash the first included offering starts with (the forecast)
     var out = [], carry = 0, carryCur = null, yearUsed = {}, yearShares = {}, yearFmvValue = {}, missing = [];
+    var from = ymd(opts.from), firstIncluded = true;
     var withdrawnAt = s.withdrawals[0] || null, stopped = false;
     offerings(s, today).forEach(function (o) {
       if (stopped) return;   // a withdrawal ends the enrolment
+      if (from && o.end < from) return;
+      if (firstIncluded) { firstIncluded = false; if (opts.carryIn && opts.carryIn.amount > 0) { carry = opts.carryIn.amount; carryCur = opts.carryIn.currency; } }
       var row = { index: o.index, start: o.start, end: o.end, months: [], warnings: [], carryIn: carry, carryInCurrency: carryCur,
         status: o.end <= today ? 'done' : 'open', purchase: null, refund: 0, carryOut: 0, currency: null };
       var periodUsed = 0, cash = carry, cur = carryCur;
