@@ -71,16 +71,19 @@
       { id: 'demo-eq-fabrikam', employer: 'Fabrikam (sample)', ticker: 'AZN.L', shareCurrency: 'GBX', admin: 'other', adminLabel: 'Computershare', portfolioId: EQ_PORTFOLIO, taxCountry: 'CH', salaryCurrency: 'CHF' }
     ],
     grants: [
-      { id: 'demo-eq-rsu', planId: 'demo-eq-contoso', type: 'RSU', name: 'New hire 2023', grantDate: '2023-03-01', units: 400, withholding: 'sell_to_cover', withholdingRate: 0.45 },
+      { id: 'demo-eq-rsu', planId: 'demo-eq-contoso', type: 'RSU', name: 'New hire 2023', grantDate: '2023-03-01', units: 400, withholding: 'sell_to_cover', withholdingRate: 0.45,
+        schedule: { preset: '4y_cliff_quarterly' }, rounding: 'floor_trueup', dividendEquivalents: true },
       { id: 'demo-eq-psu', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2024-2026', grantDate: '2024-03-01', units: 120, withholding: 'payroll' },
       { id: 'demo-eq-espp-fab', planId: 'demo-eq-fabrikam', type: 'ESPP', name: 'Sharesave', grantDate: '2021-01-01' }
     ],
-    tranches: EQ_VESTS.map((v, i) => ({ id: 'demo-eq-t' + i, grantId: 'demo-eq-rsu', date: v[0], units: v[4], status: 'vested' }))
-      .concat(EQ_UPCOMING.map((d, i) => ({ id: 'demo-eq-tu' + i, grantId: 'demo-eq-rsu', date: d, units: 25, status: 'unvested', projected: true })))
+    // tranche ids as equity-vesting.js names them (<grant>-t<n>), so the
+    // schedule finds its past vests and only adds the projected ones
+    tranches: EQ_VESTS.map((v, i) => ({ id: 'demo-eq-rsu-t' + (i + 1), grantId: 'demo-eq-rsu', date: v[0], units: v[4], status: 'vested' }))
+      .concat(EQ_UPCOMING.map((d, i) => ({ id: 'demo-eq-rsu-t' + (EQ_VESTS.length + i + 1), grantId: 'demo-eq-rsu', date: d, units: 25, status: 'unvested', projected: true })))
       .concat([{ id: 'demo-eq-tpsu', grantId: 'demo-eq-psu', date: '2027-03-01', units: 120, status: 'unvested', projected: true }]),
     events: EQ_VESTS.map((v, i) => {
       const withheld = Math.ceil(v[4] * 0.45);
-      return { id: 'demo-eq-v' + i, kind: 'vest', grantId: 'demo-eq-rsu', trancheId: 'demo-eq-t' + i, date: v[0], fmv: v[1], fmvSource: 'close', shareCurrency: 'USD',
+      return { id: 'demo-eq-v' + i, kind: 'vest', grantId: 'demo-eq-rsu', trancheId: 'demo-eq-rsu-t' + (i + 1), date: v[0], fmv: v[1], fmvSource: 'close', shareCurrency: 'USD',
         fx: { EUR: { rate: v[2], date: v[3], source: v[3] === v[0] ? 'history' : 'fallback' } },
         grossUnits: v[4], withheldUnits: withheld, coverPrice: Math.round(v[1] * 0.998 * 100) / 100, source: 'auto' };
     }),

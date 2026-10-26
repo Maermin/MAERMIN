@@ -49,7 +49,7 @@
   var FX_SOURCES = ['exact', 'history', 'fallback', 'approx', 'manual'];
   var FMV_SOURCES = ['close', 'prevClose', 'manual'];
   var WITHHOLDING = ['sell_to_cover', 'payroll', 'none'];
-  var ROUNDING = ['floor_trueup', 'round', 'none'];
+  var ROUNDING = ['floor_trueup', 'floor_cumulative', 'round', 'none'];
   var DEFAULT_SETTINGS = { includeUnvested: false, concentrationWarnPct: 10, showShareCurrency: false };
 
   function efx() {
@@ -162,6 +162,7 @@
     var out = {
       id: id, kind: kind, grantId: grantId, trancheId: idOf(ev.trancheId), date: date,
       fmv: fmv, fmvSource: oneOf(ev.fmvSource, FMV_SOURCES, 'close'),
+      fmvDate: ymd(ev.fmvDate) || date,   // the close the FMV came from (a weekend vest: the Friday)
       shareCurrency: cur(ev.shareCurrency) || 'USD',
       fx: cleanFx(ev.fx),
       grossUnits: gross, withheldUnits: withheld, netUnits: net,
@@ -215,8 +216,10 @@
     var grantIds = {}; grants.forEach(function (g) { grantIds[g.id] = true; });
     var tranches = arr(o.tranches).map(function (t) { return cleanTranche(t, grantIds); }).map(uniq).filter(Boolean);
     var events = arr(o.events).map(function (e) { return cleanEvent(e, grantIds); }).map(uniq).filter(Boolean);
-    tranches.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    events.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    // by date, then id: the same store always normalises to the same text
+    var byDateId = function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0; };
+    tranches.sort(byDateId);
+    events.sort(byDateId);
     return { v: VERSION, plans: plans, grants: grants, tranches: tranches, events: events, fxOverrides: cleanOverrides(o.fxOverrides), settings: cleanSettings(o.settings) };
   }
 
@@ -353,6 +356,23 @@
     return out;
   }
 
+  // Rows that make the existing history loaders (close-history.js need/sync,
+  // fx-history.js currenciesNeeded/syncCurrencies) fetch what the plans need
+  // before any lot exists: the ticker's closes from the earliest grant, and
+  // the salary and tax currencies. Never stored, never shown.
+  function historyRows(state) {
+    var out = [];
+    ((state && state.plans) || []).forEach(function (p) {
+      var first = null;
+      state.grants.forEach(function (g) { if (g.planId === p.id && g.grantDate && (!first || g.grantDate < first)) first = g.grantDate; });
+      if (!first) return;
+      out.push({ type: 'buy', category: 'stocks', symbol: p.ticker, currency: p.quoteCurrency, date: first, quantity: 0, price: 0, source: 'equity-history' });
+      var F = efx(), tax = F ? F.taxCurrency(p.taxCountry) : null;
+      [p.salaryCurrency, tax].forEach(function (c) { if (c && c !== 'EUR') out.push({ type: 'deposit', category: 'cashflow', currency: c, date: first, amount: 0, source: 'equity-history' }); });
+    });
+    return out;
+  }
+
   // ---- storage (browser) --------------------------------------------------------------
   var _demo = { equity: null, income: null };
   function demoActive() { return !!(W.MaerminDemo && W.MaerminDemo.isActive && W.MaerminDemo.isActive()); }
@@ -386,7 +406,7 @@
     INCOME_KINDS: INCOME_KINDS, WITHHOLDING: WITHHOLDING, ROUNDING: ROUNDING, DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     newId: newId, normalize: normalize, normalizeIncome: normalizeIncome,
     byId: byId, planOfGrant: planOfGrant, grantsOf: grantsOf, tranchesOf: tranchesOf, eventsOf: eventsOf,
-    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline, heldByPlan: heldByPlan,
+    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline, heldByPlan: heldByPlan, historyRows: historyRows,
     load: load, save: save, loadIncome: loadIncome, saveIncome: saveIncome, resetDemo: resetDemo, hasPlans: hasPlans
   };
   if (typeof window !== 'undefined') window.MaerminEquity = api;
