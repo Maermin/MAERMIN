@@ -26,7 +26,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var W = typeof window !== 'undefined' ? window : {};
   function req(f) { try { return f(); } catch (e) { return null; } }
 
-  // The one chart library (docs: PLAN.md Phase 7, D3 vetting). Same path in the
+  // The one chart library (vetted for Phase 7: pinned version, SRI). Same path in the
   // CSP script-src of index.html and build.mjs.
   var LIB = [
     { src: 'https://unpkg.com/klinecharts@10.1.0/dist/umd/klinecharts.min.js',

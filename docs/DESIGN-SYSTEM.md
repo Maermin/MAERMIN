@@ -1,8 +1,7 @@
 # MAERMIN design system — "Atlas Map"
 
-Status: **plan**, picked by the owner on 2026-10-17 (direction C of [`docs/redesign/DIRECTIONS.md`](redesign/DIRECTIONS.md)).
-Reference screens: [`docs/redesign/final/`](redesign/final/) (static, demo data). Problems it answers:
-[`docs/REDESIGN-AUDIT.md`](REDESIGN-AUDIT.md). Work order: `PLAN.md` → Phase 6.
+Status: **shipped** in v12.1 "Atlas Map" (2026-10-23), picked on 2026-10-17 from three design directions.
+The README pictures ([`docs/screenshots/atlas-map/`](screenshots/atlas-map/)) show the result.
 
 This file is the contract for every redesign package. A value that is not here is not used in view code; a new value
 is added here first, in the same PR.
@@ -276,7 +275,7 @@ Load the `dataviz` skill before touching any chart (R3, R4).
   `<th scope>`, live regions for toasts and loading.
 - Motion: reduced-motion honoured (§ 2.4); no flashing.
 - Zoom: layouts hold at 200 % zoom (1440 px → 720 px CSS).
-- Every PR checks contrast in all five themes (scripted scan, `docs/redesign` method), focus order, screen-reader
+- Every PR checks contrast in all five themes (scripted scan), focus order, screen-reader
   labels; R5 runs `design:accessibility-review` per theme and an NVDA pass.
 
 ---

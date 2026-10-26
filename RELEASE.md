@@ -34,7 +34,7 @@
 - **CH-5 Polish (#238):** keyboard, the tap hint, German formats, demo candles.
 - **CH-6:** this release.
 
-The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
+Each package was merged as its own pull request on GitHub.
 
 ### Worker
 
@@ -80,7 +80,7 @@ The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
 - **R4 Analysis (#212–#219):** Returns, Health and risk, Research, Strategy, Fees, market views, planning and cash, then the remaining panels and dialogs.
 - **R5 Polish (#220–#227):** Settings and dialogs, loading / empty / error states and motion, the accessibility and phone pass, cleanup and this release.
 
-The milestone reports are in `docs/REDESIGN-R1-REPORT.md` … `docs/REDESIGN-R5-REPORT.md`. The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
+The numbers in brackets are the pull requests on GitHub.
 
 ## [v12.0.0] "Atlas" — 15 October 2026
 
@@ -113,7 +113,7 @@ The milestone reports are in `docs/REDESIGN-R1-REPORT.md` … `docs/REDESIGN-R5-
 - **M4 Tax (P5-4.1 to 4.11):** loss carry-forward; sell simulator; Vorabpauschale forecast; allowance harvesting plan; crypto tax-free calendar; cost-basis methods and per-wallet basis; Jahressteuerbescheinigung check; statements and audit exports (AES-256 PDF password); Austria; Switzerland; US contribution limits.
 - **M5 Reach (P5-5.1 to 5.9):** web push; local MCP server; budget and spending; research pages; event feed and ICS export; serverless sync transports; saving goals with a glide path; README and positioning; this release.
 
-Every figure for tax is an estimate, not tax advice. The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
+Every figure for tax is an estimate, not tax advice. Each package was merged as its own pull request on GitHub.
 
 ## [v11.0.0] — 9 October 2026
 
