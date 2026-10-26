@@ -300,7 +300,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     } catch (err) { detail = null; }
 
     function line(label, value, tone) {
-      return e('li', { key: label, className: 'ui-rows__row' },
+      return e('li', { key: typeof label === 'string' ? label : 'term-' + (label && label.props && label.props.id), className: 'ui-rows__row' },
         e('span', { className: 'ui-muted' }, label),
         e('b', { className: ['num', tone ? 'tone-' + tone : ''].join(' ').trim() }, value));
     }
@@ -380,8 +380,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           detail.carryUsed && (detail.carryUsed.shares + detail.carryUsed.other) > 0 ? line(__('gtCarryUsed', 'Loss carry-forward used'), '−' + amt(detail.carryUsed.shares + detail.carryUsed.other), 'gain') : null,
           line(__('gtVapLine', 'Vorabpauschale {prev} (taxed in {y})', { prev: year - 1, y: year }), amt(detail.vorabpauschaleTaxable)),
           detail.vapCreditTotal > 0 ? line(__('gtCreditedVap', 'Credited prior Vorabpauschalen'), '−' + amt(detail.vapCreditTotal), 'gain') : null,
-          line(__('gtTfExempt', 'Teilfreistellung exempt'), amt(detail.teilfreistellungExempt)),
-          line(__('gtSpbUsed', 'Sparerpauschbetrag used'), amt(detail.sparerpauschbetragUsed)),
+          line((window.MaerminGlossary ? e(window.MaerminGlossary.Term, { id: 'teilfreistellung' }, __('gtTfExempt', 'Teilfreistellung exempt')) : __('gtTfExempt', 'Teilfreistellung exempt')), amt(detail.teilfreistellungExempt)),
+          line((window.MaerminGlossary ? e(window.MaerminGlossary.Term, { id: 'sparerpauschbetrag' }, __('gtSpbUsed', 'Sparerpauschbetrag used')) : __('gtSpbUsed', 'Sparerpauschbetrag used')), amt(detail.sparerpauschbetragUsed)),
           line(__('gtTaxableIncome', 'Taxable capital income'), amt(detail.taxableIncome)),
           line(__('gtAbgSoli', 'Abgeltungsteuer + Soli') + (detail.kirchensteuer > 0 ? ' + ' + __('gtKirchensteuer', 'Kirchensteuer') : ''), amt(detail.abgeltungsteuer + detail.soli + detail.kirchensteuer), 'warning'),
           detail.crypto && detail.crypto.method ? line(__('gtCryptoMethod', 'Crypto cost basis'), detail.crypto.method === 'fifo-wallet' ? __('gtFifoWallet', 'FIFO per wallet') : __('gtFifoPooled', 'FIFO across all wallets')) : null,
@@ -422,7 +422,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         className: [INPUT, 'ui-gt-num'].join(' ') });
     }
     function row(label, control, hint) {
-      return e('li', { key: label, className: 'ui-rows__row' },
+      return e('li', { key: typeof label === 'string' ? label : 'term-' + (label && label.props && label.props.id), className: 'ui-rows__row' },
         e('div', { className: 'ui-rows__main' }, e('b', null, label), hint ? e('span', null, hint) : null),
         control);
     }

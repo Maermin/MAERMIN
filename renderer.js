@@ -1224,18 +1224,36 @@ function InvestmentTracker() {
     if (meta) meta.setAttribute('content', window.MaerminTokens.resolve('var(--bg)'));
   }, [currentTheme]);
   
+  // Audit 2026-10-24 feature 9: the currency amounts are shown in (EUR, USD,
+  // CHF) and its rate per EUR - a real rate only (reporting-currency.js).
+  // USD: the rate fetched this session, else the daily history if it covers
+  // today; CHF: the last fetched rate table. Without one: EUR, and € as symbol.
+  const reporting = useMemo(() => {
+    const RC = window.MaerminReporting, FXH = window.MaerminFxHistory;
+    if (!RC) return { cur: 'EUR', rate: 1, fallback: false, wanted: 'EUR' };
+    const today = window.MaerminUtils.todayISO();
+    const usdToEur = fxLiveFetched.current ? exchangeRate : (fxAt && fxAt.covers && fxAt.covers(today) ? fxAt(today) : null);
+    return RC.effective(currency, { usdToEur, usdRates: FXH && FXH.usdRates ? FXH.usdRates() : {} });
+  }, [currency, exchangeRate, fxAt]);
+
   const formatPrice = useCallback((price) => {
     // Privacy mode masks every amount app-wide (formatPrice is the single
     // formatter every view uses), without touching the underlying data.
     if (privacyMode) return '••••••';
     if (price === undefined || price === null || isNaN(price)) return '0.00';
-    // All prices are stored in EUR
-    // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
-    const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
+    // All prices are stored in EUR; shown in the reporting currency.
+    const converted = price * reporting.rate;
     return window.MaerminI18n.num(converted, 2, language);
-  }, [currency, exchangeRate, privacyMode, language]);
+  }, [reporting, privacyMode, language]);
 
-  const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
+  const getCurrencySymbol = () => (window.MaerminReporting ? window.MaerminReporting.symbol(reporting.cur) : '€');
+  // Tax figures stay in the tax system's currency (owner decision, feature 9).
+  const formatEUR = useCallback((price) => {
+    if (privacyMode) return '••••••';
+    if (price === undefined || price === null || isNaN(price)) return '0.00';
+    return window.MaerminI18n.num(price, 2, language);
+  }, [privacyMode, language]);
+  const eurSymbol = () => '€';
 
   // Category display names
   // P5-1.3: cash bookings in the transactions list.
@@ -3266,13 +3284,13 @@ function InvestmentTracker() {
         let anchor;
         if (exDate) {
           anchor = new Date(exDate);
-          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
+          if (isNaN(anchor.getTime())) { anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
           else {
             while (anchor.getTime() < Date.now()) anchor.setUTCMonth(anchor.getUTCMonth() + monthsPerPay);
             anchor.setUTCDate(anchor.getUTCDate() + 14); // ex → pay
           }
         } else {
-          anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+          anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
         }
 
         // One event per individual payment across the next 12 months.
@@ -3510,7 +3528,7 @@ function InvestmentTracker() {
       // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
-        return window.MaerminPerformance ?
+        return window.MaerminPerformance ? React.createElement(React.Fragment, null,
           React.createElement(window.MaerminPerformance.View, {
             theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
             series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt,
@@ -3519,7 +3537,13 @@ function InvestmentTracker() {
               theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
               privacyMode, formatPrice, getCurrencySymbol
             })
-          }) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
+          }),
+          // Audit 2026-10-24 feature 8: one calendar year from the Returns figures (year-review.js).
+          window.MaerminYearReview && window.MaerminReturnFigures && React.createElement(window.MaerminYearReview.Panel, {
+            transactions, formatPrice, getCurrencySymbol, privacyMode,
+            figures: (txs, asOf) => window.MaerminReturnFigures.compute(txs, { securitiesValueEUR: 0, exchangeRate, fxAt, today: asOf }),
+            snapshots: window.MaerminSnapshots, snapshotState: window.MaerminSnapshots ? window.MaerminSnapshots.load() : null
+          })) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
@@ -3829,7 +3853,7 @@ function InvestmentTracker() {
       case 'tax':
         return React.createElement(StableViews.TaxCombinedView, {
           transactions: activeTransactions, prices,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          theme: currentTheme, t, formatPrice: formatEUR, getCurrencySymbol: eurSymbol, // tax stays in EUR (feature 9)
           taxJurisdiction, setTaxJurisdiction, language
         });
 
@@ -4159,8 +4183,8 @@ function InvestmentTracker() {
             React.createElement('h2', { className: 'ui-ov-block__title' }, __('ovReturnsTitle', 'Returns')),
             React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: go }, __('ovToReturns', 'Returns →'))),
           React.createElement('div', { className: 'ui-ov-tiles' },
-            statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
-            statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'xirr' }, __('retXirr', 'XIRR (annualized)')) : __('retXirr', 'XIRR (annualized)')), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'twr' }, 'TWR') : 'TWR'), pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
               : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
             statCard(__('ovRealized', 'Realised gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
             statCard(__('ovDividendsReceived', 'Dividends received'), money(f.dividendsNet), __('ovDividendsGross', '{amount} gross', { amount: money(f.dividendsGross) }), undefined, go),
@@ -6328,8 +6352,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null,
                 popLabel(t.currency || 'Currency'),
                 React.createElement('div', { className: 'mx-seg' },
-                  ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
-                )
+                  ['EUR', 'USD', 'CHF'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), { EUR: '€ EUR', USD: '$ USD', CHF: 'CHF' }[curr]))
+                ),
+                reporting.fallback && React.createElement('p', { className: 'ui-note ui-note--flush', 'data-testid': 'currency-fallback' },
+                  __('repNoRate', 'No {cur} rate yet: amounts are shown in EUR until prices are refreshed.', { cur: reporting.wanted })),
+                currency !== 'EUR' && React.createElement('p', { className: 'ui-note ui-note--flush' },
+                  __('repTaxEur', 'Tax figures stay in EUR.'))
               )
             ),
             React.createElement('div', { className: 'mx-pop-sec' },

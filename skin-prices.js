@@ -77,10 +77,10 @@
       var v = e.avg[{ last_90d: 'd90', last_30d: 'd30', last_7d: 'd7', last_24h: 'd1' }[p[0]]];
       if (!v) return;
       var ts = Math.floor((now - p[1] * 86400000) / 1000);
-      out.push({ ts: ts, date: new Date(ts * 1000).toISOString().slice(0, 10), price: v });
+      out.push({ ts: ts, date: (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(new Date(ts * 1000)), price: v });
     });
     var tsNow = Math.floor(now / 1000);
-    out.push({ ts: tsNow, date: new Date(now).toISOString().slice(0, 10), price: e.price });
+    out.push({ ts: tsNow, date: (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(new Date(now)), price: e.price });
     return out;
   }
 
