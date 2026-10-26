@@ -26,6 +26,9 @@
 //       manual overrides are kept; a tranche with an event is left alone.
 //   regenerate(state, opts)              plan() for every grant with a schedule
 //   dividendEquivalents(tranches, dividends, today, grantDate)  cash per unvested unit
+//   PSU (Package 3): psuInfo, psuScenarios(grant, price) low / target / high,
+//   psuSettledUnits; plan() keeps an unsettled PSU pending (projected) and
+//   vests the settled units at the settlement date or over grant.psu.post
 //
 // opts: { today, closes(ticker) -> { cur, d: [dayNo], p: [close] } | null,
 //         fxCtx (equity-fx.js ctx), targets: [currencies an event keeps] }
@@ -138,21 +141,72 @@
 
   function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
 
+  // ---- PSU (Package 3) ------------------------------------------------------------
+  // grant.psu = { perfStart, perfEnd, settleDate?, min, target, max (percent of
+  // the target units, default 0 / 100 / 200), actual (percent, set at
+  // settlement), post (a schedule that vests the settled units after the
+  // performance period, optional) }
+  function psuInfo(grant) {
+    var p = (grant && grant.psu) || {};
+    var min = num(p.min), target = num(p.target), max = num(p.max), actual = num(p.actual);
+    var out = {
+      perfStart: ymd(p.perfStart) || ymd(grant && grant.grantDate), perfEnd: ymd(p.perfEnd), settleDate: ymd(p.settleDate),
+      min: min != null && min >= 0 ? min : 0, target: target > 0 ? target : 100, max: max > 0 ? max : 200,
+      actual: actual != null && actual >= 0 ? actual : null,
+      post: p.post && typeof p.post === 'object' ? p.post : null
+    };
+    if (out.max < out.target) out.max = out.target;
+    if (out.min > out.target) out.min = out.target;
+    out.vestDate = out.settleDate || out.perfEnd;
+    return out;
+  }
+  function roundUnits(u, rounding) {
+    return rounding === 'none' ? u : rounding === 'round' ? Math.round(u) : Math.floor(u + 1e-9);
+  }
+  // Low / target / high before settlement: units = target units × multiplier.
+  function psuScenarios(grant, price) {
+    var p = psuInfo(grant), t = num(grant && grant.units) || 0, px = num(price);
+    return [['low', p.min], ['target', p.target], ['high', p.max]].map(function (x) {
+      var u = roundUnits(t * x[1] / 100, grant.rounding);
+      return { key: x[0], pct: x[1], units: u, value: px != null ? u * px : null };
+    });
+  }
+  function psuSettledUnits(grant) {
+    var p = psuInfo(grant);
+    return p.actual == null ? null : roundUnits((num(grant.units) || 0) * p.actual / 100, grant.rounding);
+  }
+
+  // The steps and units of any grant type: a schedule for RSU / MATCH; for a
+  // PSU the target units at the end of the performance period until it is
+  // settled (pending), then the settled units, at once or over its schedule.
+  function grantSteps(grant) {
+    if (grant.type === 'PSU') {
+      var p = psuInfo(grant);
+      if (!p.vestDate) return { steps: [], units: [], pending: false };
+      if (p.actual == null) return { steps: [{ date: p.vestDate, pct: 100 }], units: [num(grant.units) || 0], pending: true };
+      var total = psuSettledUnits(grant);
+      var st = p.post ? steps(Object.assign({ start: p.vestDate }, p.post), p.vestDate) : [{ date: p.vestDate, pct: 100 }];
+      return { steps: st, units: allocate(total, st.map(function (x) { return x.pct; }), grant.rounding), pending: false };
+    }
+    var s = steps(grant.schedule, grant.grantDate);
+    return { steps: s, units: allocate(grant.units, s.map(function (x) { return x.pct; }), grant.rounding), pending: false };
+  }
+
   // Tranches and auto events of one grant. Existing tranche ids are kept by
   // position, so a manual event that points at a tranche keeps its link.
   function plan(state, grant, opts) {
     opts = opts || {};
     var today = ymd(opts.today) || isoOf(Math.floor(Date.now() / DAY));
     var pl = byId(state.plans, grant.planId);
-    var st = steps(grant.schedule, grant.grantDate);
-    var units = allocate(grant.units, st.map(function (x) { return x.pct; }), grant.rounding);
+    var gs = grantSteps(grant), st = gs.steps, units = gs.units;
     var prevTr = state.tranches.filter(function (t) { return t.grantId === grant.id; });
     var events = state.events.filter(function (e) { return e.grantId === grant.id; });
     var tranches = [], newEvents = [], missing = [];
     st.forEach(function (s, i) {
       var id = grant.id + '-t' + (i + 1);
       var prev = byId(prevTr, id);
-      var past = s.date <= today;
+      // a PSU waits for its settlement: unvested (projected) even after the period
+      var past = s.date <= today && !gs.pending;
       var ev = events.filter(function (e) { return e.trancheId === id; })[0];
       var status = prev && (prev.status === 'forfeited' || prev.status === 'settled') ? prev.status : past ? 'vested' : 'unvested';
       tranches.push({ id: id, grantId: grant.id, date: s.date, units: units[i], status: status, projected: !past });
@@ -182,7 +236,8 @@
   function regenerate(state, opts) {
     var out = Object.assign({}, state), added = 0, missing = [];
     state.grants.forEach(function (g) {
-      if (!g.schedule || !(g.units > 0) || (g.type !== 'RSU' && g.type !== 'MATCH')) return;
+      var ok = g.type === 'PSU' ? !!psuInfo(g).vestDate : (g.type === 'RSU' || g.type === 'MATCH') && !!g.schedule;
+      if (!ok || !(g.units > 0)) return;
       var r = plan(out, g, opts);
       out.tranches = out.tranches.filter(function (t) { return t.grantId !== g.id; }).concat(r.tranches);
       out.events = out.events.filter(function (e) { return e.grantId !== g.id; }).concat(r.events);
@@ -225,6 +280,7 @@
 
   var api = {
     dividendsFromTransactions: dividendsFromTransactions,
+    psuInfo: psuInfo, psuScenarios: psuScenarios, psuSettledUnits: psuSettledUnits, grantSteps: grantSteps,
     PRESETS: PRESETS, addMonths: addMonths, normalizeSchedule: normalizeSchedule, steps: steps, pctSum: pctSum,
     allocate: allocate, withheld: withheld, fmvOn: fmvOn, plan: plan, regenerate: regenerate, dividendEquivalents: dividendEquivalents
   };
