@@ -1224,18 +1224,36 @@ function InvestmentTracker() {
     if (meta) meta.setAttribute('content', window.MaerminTokens.resolve('var(--bg)'));
   }, [currentTheme]);
   
+  // Audit 2026-10-24 feature 9: the currency amounts are shown in (EUR, USD,
+  // CHF) and its rate per EUR - a real rate only (reporting-currency.js).
+  // USD: the rate fetched this session, else the daily history if it covers
+  // today; CHF: the last fetched rate table. Without one: EUR, and € as symbol.
+  const reporting = useMemo(() => {
+    const RC = window.MaerminReporting, FXH = window.MaerminFxHistory;
+    if (!RC) return { cur: 'EUR', rate: 1, fallback: false, wanted: 'EUR' };
+    const today = window.MaerminUtils.todayISO();
+    const usdToEur = fxLiveFetched.current ? exchangeRate : (fxAt && fxAt.covers && fxAt.covers(today) ? fxAt(today) : null);
+    return RC.effective(currency, { usdToEur, usdRates: FXH && FXH.usdRates ? FXH.usdRates() : {} });
+  }, [currency, exchangeRate, fxAt]);
+
   const formatPrice = useCallback((price) => {
     // Privacy mode masks every amount app-wide (formatPrice is the single
     // formatter every view uses), without touching the underlying data.
     if (privacyMode) return '••••••';
     if (price === undefined || price === null || isNaN(price)) return '0.00';
-    // All prices are stored in EUR
-    // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
-    const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
+    // All prices are stored in EUR; shown in the reporting currency.
+    const converted = price * reporting.rate;
     return window.MaerminI18n.num(converted, 2, language);
-  }, [currency, exchangeRate, privacyMode, language]);
+  }, [reporting, privacyMode, language]);
 
-  const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
+  const getCurrencySymbol = () => (window.MaerminReporting ? window.MaerminReporting.symbol(reporting.cur) : '€');
+  // Tax figures stay in the tax system's currency (owner decision, feature 9).
+  const formatEUR = useCallback((price) => {
+    if (privacyMode) return '••••••';
+    if (price === undefined || price === null || isNaN(price)) return '0.00';
+    return window.MaerminI18n.num(price, 2, language);
+  }, [privacyMode, language]);
+  const eurSymbol = () => '€';
 
   // Category display names
   // P5-1.3: cash bookings in the transactions list.
@@ -3829,7 +3847,7 @@ function InvestmentTracker() {
       case 'tax':
         return React.createElement(StableViews.TaxCombinedView, {
           transactions: activeTransactions, prices,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          theme: currentTheme, t, formatPrice: formatEUR, getCurrencySymbol: eurSymbol, // tax stays in EUR (feature 9)
           taxJurisdiction, setTaxJurisdiction, language
         });
 
@@ -6326,8 +6344,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null,
                 popLabel(t.currency || 'Currency'),
                 React.createElement('div', { className: 'mx-seg' },
-                  ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
-                )
+                  ['EUR', 'USD', 'CHF'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), { EUR: '€ EUR', USD: '$ USD', CHF: 'CHF' }[curr]))
+                ),
+                reporting.fallback && React.createElement('p', { className: 'ui-note ui-note--flush', 'data-testid': 'currency-fallback' },
+                  __('repNoRate', 'No {cur} rate yet: amounts are shown in EUR until prices are refreshed.', { cur: reporting.wanted })),
+                currency !== 'EUR' && React.createElement('p', { className: 'ui-note ui-note--flush' },
+                  __('repTaxEur', 'Tax figures stay in EUR.'))
               )
             ),
             React.createElement('div', { className: 'mx-pop-sec' },

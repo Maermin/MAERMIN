@@ -3917,6 +3917,45 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // Feature (audit 2026-10-24 E9): reporting currency EUR / USD / CHF (demo).
+  // CHF without a rate shows EUR and says so; with a rate the Overview is in
+  // CHF; the Tax view stays in EUR.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const r = {};
+    let err = '';
+    const ovTotal = () => page.locator('[data-testid="ov-returns"]').innerText();
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => { try { localStorage.removeItem('maermin_fx_usd_rates'); } catch (e) {} });
+      await page.locator('.ui-settings-btn').click();
+      await page.locator('#mx-settings-panel button', { hasText: /^CHF$/ }).click();
+      await page.waitForTimeout(300);
+      r.note = await page.locator('[data-testid="currency-fallback"]').count();
+      r.noRate = await ovTotal();
+      await page.evaluate(() => window.MaerminFxHistory.setUsdRates({ USD: 1, EUR: 0.9, CHF: 0.81 }));
+      await page.locator('#mx-settings-panel button', { hasText: /^\$ USD$/ }).click();
+      await page.locator('#mx-settings-panel button', { hasText: /^CHF$/ }).click();
+      await page.waitForTimeout(300);
+      r.noteAfter = await page.locator('[data-testid="currency-fallback"]').count();
+      r.chf = await ovTotal();
+      await page.keyboard.press('Escape');
+      await openView(page, 'tax');
+      await page.waitForTimeout(800);
+      r.tax = await page.locator('main').innerText();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('E9: CHF without a rate shows EUR and says so', !err && r.note === 1 && /€/.test(r.noRate || '') && !/CHF/.test(r.noRate || ''), err || JSON.stringify({ note: r.note, noRate: (r.noRate || '').slice(0, 120) }));
+    ok('E9: with a CHF rate the Overview shows CHF', !err && r.noteAfter === 0 && /CHF/.test(r.chf || '') && !/€/.test(r.chf || ''), err || JSON.stringify({ noteAfter: r.noteAfter, chf: (r.chf || '').slice(0, 160) }));
+    ok('E9: the Tax view stays in EUR', !err && /€/.test(r.tax || '') && !/\d CHF/.test(r.tax || ''), err || (r.tax || '').slice(0, 200));
+    ok('no page errors in the reporting-currency session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
