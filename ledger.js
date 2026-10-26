@@ -70,13 +70,14 @@
     try { return require('./fx-history.js'); } catch (e) { return null; }
   }
 
-  // Amount in the transaction currency → EUR (MaerminFxHistory.txToEUR): EUR,
+  // Amount in the transaction currency → EUR (MaerminFxHistory.txAmountToEUR: a
+  // rate stored on the tx (tx.fx.EUR, equity events) wins; else txToEUR): EUR,
   // USD and USD stablecoins at the rate of the tx date; other fiat at the
   // current cross rate ('approx'); no rate at all → 'unknown' (amount kept,
   // reported via `currencyIssues`). Before, every non-USD currency was EUR.
   function toEUR(amount, tx, rate, fxAt, ctx) {
     var F = fx();
-    var res = F && F.txToEUR ? F.txToEUR(amount, tx.currency, tx.date, rate, fxAt, ctx && ctx.usdRates)
+    var res = F && F.txAmountToEUR ? F.txAmountToEUR(amount, tx, rate, fxAt, ctx && ctx.usdRates)
       : { value: (tx.currency === 'USD' && rate > 0) ? num(amount) * rate : num(amount), status: 'exact' };
     if (res.status !== 'exact' && ctx && num(amount) !== 0) {
       var k = String(tx.currency) + '|' + res.status;

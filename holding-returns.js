@@ -197,7 +197,7 @@
     var cur = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
     var today = U && U.todayISO ? U.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var toEUR = function (amount, tx) {
-      if (FX && FX.txToEUR) return FX.txToEUR(amount, tx.currency || 'EUR', tx.date, props.exchangeRate, props.fxAt).value;
+      if (FX && FX.txAmountToEUR) return FX.txAmountToEUR(amount, tx, props.exchangeRate, props.fxAt).value;
       return U ? U.toEUR(amount, tx.currency || 'EUR', props.exchangeRate) : amount;
     };
     // today's EUR value per holding, with the price lookup of the Returns view

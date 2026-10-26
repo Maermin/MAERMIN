@@ -344,7 +344,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
   // Build cumulative invested timeline from transactions
   const investedSeries = useMemo(() => {
     const FX = window.MaerminFxHistory, U = window.MaerminUtils;
-    const eur = (amt, tx) => (FX && FX.txToEUR) ? FX.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value
+    const eur = (amt, tx) => (FX && FX.txAmountToEUR) ? FX.txAmountToEUR(amt, tx, exchangeRate, fxAt).value
       : (U ? U.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt);
     const sorted = [...transactions]
       .filter(tx => (tx.type === 'buy' || tx.type === 'sell') && tx.category !== 'options')
@@ -497,7 +497,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
     return (amount, tx) => {
       const a = parseFloat(amount) || 0;
       if (!a) return 0;
-      if (FX && FX.txToEUR) return FX.txToEUR(a, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value;
+      if (FX && FX.txAmountToEUR) return FX.txAmountToEUR(a, tx, exchangeRate, fxAt).value;
       return U ? U.toEUR(a, tx.currency || 'EUR', exchangeRate) : a;
     };
   }, [exchangeRate, fxAt]);
