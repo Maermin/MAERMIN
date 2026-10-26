@@ -308,9 +308,10 @@
   }
 
   // ---- pipeline (unvested) ----------------------------------------------------------
-  // Unvested units per plan, valued at today's price. price(plan) -> price in
-  // the share currency (major unit) or null; toBase(amount, cur) -> base amount
-  // or null. Forfeited tranches never count; projected ones do (they are the
+  // Unvested units per plan, valued at today's price. price(plan) -> price per
+  // share or null; toBase(value, plan) -> that value in the base currency or
+  // null (the caller knows which currency its prices are in: the app's price
+  // map is EUR, a test may use the share currency). Forfeited tranches never count; projected ones do (they are the
   // schedule still to come).
   function pipeline(state, price, toBase) {
     var plans = {}, total = { units: 0, base: 0, unpriced: 0 };
@@ -324,12 +325,32 @@
       row.byType[g.type] = (row.byType[g.type] || 0) + t.units;
       total.units += t.units;
       if (px != null && px > 0) {
-        var v = t.units * px, b = toBase ? num(toBase(v, p.shareCurrency)) : null;
+        var v = t.units * px, b = toBase ? num(toBase(v, p)) : null;
         row.value += v;
         if (b != null) { row.base += b; total.base += b; } else total.unpriced++;
       } else total.unpriced++;
     });
     return { plans: Object.keys(plans).map(function (k) { return plans[k]; }), total: total };
+  }
+
+  // Units from equity lots still held, per plan, after FIFO sales: the open
+  // lots of a ledger.js build whose txId is an equity lot (eq-<eventId>).
+  // Build it with { perPortfolio: true } so other buys of the same ticker in
+  // another portfolio never mix into the plan account.
+  function heldByPlan(state, ledger) {
+    var planOfEvent = {};
+    state.events.forEach(function (ev) {
+      var p = planOfGrant(state, byId(state.grants, ev.grantId));
+      if (p) planOfEvent['eq-' + ev.id] = p.id;
+    });
+    var out = {};
+    ((ledger && ledger.list) || []).forEach(function (g) {
+      (g.openLots || []).forEach(function (lot) {
+        var pid = planOfEvent[lot.txId];
+        if (pid) out[pid] = (out[pid] || 0) + lot.qty;
+      });
+    });
+    return out;
   }
 
   // ---- storage (browser) --------------------------------------------------------------
@@ -365,7 +386,7 @@
     INCOME_KINDS: INCOME_KINDS, WITHHOLDING: WITHHOLDING, ROUNDING: ROUNDING, DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     newId: newId, normalize: normalize, normalizeIncome: normalizeIncome,
     byId: byId, planOfGrant: planOfGrant, grantsOf: grantsOf, tranchesOf: tranchesOf, eventsOf: eventsOf,
-    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline,
+    lotsFor: lotsFor, missingFx: missingFx, isEquityTx: isEquityTx, syncLots: syncLots, pipeline: pipeline, heldByPlan: heldByPlan,
     load: load, save: save, loadIncome: loadIncome, saveIncome: saveIncome, resetDemo: resetDemo, hasPlans: hasPlans
   };
   if (typeof window !== 'undefined') window.MaerminEquity = api;

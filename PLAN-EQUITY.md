@@ -52,7 +52,7 @@ Load order: after `fx-history.js`, `ledger.js`, `close-history.js`; view module 
 |-----|----------|------|
 | `maermin_equity` | `{ v, plans[], grants[], tranches[], events[], settings }` | encrypted sync (encrypted sync, § 7 #3) |
 | `maermin_income` | `{ v, entries[] }`: salary and one-off income | encrypted sync **or** device-local (encrypted sync, § 7 #3) |
-| `maermin_equity_fx_overrides` | manual FX rates `{ 'EUR>USD@2026-03-15': {rate, note} }` | encrypted sync |
+| (inside `maermin_equity`) `fxOverrides` | manual FX rates `{ 'USD>EUR@2026-03-15': {rate, note} }`, kept in the equity store instead of a third key (Package 1) | encrypted sync |
 
 In demo mode all three live in memory only, like the other demo stores.
 

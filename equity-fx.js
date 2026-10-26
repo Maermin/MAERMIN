@@ -25,7 +25,8 @@
 //   valueIn(amount, from, fxRecord, to)   amount through a stored record (no lookup)
 //
 // ctx (all optional; tests inject them): { series(cur) -> [{ d: ISO, r: EUR per
-// unit }] sorted, usdRates, overrides: { key: { rate, note } }, maxGapDays }.
+// unit }] sorted, usdHistory ({ ISO: EUR per USD }), usdRates, overrides:
+// { key: { rate, note } }, maxGapDays }.
 // Pure + Node-tested (test/equity-fx.test.js).
 // ============================================================================
 (function () {
@@ -42,6 +43,7 @@
   // Tax country -> tax currency. Only the countries with a tax module
   // (german-tax-view.js, at-tax.js, ch-tax.js); others have none yet.
   var TAX_CURRENCY = { DE: 'EUR', AT: 'EUR', CH: 'CHF' };
+  var TAX_COUNTRIES = Object.keys(TAX_CURRENCY);
   var RANK = { exact: 0, history: 1, fallback: 2, approx: 3 };
 
   function num(v) { var n = typeof v === 'number' ? v : parseFloat(v); return isFinite(n) ? n : null; }
@@ -57,11 +59,13 @@
   function overrideKey(from, to, date) { return majorOf(from).cur + '>' + majorOf(to).cur + '@' + ymd(date); }
 
   // Daily EUR rates of a major currency from the pipeline: [{ d, r }] sorted.
-  function pipelineSeries(cur) {
+  // usdHistory: the app's USD->EUR map when it is not the stored one (the
+  // demo's sample history, as the renderer's fxAt uses it).
+  function pipelineSeries(cur, usdHistory) {
     var F = fxh();
-    if (!F) return [];
+    if (!F && !usdHistory) return [];
     if (cur === 'USD') {
-      var h = F.load ? F.load() : {};
+      var h = usdHistory || (F.load ? F.load() : {});
       return Object.keys(h).filter(function (k) { return ymd(k) && num(h[k]) > 0; }).sort()
         .map(function (k) { return { d: k, r: num(h[k]) }; });
     }
@@ -73,7 +77,7 @@
     if (ctx && typeof ctx.series === 'function') return ctx.series(cur) || [];
     if (ctx) {
       ctx._cache = ctx._cache || {};
-      return ctx._cache[cur] || (ctx._cache[cur] = pipelineSeries(cur));
+      return ctx._cache[cur] || (ctx._cache[cur] = pipelineSeries(cur, ctx.usdHistory));
     }
     return pipelineSeries(cur);
   }
@@ -155,7 +159,7 @@
   }
 
   var api = {
-    MAX_GAP_DAYS: MAX_GAP_DAYS,
+    MAX_GAP_DAYS: MAX_GAP_DAYS, TAX_COUNTRIES: TAX_COUNTRIES,
     majorOf: majorOf, taxCurrency: taxCurrency, overrideKey: overrideKey,
     eurPer: eurPer, rate: rate, convert: convert, record: record, valueIn: valueIn
   };

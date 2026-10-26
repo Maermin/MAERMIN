@@ -107,7 +107,7 @@ const s4 = E.syncLots(E.normalize(Object.assign(base(), { events: [] })), s1.tra
 ok('a deleted event takes its lots along, other rows stay', s4.transactions.length === 1 && s4.transactions[0] === other);
 
 console.log('pipeline:');
-const pipe = E.pipeline(st, () => 420, (v, c) => (c === 'USD' ? v * 0.9 : null));
+const pipe = E.pipeline(st, () => 420, (v, p) => (p.shareCurrency === 'USD' ? v * 0.9 : null));
 ok('unvested RSU + PSU units, forfeited and vested left out', pipe.total.units === 145 && pipe.plans[0].byType.RSU === 25 && pipe.plans[0].byType.PSU === 120, pipe);
 ok('valued at today\'s price in base currency', near(pipe.total.base, 145 * 420 * 0.9) && pipe.total.unpriced === 0);
 ok('no price: counted as unpriced, not as 0 value', E.pipeline(st, () => null, null).total.unpriced === 2);

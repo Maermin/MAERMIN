@@ -120,7 +120,11 @@ Everything else is **derived** from transactions (single source of truth in
 
 The canonical internal currency is **EUR**; USD transactions are converted at
 the historical rate of their date (`MaerminFxHistory.fxResolver`, falling back
-to the live `USD→EUR` rate). Live quotes in other currencies (GBp pence, CHF, …)
+to the live `USD→EUR` rate). A transaction may carry its own rate in
+`tx.fx.EUR` (`MaerminFxHistory.txAmountToEUR`; employee-equity lots keep the rate
+of their vest or purchase day this way). Any ISO 4217 code is accepted for daily
+history and as display currency (`Intl.supportedValuesOf('currency')`, decimals
+and symbols from `Intl`). Live quotes in other currencies (GBp pence, CHF, …)
 convert through the USD cross rates (`MaerminFxHistory.quoteToEUR`). Display
 conversion happens only at format time (`formatPrice`).
 
@@ -201,6 +205,9 @@ conversion happens only at format time (`formatPrice`).
 | `real-assets.js` (P5-3.11) | `MaerminRealAssets` | Real assets in `maermin_real_assets`. Templates (`TEMPLATES`, `fromTemplate(id, form, today)`) for art, P2P loans, life insurance, vehicles, startup stakes and collectibles fill valuations, cost and cash flows (new types `interest_income`, `premium`) and keep their own fields in `details` (whitelisted per kind). `currentValue(asset, rate, asOf)` applies a yearly `details.depreciationPct` from the latest valuation on or before asOf |
 | `bonds.js` | `MaerminBonds` | Bonds (P5-3.9): built-in category `bonds` (quantity = nominal, price = fraction of nominal, `accruedInterest` on trades). Terms + manual price in `maermin_bonds`; `schedule` / `period` (coupon dates back from maturity, month ends kept), `accrued` (act/act ICMA, 30E/360, act/360, act/365), `couponAmount`, `ytm`, `catchUp` (coupon `interest` rows per portfolio + bond + date and redemption at 100 %, idempotent, posted to the `interest-engine.js` ledger), `accruedRows` (tax: paid negative, received positive, 'other' pot), `priceMap`; transaction-form fields and the Overview Bonds panel |
 | `options-engine.js` | `MaerminOptions` | Options/derivatives tracking: pure `buildOptionPositions` (signed-contract book over `category: 'options'` transactions with `underlying`/`optionType`/`strike`/`expiry`/`contractSize`; premiums EUR at ingestion), `positionMetrics` (intrinsic-only valuation, moneyness, days-to-expiry; strike converts at the current rate), `computeStats`, `validateOptionTx`. `buildPositions` ignores the category by design, so the shared positions/stats engine is never bent |
+| `equity-fx.js` | `MaerminEquityFx` | Employee equity currencies (PLAN-EQUITY § 2): the four roles (share, salary, base, tax currency via `taxCurrency(country)`), `eurPer` / `rate` / `convert` from the fx-history.js pipeline with the previous trading day as fallback (up to 7 days, source `fallback` with its date), else the open.er-api table (`approx`), manual overrides (`manual`); `record` = the rates an event keeps, `valueIn` = an amount through a stored record (no lookup). GBX / ZAc / ILA via `majorOf` |
+| `equity-model.js` | `MaerminEquity` | Employee equity data model (PLAN-EQUITY Package 1): plans, grants (RSU / PSU / ESPP / MATCH), tranches, vest / purchase / delivery events, settings, manual FX overrides in `maermin_equity`; the income timeline in `maermin_income` (both sensitive, in the backup, synced only as ciphertext; demo: memory). `lotsFor` / `syncLots` turn each event into normal `buy` transactions (`source: 'equity'`, `equityEventId`, `tx.fx.EUR` = the event's rate, so the basis is FMV at that rate and never 0; sell-to-cover = gross buy + same-day sale), `missingFx` (no EUR rate -> no lot), `pipeline` (unvested units and value), `heldByPlan` (FIFO open lots per plan). Migration v7 creates the stores |
+| `equity-view.js` | `MaerminEquityView` | The "Employee Equity" / "Mitarbeiteraktien" page (Home, Advanced until a plan exists - `MaerminNav.setPromoted`): totals, plans with the four currency roles, grants, events with their rates (fallback / manual / approximate marked), manual event entry with rate override, settings (unvested in net worth, concentration threshold). The renderer owns the store state and keeps the lots in step |
 
 ---
 

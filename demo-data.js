@@ -41,11 +41,65 @@
   // are: 12 AAPL × 228 = 2,736 € on the Overview) — so the demo shows live P/L
   // without any network. Keyed by symbol (matches what the renderer looks up).
   const PRICES = {
-    BTC: 92000, ETH: 3100, AAPL: 228, 'VWCE.DE': 132, XAU: 2620, TSLA: 240,
+    BTC: 92000, ETH: 3100, AAPL: 228, 'VWCE.DE': 132, XAU: 2620, TSLA: 240, MSFT: 412,
     'AK-47 | Redline (Field-Tested)': 41
   };
 
   const SETTINGS = { exchangeRate: 0.92 }; // USD→EUR used by the demo
+
+  // ── Employee equity (PLAN-EQUITY, decision 10: fictional employers, real
+  // tickers, made-up prices) ─────────────────────────────────────────────────
+  // Contoso (USD share, EUR salary, DE): an RSU grant of 400 units, 4 years
+  // with a 1-year cliff, then quarterly, sell-to-cover; one PSU. Fabrikam
+  // (former employer, CHF salary, GBX-quoted share, CH): the non-EUR example.
+  // ESPP contributions, purchases and matching follow with their packages.
+  // A vest on a weekend takes the previous trading day's rate ('fallback').
+  const EQ_VESTS = [
+    // [vest date, FMV USD, EUR per USD, rate date, units]
+    ['2024-03-01', 415.5, 0.9236, '2024-03-01', 100], ['2024-06-01', 413.4, 0.9216, '2024-05-31', 25],
+    ['2024-09-01', 417.1, 0.9035, '2024-08-30', 25], ['2024-12-01', 423.5, 0.9459, '2024-11-29', 25],
+    ['2025-03-01', 396.9, 0.9612, '2025-02-28', 25], ['2025-06-01', 460.4, 0.8807, '2025-05-30', 25],
+    ['2025-09-01', 506.7, 0.8541, '2025-09-01', 25], ['2025-12-01', 486.7, 0.8617, '2025-12-01', 25],
+    ['2026-03-01', 408.2, 0.8702, '2026-02-27', 25], ['2026-06-01', 452.9, 0.8655, '2026-06-01', 25],
+    ['2026-09-01', 471.3, 0.8574, '2026-09-01', 25]
+  ];
+  const EQ_UPCOMING = ['2026-12-01', '2027-03-01'];
+  const EQ_PORTFOLIO = 'demo-plan-account';
+  const EQUITY = {
+    plans: [
+      { id: 'demo-eq-contoso', employer: 'Contoso (sample)', ticker: 'MSFT', shareCurrency: 'USD', admin: 'morgan_stanley', portfolioId: EQ_PORTFOLIO, taxCountry: 'DE', salaryCurrency: 'EUR' },
+      { id: 'demo-eq-fabrikam', employer: 'Fabrikam (sample)', ticker: 'AZN.L', shareCurrency: 'GBX', admin: 'other', adminLabel: 'Computershare', portfolioId: EQ_PORTFOLIO, taxCountry: 'CH', salaryCurrency: 'CHF' }
+    ],
+    grants: [
+      { id: 'demo-eq-rsu', planId: 'demo-eq-contoso', type: 'RSU', name: 'New hire 2023', grantDate: '2023-03-01', units: 400, withholding: 'sell_to_cover', withholdingRate: 0.45 },
+      { id: 'demo-eq-psu', planId: 'demo-eq-contoso', type: 'PSU', name: 'LTI 2024-2026', grantDate: '2024-03-01', units: 120, withholding: 'payroll' },
+      { id: 'demo-eq-espp-fab', planId: 'demo-eq-fabrikam', type: 'ESPP', name: 'Sharesave', grantDate: '2021-01-01' }
+    ],
+    tranches: EQ_VESTS.map((v, i) => ({ id: 'demo-eq-t' + i, grantId: 'demo-eq-rsu', date: v[0], units: v[4], status: 'vested' }))
+      .concat(EQ_UPCOMING.map((d, i) => ({ id: 'demo-eq-tu' + i, grantId: 'demo-eq-rsu', date: d, units: 25, status: 'unvested', projected: true })))
+      .concat([{ id: 'demo-eq-tpsu', grantId: 'demo-eq-psu', date: '2027-03-01', units: 120, status: 'unvested', projected: true }]),
+    events: EQ_VESTS.map((v, i) => {
+      const withheld = Math.ceil(v[4] * 0.45);
+      return { id: 'demo-eq-v' + i, kind: 'vest', grantId: 'demo-eq-rsu', trancheId: 'demo-eq-t' + i, date: v[0], fmv: v[1], fmvSource: 'close', shareCurrency: 'USD',
+        fx: { EUR: { rate: v[2], date: v[3], source: v[3] === v[0] ? 'history' : 'fallback' } },
+        grossUnits: v[4], withheldUnits: withheld, coverPrice: Math.round(v[1] * 0.998 * 100) / 100, source: 'auto' };
+    }),
+    settings: { includeUnvested: false, concentrationWarnPct: 10 }
+  };
+  // The income timeline: CHF salary at Fabrikam (2021-2022), then EUR at
+  // Contoso with a raise in April 2025, a March bonus and a 13th salary.
+  const INCOME = {
+    entries: [
+      { id: 'demo-inc-fab', from: '2021-01-01', to: '2022-12-31', kind: 'base', period: 'year', amount: 118000, currency: 'CHF' },
+      { id: 'demo-inc-c1', from: '2023-01-01', to: '2025-03-31', kind: 'base', period: 'year', amount: 78000, currency: 'EUR' },
+      { id: 'demo-inc-c2', from: '2025-04-01', kind: 'base', period: 'year', amount: 84000, currency: 'EUR' },
+      { id: 'demo-inc-b25', from: '2025-03-31', kind: 'bonus', period: 'once', amount: 9000, currency: 'EUR' },
+      { id: 'demo-inc-b26', from: '2026-03-31', kind: 'bonus', period: 'once', amount: 9500, currency: 'EUR' },
+      { id: 'demo-inc-13', from: '2025-11-30', kind: '13th', period: 'once', amount: 7000, currency: 'EUR' }
+    ]
+  };
+  function getEquity() { return JSON.parse(JSON.stringify(EQUITY)); }
+  function getIncome() { return JSON.parse(JSON.stringify(INCOME)); }
 
   function _store(storage) {
     if (storage) return storage;
@@ -96,6 +150,14 @@
       if (!HISTORY_CATEGORIES[t.category] || (t.type !== 'buy' && t.type !== 'sell')) return;
       const k = t.category + '|' + t.symbol.toUpperCase();
       (bySym[k] = bySym[k] || { cur: t.currency, sym: t.symbol, anchors: [] }).anchors.push([dayNo(t.date), t.price]);
+    });
+    // Employee equity: the series pass through every vest FMV (USD shares only;
+    // the GBX example has no events yet).
+    EQUITY.events.forEach((ev) => {
+      const g = EQUITY.grants.find((x) => x.id === ev.grantId), p = g && EQUITY.plans.find((x) => x.id === g.planId);
+      if (!p || ev.shareCurrency !== 'USD') return;
+      const k = 'stocks|' + p.ticker.toUpperCase();
+      (bySym[k] = bySym[k] || { cur: 'USD', sym: p.ticker, anchors: [] }).anchors.push([dayNo(ev.date), ev.fmv]);
     });
     const series = {};
     Object.keys(bySym).forEach((k) => {
@@ -268,7 +330,10 @@
   function getPortfolios() {
     return [
       { id: 'default', name: 'Main depot', color: '#8b7cff', icon: '◆' },
-      { id: BROKER, name: 'Savings plan broker', color: '#22c55e', icon: '◆', clearing: { enabled: true, openingBalance: 0, openingDate: '' } }
+      { id: BROKER, name: 'Savings plan broker', color: '#22c55e', icon: '◆', clearing: { enabled: true, openingBalance: 0, openingDate: '' } },
+      // the plan administrator's account for the employee shares: its own FIFO
+      // pool (separateDepot), like a real Morgan Stanley / Computershare account
+      { id: EQ_PORTFOLIO, name: 'Employee plan account', color: 'var(--chart-4)', icon: '◆', separateDepot: true }
     ];
   }
   // Tax settings the demo brings along (fund types, Vorabpauschale records).
@@ -294,7 +359,7 @@
     ['ZPHR', 'Zephyr Aerospace (sample)', 'growth']
   ];
 
-  const api = { FLAG, SETTINGS, BROKER, SAMPLE_COMPANIES, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory };
+  const api = { FLAG, SETTINGS, BROKER, EQ_PORTFOLIO, SAMPLE_COMPANIES, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory, getEquity, getIncome };
   if (typeof window !== 'undefined') window.MaerminDemo = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

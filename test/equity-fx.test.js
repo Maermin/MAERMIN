@@ -29,6 +29,8 @@ ok('weekend: previous trading day, marked fallback with its date', near(sat.rate
 const late = FX.eurPer('CHF', '2026-04-30', ctx());
 ok('more than 7 days without a fixing: today\'s table rate, approx', late.source === 'approx' && near(late.rate, 0.9 / 0.86), late);
 ok('no history and no table rate: null', FX.eurPer('SEK', '2026-03-13', ctx()) === null);
+const demoUsd = FX.eurPer('USD', '2026-10-17', { usdHistory: { '2026-10-15': 0.86, '2026-10-16': 0.861 } });
+ok('a USD history handed in (the demo\'s) is used like the stored one', near(demoUsd.rate, 0.861) && demoUsd.source === 'fallback' && demoUsd.date === '2026-10-16', demoUsd);
 ok('EUR is exact', FX.eurPer('EUR', '2026-03-13', ctx()).source === 'exact');
 const kwd = FX.eurPer('KWD', '2026-03-13', ctx());
 ok('a currency with only a table rate (KWD) is approx', kwd.source === 'approx' && near(kwd.rate, 0.9 / 0.307), kwd);
