@@ -109,7 +109,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   //          cash (cashRows), depots (depotRows), crypto (cryptoRows), now (ms) }
   function health(opts) {
     opts = opts || {};
-    var now = opts.now || Date.now(), today = new Date(now).toISOString().slice(0, 10), out = [];
+    var now = opts.now || Date.now(), today = (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(new Date(now)), out = [];
     (opts.priceItems || []).forEach(function (p) {
       var missing = !(p.price > 0);
       var ageDays = p.fetchedAt ? (now - p.fetchedAt) / 864e5 : null;

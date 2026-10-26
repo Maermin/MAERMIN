@@ -3284,13 +3284,13 @@ function InvestmentTracker() {
         let anchor;
         if (exDate) {
           anchor = new Date(exDate);
-          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
+          if (isNaN(anchor.getTime())) { anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1); }
           else {
             while (anchor.getTime() < Date.now()) anchor.setUTCMonth(anchor.getUTCMonth() + monthsPerPay);
             anchor.setUTCDate(anchor.getUTCDate() + 14); // ex → pay
           }
         } else {
-          anchor = new Date(); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+          anchor = new Date(window.MaerminUtils.todayISO() + 'T00:00:00Z'); anchor.setUTCMonth(anchor.getUTCMonth() + 1);
         }
 
         // One event per individual payment across the next 12 months.
@@ -3528,7 +3528,7 @@ function InvestmentTracker() {
       // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
-        return window.MaerminPerformance ?
+        return window.MaerminPerformance ? React.createElement(React.Fragment, null,
           React.createElement(window.MaerminPerformance.View, {
             theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
             series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt,
@@ -3537,7 +3537,13 @@ function InvestmentTracker() {
               theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
               privacyMode, formatPrice, getCurrencySymbol
             })
-          }) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
+          }),
+          // Audit 2026-10-24 feature 8: one calendar year from the Returns figures (year-review.js).
+          window.MaerminYearReview && window.MaerminReturnFigures && React.createElement(window.MaerminYearReview.Panel, {
+            transactions, formatPrice, getCurrencySymbol, privacyMode,
+            figures: (txs, asOf) => window.MaerminReturnFigures.compute(txs, { securitiesValueEUR: 0, exchangeRate, fxAt, today: asOf }),
+            snapshots: window.MaerminSnapshots, snapshotState: window.MaerminSnapshots ? window.MaerminSnapshots.load() : null
+          })) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
@@ -4177,8 +4183,8 @@ function InvestmentTracker() {
             React.createElement('h2', { className: 'ui-ov-block__title' }, __('ovReturnsTitle', 'Returns')),
             React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: go }, __('ovToReturns', 'Returns →'))),
           React.createElement('div', { className: 'ui-ov-tiles' },
-            statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
-            statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'xirr' }, __('retXirr', 'XIRR (annualized)')) : __('retXirr', 'XIRR (annualized)')), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
+            statCard((window.MaerminGlossary ? React.createElement(window.MaerminGlossary.Term, { id: 'twr' }, 'TWR') : 'TWR'), pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
               : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
             statCard(__('ovRealized', 'Realised gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
             statCard(__('ovDividendsReceived', 'Dividends received'), money(f.dividendsNet), __('ovDividendsGross', '{amount} gross', { amount: money(f.dividendsGross) }), undefined, go),

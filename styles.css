@@ -1382,6 +1382,15 @@ html[data-theme="contrast"] .ui-card { border-width: 2px; }
 .ui-stat.is-clickable { cursor: pointer; border-radius: var(--radius-sm); }
 .ui-stat.is-clickable:hover .ui-stat__value { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 4px; }
 .ui-stat__label { font-size: var(--type-body); color: var(--text-dim); font-weight: 500; }
+/* Audit 2026-10-24 feature 6: glossary "?" next to a term (glossary.js). The
+   "?" is CSS content, so the label's text stays the same. 24 px target. */
+
+.mx-term__info { display: inline-flex; vertical-align: middle; align-items: center; justify-content: center; width: 24px; height: 24px; margin: -4px 0 -4px 2px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-dim); cursor: help; font: inherit; flex: none; }
+.mx-term__info::before { content: '?'; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 600; line-height: 1; }
+.mx-term__info:hover, .mx-term__info[aria-expanded="true"] { color: var(--text); }
+.mx-glossary { position: fixed; z-index: 9000; padding: var(--space-3) var(--space-4); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-1); color: var(--text); font-size: var(--type-body); line-height: 1.5; text-align: left; font-weight: 400; }
+.mx-glossary__title { display: block; margin-bottom: var(--space-1); }
+.mx-glossary__text { margin: 0; color: var(--text-dim); }
 .ui-stat__value { font-size: var(--type-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ui-stat--lg .ui-stat__value { font-size: var(--type-hero); letter-spacing: -0.035em; line-height: 1.05; }
 .ui-stat__sub { font-size: var(--type-body); color: var(--text-dim); }

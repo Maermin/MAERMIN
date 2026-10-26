@@ -127,7 +127,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       mutate(upsert(st, Object.assign({}, b, { portfolioIds: ids })));
     }
 
-    return e(UIC.Card, { 'data-testid': 'fsa-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('fsaTitle', 'Freistellungsaufträge per broker'),
+    return e(UIC.Card, { 'data-testid': 'fsa-panel', className: 'ui-taxp', headingLevel: 'h3', title: (window.MaerminGlossary ? e(window.MaerminGlossary.Term, { id: 'freistellungsauftrag' }, __('fsaTitle', 'Freistellungsaufträge per broker')) : __('fsaTitle', 'Freistellungsaufträge per broker')),
       subtitle: __('fsaIntro', 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.', { a: money(sum.allowance) }) },
       sum.over && e('p', { role: 'alert', 'data-testid': 'fsa-over', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('fsaOver', 'Your orders add up to {t}, {x} more than your allowance of {a}. Lower one of them: banks may not exempt more than the allowance in total.', { t: money(sum.total), x: money(sum.excess), a: money(sum.allowance) })),

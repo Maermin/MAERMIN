@@ -70,7 +70,8 @@
     var s = String(d);
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
     var t = new Date(d);
-    return isNaN(t.getTime()) ? '' : t.toISOString().slice(0, 10);
+    if (isNaN(t.getTime())) return '';
+    return typeof d === 'number' ? t.toISOString().slice(0, 10) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(t); // a local time: its local date
   }
   function dayNo(iso) { return Math.round(Date.parse(iso + 'T00:00:00Z') / DAY); }
   function isoOf(n) { return new Date(n * DAY).toISOString().slice(0, 10); }
@@ -393,7 +394,7 @@
       isTicker: opts.isTicker || tickerFn('isMarketSymbol'),
       yahooCrypto: opts.yahooCrypto || tickerFn('yahooCryptoSymbol'),
       priceOf: typeof opts.priceOf === 'function' ? opts.priceOf : null,
-      now: now, today: opts.today || new Date(now).toISOString().slice(0, 10),
+      now: now, today: opts.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(new Date(now)),
       timeoutMs: opts.timeoutMs || 12000
     };
     var store = normalize(opts.store || empty());

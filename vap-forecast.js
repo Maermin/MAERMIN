@@ -227,7 +227,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var dateText = I18N.date ? I18N.date(fc.deemedOn) : fc.deemedOn;
 
-    return e(UIC.Card, { 'data-testid': 'vap-forecast-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('vfTitle', 'Vorabpauschale forecast {y}', { y: fc.year }),
+    return e(UIC.Card, { 'data-testid': 'vap-forecast-panel', className: 'ui-taxp', headingLevel: 'h3', title: (window.MaerminGlossary ? e(window.MaerminGlossary.Term, { id: 'vorabpauschale' }, __('vfTitle', 'Vorabpauschale forecast {y}', { y: fc.year })) : __('vfTitle', 'Vorabpauschale forecast {y}', { y: fc.year })),
       subtitle: __('vfIntro', 'What your funds are expected to trigger for {y}, deemed received on {date}. The bank debits the tax then, so the cash has to be on the clearing account. Basiszins {rate}.',
         { y: fc.year, date: dateText, rate: I18N.pct(fc.basiszins * 100, 2) }) },
       !fc.rows.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'vf-empty', text: __('vfEmpty', 'No funds held at the end of {y}.', { y: fc.year }) }) :
