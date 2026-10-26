@@ -80,7 +80,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     opts = opts || {};
     series = series || {};
     var L = ledger(), F = fxh();
-    var today = ymd(opts.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(opts.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var end = ymd(opts.end) || today; if (end > today) end = today;
     var rate = num(opts.exchangeRate), fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
     var live = opts.live || {}, clearings = opts.clearings || {};
@@ -262,7 +262,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Exclusive start day of a period ending today. Month steps keep the month
   // end (31 Mar − 1 month = 28 Feb). MAX = the day before the first booking.
   function periodStart(period, today, transactions) {
-    var t = ymd(today) || new Date().toISOString().slice(0, 10);
+    var t = ymd(today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var y = parseInt(t.slice(0, 4), 10), m = parseInt(t.slice(5, 7), 10), d = parseInt(t.slice(8, 10), 10);
     var back = function (months) {
       var mm = m - months, yy = y;
@@ -314,7 +314,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I18N = window.MaerminI18n;
     var money = function (v) { return I18N && I18N.money ? I18N.money(v) : (props.formatPrice ? props.formatPrice(v) : (Math.round(v * 100) / 100).toFixed(2) + ' €'); };
     var sP = React.useState('YTD'), period = sP[0], setPeriod = sP[1];
-    var today = props.today || (window.MaerminUtils && window.MaerminUtils.todayISO ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10));
+    var today = props.today || (window.MaerminUtils && window.MaerminUtils.todayISO ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO());
     var res = React.useMemo(function () {
       try {
         return compute(props.transactions, props.series, { start: periodStart(period, today, props.transactions), today: today,

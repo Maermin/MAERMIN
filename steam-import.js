@@ -111,7 +111,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function preview(items) {
       if (!items) { setMsg(__('stBadJson', 'That is not a Steam inventory (JSON with "assets" and "descriptions").')); return; }
       var fresh = newRows(items, importedIds(props.transactions));
-      var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+      var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
       var SP = window.MaerminSkinPrices, rate = num(props.exchangeRate) || 0;
       var fill = function (index) {
         setRows(fresh.map(function (r) {

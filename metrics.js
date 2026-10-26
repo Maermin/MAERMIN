@@ -286,7 +286,7 @@
   function harvestByLots(group, priceEUR, opts) {
     if (!group || !group.openLots || !group.openLots.length) return null;
     var L = ledger();
-    var asOf = opts.asOf || new Date().toISOString().slice(0, 10);
+    var asOf = opts.asOf || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var settings = opts.settings || {};
     var cls = group.category;
     var privateSale = cls === 'crypto' || cls === 'skins' || cls === 'commodities';

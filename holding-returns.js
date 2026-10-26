@@ -37,7 +37,7 @@
   function ymd(d) { return String(d == null ? '' : d).slice(0, 10); }
   function sym(s) { return String(s || '').trim().toUpperCase(); }
   function cat(tx) { return tx.category || 'crypto'; }
-  function todayISO(o) { return ymd(o && o.today) || new Date().toISOString().slice(0, 10); }
+  function todayISO(o) { return ymd(o && o.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(); }
   var DAY = 86400000;
   function days(a, b) { return Math.round((Date.parse(ymd(b) + 'T00:00:00Z') - Date.parse(ymd(a) + 'T00:00:00Z')) / DAY); }
   function isTrade(tx) { return tx && (tx.type === 'buy' || tx.type === 'sell') && num(tx.quantity) > 0; }
@@ -196,7 +196,7 @@
     var basis = props.basis === 'gross' ? 'gross' : 'net';
     var fmt = props.formatPrice || function (x) { return I.num(x, 2); };
     var cur = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
-    var today = U && U.todayISO ? U.todayISO() : new Date().toISOString().slice(0, 10);
+    var today = U && U.todayISO ? U.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var toEUR = function (amount, tx) {
       if (FX && FX.txToEUR) return FX.txToEUR(amount, tx.currency || 'EUR', tx.date, props.exchangeRate, props.fxAt).value;
       return U ? U.toEUR(amount, tx.currency || 'EUR', props.exchangeRate) : amount;

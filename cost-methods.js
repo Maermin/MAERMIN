@@ -41,7 +41,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (cur === 'EUR') return v;
     if (cur === 'USD') return rate > 0 ? v * rate : null;
     var FXH = typeof window !== 'undefined' && window.MaerminFxHistory;
-    if (FXH && FXH.txToEUR) { var r = FXH.txToEUR(v, cur, new Date().toISOString().slice(0, 10), rate, null); return r && r.status !== 'unknown' ? r.value : null; }
+    if (FXH && FXH.txToEUR) { var r = FXH.txToEUR(v, cur, (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(), rate, null); return r && r.status !== 'unknown' ? r.value : null; }
     return null;
   }
 

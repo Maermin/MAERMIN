@@ -107,7 +107,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s = normalizeSettings(settings || {});
     var year = parseInt(opts.year, 10) || new Date().getFullYear();
     var rate = num(opts.exchangeRate);
-    var today = ymd(opts.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(opts.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var lim = limitsFor(year, s.birthYear);
     var Y = String(year), Yp = String(year - 1);
     var accounts = Object.keys(s.accounts).map(function (pid) {

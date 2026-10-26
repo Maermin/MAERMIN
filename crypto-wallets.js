@@ -154,7 +154,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var list = normalize(state).wallets.filter(function (w) { return !ids || ids.indexOf(w.id) > -1; });
       if (!list.length) return;
       setBusy(true); setMsg('');
-      var today = (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+      var today = (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
       var errs = [], next = state, recent = {};
       list.reduce(function (p, w) {
         return p.then(function () {

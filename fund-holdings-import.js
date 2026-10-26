@@ -355,7 +355,7 @@
     var h = parsed.holdings || [];
     return {
       file: String(opts.fileName || '').slice(0, 120), provider: parsed.provider || null, asOf: parsed.asOf || null, isin: parsed.isin || null,
-      importedAt: opts.now || new Date().toISOString().slice(0, 10), count: h.length, cash: parsed.cashWeight || 0,
+      importedAt: opts.now || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(), count: h.length, cash: parsed.cashWeight || 0,
       top: h.slice(0, max).map(function (x) { return [x.symbol, x.name, x.isin, x.weight, x.sector, x.country, x.currency]; }),
       sectors: split(h, 'sector'), countries: split(h, 'country'), currencies: split(h, 'currency')
     };

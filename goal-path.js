@@ -97,7 +97,7 @@
   function status(goal, value, opts) {
     opts = opts || {};
     var g = normalizeGoal(goal);
-    var asOf = isISO(ymd(opts.asOf)) ? ymd(opts.asOf) : new Date().toISOString().slice(0, 10);
+    var asOf = isISO(ymd(opts.asOf)) ? ymd(opts.asOf) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var v = num(value);
     var base = { state: 'invalid', planned: null, ratio: null, monthsLeft: 0, requiredMonthly: null, projected: null, progressPercent: 0 };
     if (!(g.targetAmount > 0) || !isISO(g.targetDate)) return base;
@@ -148,7 +148,7 @@
   // ---- risk glide ----------------------------------------------------------------
   function equityGlide(goal, asOf) {
     var g = normalizeGoal(goal), gl = g.glide || GLIDE;
-    var at = isISO(ymd(asOf)) ? ymd(asOf) : new Date().toISOString().slice(0, 10);
+    var at = isISO(ymd(asOf)) ? ymd(asOf) : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     if (!isISO(g.targetDate)) return null;
     var years = monthsBetween(at, g.targetDate) / 12;
     if (years >= gl.years) return gl.start;

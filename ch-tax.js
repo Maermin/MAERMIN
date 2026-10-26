@@ -88,7 +88,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     opts = opts || {};
     var year = parseInt(opts.year, 10) || new Date().getFullYear();
     var rate = num(opts.exchangeRate) || 1;
-    var today = ymd(opts.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(opts.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var provisional = today <= year + '-12-31';
     var end = provisional ? today : year + '-12-31';
     var ph = opts.priceHistory || {};

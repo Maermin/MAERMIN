@@ -2336,7 +2336,7 @@ function InvestmentTracker() {
       const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `maermin-vault-backup-${window.MaerminUtils.todayISO()}.json`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');

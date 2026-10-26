@@ -221,7 +221,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     opts = opts || {};
     var txs = Array.isArray(opts.transactions) ? opts.transactions : [];
     var map = (opts.bonds && opts.bonds.bonds) ? normalize(opts.bonds).bonds : normalize({ bonds: opts.bonds || {} }).bonds;
-    var asOf = ymd(opts.asOf) || new Date().toISOString().slice(0, 10);
+    var asOf = ymd(opts.asOf) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var groups = {};
     txs.forEach(function (tx) {
       if (!isBondTrade(tx)) return;
@@ -398,7 +398,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // R4.6: a Card with the shared table look; the terms editor opens under its row
     var e = React.createElement, UIC = window.MaerminComponents;
     var store = load();
-    var today = ymd(props.today) || new Date().toISOString().slice(0, 10);
+    var today = ymd(props.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var money = props.formatMoney || function (v) { return fmtNum(v, 2); };
     var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
     var commit = function (next) { save(next); if (props.onChange) props.onChange(); };

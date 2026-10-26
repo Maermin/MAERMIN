@@ -99,7 +99,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (d < e.first) e.first = d;
       if (d > e.last) e.last = d;
     });
-    var today = todayISO || new Date().toISOString().slice(0, 10);
+    var today = todayISO || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var out = [];
     OE.buildOptionPositions(rows, { exchangeRate: rate }).forEach(function (pos) {
       var span = dates[pos.symbol] || {};

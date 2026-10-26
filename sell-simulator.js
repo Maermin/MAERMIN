@@ -180,7 +180,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var I18N = window.MaerminI18n;
-    var today = props.today || new Date().toISOString().slice(0, 10);
+    var today = props.today || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var txs = props.transactions || [];
     var perWallet = perWalletOn({});
     var depots = depotsOn({ portfolios: props.portfolios });

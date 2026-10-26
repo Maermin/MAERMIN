@@ -39,7 +39,7 @@
   function num(x) { var n = parseFloat(x); return isFinite(n) ? n : 0; }
   function ymd(d) { return String(d == null ? '' : d).slice(0, 10); }
   function yearOf(d) { return parseInt(ymd(d).slice(0, 4), 10); }
-  function todayISO(o) { return ymd(o && o.today) || new Date().toISOString().slice(0, 10); }
+  function todayISO(o) { return ymd(o && o.today) || (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(); }
   function isDiv(tx) { return !!tx && tx.type === 'dividend' && !!tx.symbol && !!ymd(tx.date); }
   var DAY = 86400000;
   function days(a, b) { return (Date.parse(ymd(b) + 'T00:00:00Z') - Date.parse(ymd(a) + 'T00:00:00Z')) / DAY; }
@@ -223,7 +223,7 @@
       if (FX && FX.txToEUR) return FX.txToEUR(amount, c, d, props.exchangeRate, props.fxAt).value;
       return U ? U.toEUR(amount, c, props.exchangeRate) : amount;
     };
-    var today = (U && U.todayISO) ? U.todayISO() : new Date().toISOString().slice(0, 10);
+    var today = (U && U.todayISO) ? U.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO();
     var mx = React.useMemo(function () { return matrix(txs, { toEUR: toEURtx, basis: basis, today: today }); }, [txs, basis, props.exchangeRate, props.fxAt]);
     var gr = React.useMemo(function () { return growth(txs, { today: today }); }, [txs]);
     var holdings = React.useMemo(function () { return holdingsOf(props.portfolio); }, [props.portfolio]);

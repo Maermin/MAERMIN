@@ -312,7 +312,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var r0 = useState({}), results = r0[0], setResults = r0[1]; // in memory: rows, positions, activities
     var h0 = useState({ gocardless: hasKeys('gocardless'), snaptrade: hasKeys('snaptrade') }), have = h0[0], setHave = h0[1];
     var demo = demoActive();
-    var today = function () { return (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10); };
+    var today = function () { return (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : (typeof window !== 'undefined' && window.MaerminUtils ? window.MaerminUtils : require('./utils.js')).todayISO(); };
     function mutate(next) { save(next); setSt(normalize(next)); }
     function relay() { return makeRelay(props.workerUrl); }
     // a failed sync is remembered for the Data check (P5-3.7); a pending bank approval is not a failure
