@@ -1,4 +1,4 @@
-// Reporting currency EUR / USD / CHF (audit 2026-10-24, feature 9).
+// Reporting currency: any ISO 4217 code (audit 2026-10-24 feature 9, PLAN-EQUITY § 2).
 // Run: node test/reporting-currency.test.js
 'use strict';
 let passed = 0, failed = 0;
@@ -12,7 +12,8 @@ ok('USD per EUR from the EUR-per-USD rate', near(RC.perEUR('USD', { usdToEur: 0.
 ok('CHF per EUR from the per-USD table', near(RC.perEUR('CHF', { usdRates: { EUR: 0.9, CHF: 0.81 } }), 0.9));
 ok('no USD rate: null (no default)', RC.perEUR('USD', {}) === null && RC.perEUR('USD', { usdToEur: 0 }) === null);
 ok('no CHF in the table: null', RC.perEUR('CHF', { usdRates: { EUR: 0.9 } }) === null);
-ok('another currency: null', RC.perEUR('GBP', { usdRates: { EUR: 0.9, GBP: 0.8 } }) === null);
+ok('any ISO currency per EUR from the per-USD table', near(RC.perEUR('GBP', { usdRates: { EUR: 0.9, GBP: 0.72 } }), 0.8) && near(RC.perEUR('JPY', { usdRates: { EUR: 0.9, JPY: 153 } }), 170));
+ok('not an ISO code: null', RC.perEUR('BTC', { usdRates: { EUR: 0.9, BTC: 0.00001 } }) === null && RC.perEUR('GBX', { usdRates: { EUR: 0.9, GBX: 72 } }) === null);
 
 console.log('effective:');
 ok('CHF with a rate', JSON.stringify(RC.effective('CHF', { usdRates: { EUR: 0.9, CHF: 0.81 } })) === JSON.stringify({ cur: 'CHF', rate: 0.9, fallback: false, wanted: 'CHF' }));
@@ -23,7 +24,12 @@ ok('an unknown choice is EUR', RC.effective('XYZ', {}).cur === 'EUR' && RC.effec
 
 console.log('symbols:');
 ok('€, $, CHF', RC.symbol('EUR') === '€' && RC.symbol('USD') === '$' && RC.symbol('CHF') === 'CHF');
-ok('the three currencies', RC.CURRENCIES.join() === 'EUR,USD,CHF');
+ok('quick picks', RC.QUICK.join() === 'EUR,USD,CHF');
+ok('£ and ¥ from Intl, no table', RC.symbol('GBP') === '£' && RC.symbol('JPY') === '¥');
+ok('every ISO code is offered', RC.all().length > 100 && RC.all().indexOf('KWD') > -1 && RC.isValid('KWD') && !RC.isValid('XYZ') && !RC.isValid('usd'));
+
+console.log('decimals:');
+ok('JPY 0, EUR 2, KWD 3, unknown 2', RC.decimals('JPY') === 0 && RC.decimals('EUR') === 2 && RC.decimals('KWD') === 3 && RC.decimals('XYZ') === 2);
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -54,7 +54,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
   function eur(amount, tx, rate, fxAt) {
     var F = fxh();
-    if (F && F.txToEUR) return F.txToEUR(amount, tx.currency, tx.date, rate, fxAt).value;
+    if (F && F.txAmountToEUR) return F.txAmountToEUR(amount, tx, rate, fxAt).value;
     return String(tx.currency || 'EUR').toUpperCase() === 'USD' && rate > 0 ? num(amount) * rate : num(amount);
   }
 

@@ -183,7 +183,7 @@ function InvestmentTracker() {
   // P5-1.7: the demo's two portfolios live in memory only - the saved list,
   // the active portfolio and the clearing settings of the user stay untouched.
   const [demoPortfolioId, setDemoPortfolioId] = useState(() => window.MaerminMetrics.ALL_PORTFOLIOS);
-  const demoPortfolios = useMemo(() => (demoMode && window.MaerminDemo && window.MaerminDemo.getPortfolios) ? window.MaerminDemo.getPortfolios().map((p) => Object.assign({}, p, { name: p.id === 'default' ? __('demoPfMain', 'Main depot') : __('demoPfBroker', 'Savings plan broker') })) : null, [demoMode]);
+  const demoPortfolios = useMemo(() => (demoMode && window.MaerminDemo && window.MaerminDemo.getPortfolios) ? window.MaerminDemo.getPortfolios().map((p) => Object.assign({}, p, { name: p.id === 'default' ? __('demoPfMain', 'Main depot') : p.separateDepot ? __('demoPfPlan', 'Employee plan account') : __('demoPfBroker', 'Savings plan broker') })) : null, [demoMode]);
   const portfolioHook = (demoPortfolios && savedPortfolioHook) ? Object.assign({}, savedPortfolioHook, {
     portfolios: demoPortfolios, activePortfolioId: (demoPortfolioId === window.MaerminMetrics.ALL_PORTFOLIOS || demoPortfolios.some((p) => p.id === demoPortfolioId)) ? demoPortfolioId : 'default',
     setActivePortfolioId: setDemoPortfolioId, addPortfolio: () => null, removePortfolio: () => {}, restorePortfolio: () => {},
@@ -207,6 +207,16 @@ function InvestmentTracker() {
     const saved = localStorage.getItem('transactions');
     return window.MaerminUtils.safeParse(saved, []) || [];
   });
+  // PLAN-EQUITY: employee equity (equity-model.js). Every vest and purchase is
+  // also a normal lot in `transactions`; syncLots keeps the two in step (an
+  // event added, edited or deleted, a store restored or synced in).
+  const [equityState, setEquityState] = useState(() => (window.MaerminEquity ? window.MaerminEquity.load() : null));
+  useEffect(() => {
+    const EQ = window.MaerminEquity;
+    if (!EQ || !equityState) return;
+    const r = EQ.syncLots(equityState, transactions);
+    if (r.changed) setTransactions(r.transactions);
+  }, [equityState, transactions]);
   // v12: market data (prices, priceHistory, worker status, loading, lastRefresh)
   // lives in MaerminMarket (MaerminStore). Read each slice via useStore; the
   // setX shims delegate to the store and — crucially for the hot async fetch
@@ -379,6 +389,9 @@ function InvestmentTracker() {
   // MaerminStore SSOT). Same localStorage keys/defaults as before — useState still
   // drives React; MaerminPrefs centralises persistence + lets others subscribe.
   const [activeView, setActiveView] = useState(() => window.MaerminPrefs.get('activeView'));
+  // Opening Employee Equity re-reads its store (a restore, a sync or the Trash
+  // may have changed it meanwhile).
+  useEffect(() => { if (activeView === 'equity' && window.MaerminEquity) setEquityState(window.MaerminEquity.load()); }, [activeView]);
   useEffect(() => { window.MaerminPrefs.set('activeView', activeView); }, [activeView]);
   const [theme, setTheme] = useState(() => window.MaerminPrefs.get('theme'));
   const [language, setLanguage] = useState(() => window.MaerminPrefs.get('language'));
@@ -1242,7 +1255,9 @@ function InvestmentTracker() {
     if (price === undefined || price === null || isNaN(price)) return '0.00';
     // All prices are stored in EUR; shown in the reporting currency.
     const converted = price * reporting.rate;
-    return window.MaerminI18n.num(converted, 2, language);
+    // Decimals follow the currency (JPY 0, KWD 3; PLAN-EQUITY § 2).
+    const dec = window.MaerminReporting && window.MaerminReporting.decimals ? window.MaerminReporting.decimals(reporting.cur) : 2;
+    return window.MaerminI18n.num(converted, dec, language);
   }, [reporting, privacyMode, language]);
 
   const getCurrencySymbol = () => (window.MaerminReporting ? window.MaerminReporting.symbol(reporting.cur) : '€');
@@ -2230,6 +2245,7 @@ function InvestmentTracker() {
     if (!window.MaerminDemo) return;
     window.MaerminDemo.enable();
     setDemoMode(true);
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
     setTransactions(window.MaerminDemo.getTransactions());
     setPrices(window.MaerminDemo.getPrices());
     setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
@@ -2244,6 +2260,7 @@ function InvestmentTracker() {
     if (PD && PD.active) { window.location.assign(PD.exitUrl(window.location)); return; }
     if (window.MaerminDemo) window.MaerminDemo.disable();
     setDemoMode(false);
+    if (window.MaerminEquity) { window.MaerminEquity.resetDemo(); setEquityState(window.MaerminEquity.load()); }
     const saved = localStorage.getItem('transactions');
     setTransactions(window.MaerminUtils.safeParse(saved, []) || []);
     setPrices({});
@@ -2631,7 +2648,15 @@ function InvestmentTracker() {
   };
 
   // Start editing a transaction
+  // An equity lot belongs to its vest / purchase event: it is changed or
+  // deleted on the Employee Equity page, never here (it would come back).
+  const equityGuard = (tx) => {
+    if (!(tx && window.MaerminEquity && window.MaerminEquity.isEquityTx(tx))) return false;
+    addToast(__('eqManagedThere', 'This lot belongs to a vest or purchase: change it under Employee Equity.'), 'info');
+    return true;
+  };
   const editTransaction = (tx) => {
+    if (equityGuard(tx)) return;
     // P5-1.3: a cash row opens in Cash mode; a transfer always shows as "from
     // this portfolio to the other", whichever half was clicked.
     if (window.MaerminLedger && window.MaerminLedger.isCash(tx)) {
@@ -2692,6 +2717,7 @@ function InvestmentTracker() {
   // P5-1.3: a transfer goes with its other half (one trash entry, one Undo).
   const deleteTransaction = (txId) => {
     const tx = transactions.find(x => x.id === txId);
+    if (equityGuard(tx)) return;
     const pair = tx && window.MaerminLedger ? window.MaerminLedger.pairOf(transactions, tx) : null;
     const gone = new Set([txId].concat(pair ? [pair.id] : []));
     setTransactions(prev => prev.filter(x => !gone.has(x.id)));
@@ -3495,6 +3521,17 @@ function InvestmentTracker() {
     );
   };
 
+  // Employee equity in net worth: unvested shares at today's EUR price (counted
+  // only with the setting on); ESPP cash follows with the ESPP package.
+  const equityNetWorth = (() => {
+    const EQ = window.MaerminEquity;
+    if (!EQ || !equityState) return null;
+    const px = (p) => { const v = prices[p.ticker] || prices[p.ticker.toLowerCase()]; return typeof v === 'number' ? v : parseFloat(v) || null; };
+    return { unvested: EQ.pipeline(equityState, px, (v) => v).total.base, esppCash: 0, includeUnvested: equityState.settings.includeUnvested };
+  })();
+  // PLAN-EQUITY decision 9: the page joins Simple mode once a plan exists.
+  if (window.MaerminNav && window.MaerminNav.setPromoted) window.MaerminNav.setPromoted({ equity: !!(window.MaerminEquity && window.MaerminEquity.hasPlans(equityState)) });
+
   const renderView = () => {
     // R1.2: the hidden component gallery (?gallery, also with ?demo). Not a view in nav-model.js.
     if (window.MaerminGallery && window.MaerminGallery.isOn(window.location.search)) {
@@ -3669,13 +3706,22 @@ function InvestmentTracker() {
           React.createElement(window.MaerminBudget.View, { theme: currentTheme, privacy: privacyMode, addToast })
           : renderAnalyticsPlaceholder(__('navBudget', 'Budget'));
 
+      case 'equity':
+        return window.MaerminEquityView ?
+          React.createElement(window.MaerminEquityView.View, {
+            state: equityState, onChange: setEquityState,
+            transactions, portfolios, prices, formatPrice, getCurrencySymbol, baseCurrency: reporting.cur,
+            taxJurisdiction, privacy: privacyMode, addToast,
+            usdHistory: demoMode && DFX ? DFX.fxHistory() : undefined
+          }) : renderAnalyticsPlaceholder(__('navEquity', 'Employee Equity'));
+
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
             // Net worth is everything you own: every portfolio once (never the
             // active one alone, never "All portfolios" plus its portfolios).
             portfolioStats: allPortfoliosStats, portfolio: allPortfoliosPortfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate,
-            cashEUR: cashOf('all') || 0
+            cashEUR: cashOf('all') || 0, equity: equityNetWorth
           }) : renderAnalyticsPlaceholder(t.navNetWorth || 'Net Worth');
 
       case 'cashflow':
@@ -5042,6 +5088,10 @@ function InvestmentTracker() {
           React.createElement('span', { className: 'num' }, h.totalText(x)))))),
       // Audit 2026-10-24 feature 10: source documents, encrypted on this device only.
       !demoMode && window.MaerminAttachments && React.createElement(window.MaerminAttachments.Panel, { key: 'att-' + tx.id, txId: tx.id }),
+      // PLAN-EQUITY: a vest / purchase lot is changed on its own page.
+      window.MaerminEquity && window.MaerminEquity.isEquityTx(tx) ? React.createElement('div', { className: 'ui-txd__actions', 'data-testid': 'tx-equity-managed' },
+        React.createElement('p', { className: 'ui-note' }, __('eqManagedThere', 'This lot belongs to a vest or purchase: change it under Employee Equity.')),
+        React.createElement(UIC.Button, { variant: 'primary', onClick: () => { setTxSelected(null); setActiveView('equity'); } }, __('eqOpenPage', 'Open Employee Equity'))) :
       React.createElement('div', { className: 'ui-txd__actions' },
         React.createElement(UIC.Button, { variant: 'primary', 'data-tx-action': 'edit', onClick: () => editTransaction(tx) }, t.edit || 'Edit'),
         React.createElement(UIC.Button, { 'data-tx-action': 'duplicate', onClick: () => duplicateTransaction(tx) }, __('txDuplicate', 'Duplicate')),
@@ -5711,7 +5761,7 @@ function InvestmentTracker() {
             // rate of the trade date (MaerminFxHistory, rates via the Worker).
             (() => {
               const FXH = window.MaerminFxHistory;
-              const list = (FXH && FXH.FIAT) || [];
+              const list = (FXH && FXH.fiatList) ? FXH.fiatList() : [];
               const cur = newTransaction.currency || 'EUR';
               const other = cur !== 'EUR' && cur !== 'USD';
               return React.createElement('select', {
@@ -6350,8 +6400,27 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null,
                 popLabel(t.currency || 'Currency'),
                 React.createElement('div', { className: 'mx-seg' },
-                  ['EUR', 'USD', 'CHF'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), { EUR: '€ EUR', USD: '$ USD', CHF: 'CHF' }[curr]))
+                  ((window.MaerminReporting && window.MaerminReporting.QUICK) || ['EUR']).map(curr => {
+                    const sym = window.MaerminReporting ? window.MaerminReporting.symbol(curr) : curr;
+                    return segBtn(curr, currency === curr, () => setCurrency(curr), sym === curr ? curr : sym + ' ' + curr);
+                  })
                 ),
+                // Any other ISO 4217 code (PLAN-EQUITY § 2): the list comes from Intl.
+                (() => {
+                  const RC = window.MaerminReporting;
+                  const list = (RC && RC.all && RC.all()) || [];
+                  if (!list.length) return null;
+                  const other = RC.QUICK.indexOf(currency) === -1;
+                  return React.createElement('select', {
+                    'aria-label': t.otherCurrency || 'Other currency', 'data-testid': 'currency-other',
+                    value: other ? currency : '',
+                    onChange: (e) => { if (e.target.value) setCurrency(e.target.value); },
+                    className: ['ui-input', 'ui-select', 'ui-tx-other', other ? 'is-on' : ''].join(' ').trim()
+                  },
+                    React.createElement('option', { value: '' }, t.otherCurrency || 'Other…'),
+                    list.filter(c => RC.QUICK.indexOf(c) === -1).map(c => React.createElement('option', { key: c, value: c }, c))
+                  );
+                })(),
                 reporting.fallback && React.createElement('p', { className: 'ui-note ui-note--flush', 'data-testid': 'currency-fallback' },
                   __('repNoRate', 'No {cur} rate yet: amounts are shown in EUR until prices are refreshed.', { cur: reporting.wanted })),
                 currency !== 'EUR' && React.createElement('p', { className: 'ui-note ui-note--flush' },
